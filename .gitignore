@@ -40,3 +40,9 @@ nul
 dist/
 build/
 *.egg-info/
+*.md
+!API_DOCUMENTATION.md
+
+
+
+
