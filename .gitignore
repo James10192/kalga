@@ -1,0 +1,42 @@
+# Fichiers sensibles - NE JAMAIS PUBLIER
+.env
+*.env
+.env.local
+.env.production
+
+# Base de données
+*.db
+*.sqlite
+*.sqlite3
+
+# Sessions WhatsApp - TRÈS SENSIBLE
+kalga-whatsapp/sessions/
+sessions/
+
+# Dépendances
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+nul
+
+# Build
+dist/
+build/
+*.egg-info/

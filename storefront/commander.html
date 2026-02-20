@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Commander - KALGA</title>
+    <meta name="description" content="Passez votre commande">
+    <meta name="theme-color" content="#1A1A1A">
+    <link rel="stylesheet" href="static/storefront.css?v=3.1">
+</head>
+<body>
+
+    <!-- Sticky Navigation -->
+    <nav class="site-nav" id="site-nav"></nav>
+
+    <!-- Order Header -->
+    <header class="order-header">
+        <h1>Passer une commande</h1>
+        <p>Remplissez le formulaire ci-dessous</p>
+    </header>
+
+    <main class="order-page">
+        <div class="order-card">
+
+            <!-- Product Recap -->
+            <div id="order-product-recap">
+                <div class="loading">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+
+            <!-- Order Form -->
+            <form id="order-form" onsubmit="submitOrder(event)">
+                <div class="form-group">
+                    <label for="client-name">Votre nom</label>
+                    <input type="text" id="client-name" placeholder="Ex: Jean Kouassi" required minlength="2" maxlength="100">
+                </div>
+
+                <div class="form-group">
+                    <label for="client-phone">Numero de telephone</label>
+                    <div class="phone-input-group">
+                        <select id="country-code">
+                            <option value="225" selected>+225</option>
+                            <option value="226">+226</option>
+                            <option value="223">+223</option>
+                            <option value="221">+221</option>
+                            <option value="228">+228</option>
+                            <option value="229">+229</option>
+                            <option value="224">+224</option>
+                            <option value="227">+227</option>
+                            <option value="237">+237</option>
+                            <option value="33">+33</option>
+                        </select>
+                        <input type="tel" id="client-phone" placeholder="07 XX XX XX XX" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="client-message">Message (optionnel)</label>
+                    <textarea id="client-message" placeholder="Ex: Je veux la couleur bleue, livraison a Cocody..." maxlength="500"></textarea>
+                </div>
+
+                <button type="submit" class="btn-submit">Envoyer la commande</button>
+            </form>
+
+            <!-- Result (shown after submit) -->
+            <div id="order-result"></div>
+        </div>
+
+        <div class="text-center mt-16">
+            <button class="btn btn-back" onclick="history.back()">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                Retour au produit
+            </button>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="store-footer">
+        <p>Propulse par <a href="#">KALGA</a></p>
+    </footer>
+
+    <script src="static/storefront.js?v=3.1"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', loadOrderForm);
+    </script>
+</body>
+</html>

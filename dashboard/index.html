@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KALGA - Dashboard Marchand</title>
+    <link rel="stylesheet" href="static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- Login Screen - Simple QR Code -->
+    <div id="login-screen" class="login-screen">
+        <div class="login-container">
+            <div class="login-logo">
+                <div class="logo-icon">
+                    <i class="fab fa-whatsapp"></i>
+                </div>
+                <h1>KALGA</h1>
+                <p>Commerce WhatsApp Automatisé</p>
+            </div>
+
+            <div class="login-form">
+                <div class="input-group phone-input-group">
+                    <select id="login-country" class="country-select">
+                        <option value="225">🇨🇮 +225</option>
+                        <option value="224">🇬🇳 +224</option>
+                        <option value="223">🇲🇱 +223</option>
+                        <option value="226">🇧🇫 +226</option>
+                        <option value="228">🇹🇬 +228</option>
+                        <option value="229">🇧🇯 +229</option>
+                        <option value="221">🇸🇳 +221</option>
+                        <option value="237">🇨🇲 +237</option>
+                        <option value="241">🇬🇦 +241</option>
+                        <option value="242">🇨🇬 +242</option>
+                        <option value="243">🇨🇩 +243</option>
+                        <option value="33">🇫🇷 +33</option>
+                    </select>
+                    <input type="text" id="login-phone" placeholder="Numéro (ex: 0161407534)">
+                </div>
+                <button id="btn-connect" onclick="initConnection()">
+                    <i class="fab fa-whatsapp"></i>
+                    Connecter WhatsApp
+                </button>
+            </div>
+
+            <div id="qr-container" class="qr-container" style="display: none;">
+                <h3>Scannez le QR Code</h3>
+                <p>Ouvrez WhatsApp sur votre téléphone et scannez ce code</p>
+                <div id="qr-frame-container"></div>
+                <div class="qr-spinner" id="qr-loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <span>Chargement du QR code...</span>
+                </div>
+            </div>
+
+            <div id="login-status" class="login-status"></div>
+        </div>
+    </div>
+
+    <!-- Payment Screen - Choix du moyen de paiement -->
+    <div id="payment-screen" class="login-screen" style="display: none;">
+        <div class="login-container payment-container">
+            <div class="login-logo">
+                <div class="logo-icon payment-icon">
+                    <i class="fas fa-credit-card"></i>
+                </div>
+                <h1>Activation</h1>
+                <p>Activez votre compte pour commencer</p>
+            </div>
+
+            <div class="payment-methods">
+                <h3>Moyens de paiement</h3>
+                <div class="payment-grid">
+                    <div class="payment-method" data-method="orange">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/c/c8/Orange_logo.svg" alt="Orange Money" onerror="this.style.display='none'">
+                        <span>Orange Money</span>
+                    </div>
+                    <div class="payment-method" data-method="mtn">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/9/93/New-mtn-logo.jpg" alt="MTN MoMo" onerror="this.style.display='none'">
+                        <span>MTN MoMo</span>
+                    </div>
+                    <div class="payment-method" data-method="wave">
+                        <img src="https://www.wave.com/img/wave-logo.svg" alt="Wave" onerror="this.style.display='none'">
+                        <span>Wave</span>
+                    </div>
+                    <div class="payment-method" data-method="moov">
+                        <img src="https://moov-africa.com/wp-content/uploads/2021/03/moov-africa-logo.png" alt="Moov Money" onerror="this.style.display='none'">
+                        <span>Moov Money</span>
+                    </div>
+                </div>
+
+                <div class="payment-instructions">
+                    <h4><i class="fas fa-info-circle"></i> Comment payer ?</h4>
+                    <ol>
+                        <li>Choisissez votre moyen de paiement ci-dessus</li>
+                        <li>Envoyez le montant au numéro indiqué</li>
+                        <li>Attendez le code d'activation par WhatsApp</li>
+                        <li>Entrez le code pour activer votre compte</li>
+                    </ol>
+                    <div class="payment-contact">
+                        <p><i class="fas fa-phone"></i> Numéro de paiement: <strong>07 XX XX XX XX</strong></p>
+                        <p><i class="fas fa-tag"></i> Montant: <strong>5 000 FCFA / mois</strong></p>
+                    </div>
+                </div>
+
+                <div class="payment-actions">
+                    <button class="btn-secondary" onclick="showActivationCodeScreen()">
+                        <i class="fas fa-key"></i>
+                        J'ai déjà un code
+                    </button>
+                </div>
+
+                <div class="payment-waiting" id="payment-waiting" style="display: none;">
+                    <div class="waiting-animation">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </div>
+                    <p>En attente de validation...</p>
+                    <small>Vous recevrez votre code par WhatsApp</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activation Code Screen - Saisie du code -->
+    <div id="activation-screen" class="login-screen" style="display: none;">
+        <div class="login-container">
+            <div class="login-logo">
+                <div class="logo-icon code-icon">
+                    <i class="fas fa-key"></i>
+                </div>
+                <h1>Code d'activation</h1>
+                <p>Entrez le code reçu par WhatsApp</p>
+            </div>
+
+            <div class="activation-form">
+                <div class="code-input-container">
+                    <input type="text" id="activation-code"
+                           placeholder="KALG____"
+                           maxlength="8"
+                           autocomplete="off"
+                           style="text-transform: uppercase; text-align: center; font-size: 1.5rem; letter-spacing: 3px;">
+                </div>
+
+                <button id="btn-verify-code" class="btn-primary" onclick="verifyActivationCode()">
+                    <i class="fas fa-check"></i>
+                    Activer mon compte
+                </button>
+
+                <div id="activation-status" class="activation-status"></div>
+
+                <button class="btn-link" onclick="showPaymentScreen()">
+                    <i class="fas fa-arrow-left"></i>
+                    Retour aux moyens de paiement
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Location Setup Screen -->
+    <div id="location-screen" class="login-screen" style="display: none;">
+        <div class="login-container">
+            <div class="login-logo">
+                <div class="logo-icon location-icon">
+                    <i class="fas fa-map-marker-alt"></i>
+                </div>
+                <h1>Localisation</h1>
+                <p>Ajoutez l'adresse de votre boutique</p>
+            </div>
+
+            <div class="location-form">
+                <div class="form-group">
+                    <label><i class="fas fa-store"></i> Adresse de la boutique *</label>
+                    <input type="text" id="location-address" placeholder="Ex: Cocody Angré, près du supermarché">
+                </div>
+
+                <div class="location-gps-section">
+                    <p class="gps-label">Position GPS (recommande)</p>
+                    <button id="btn-get-gps" class="btn-gps" onclick="getGPSLocation()">
+                        <i class="fas fa-crosshairs"></i>
+                        Detecter ma position GPS
+                    </button>
+                    <div id="gps-status" class="gps-status"></div>
+                    <div id="gps-coords" class="gps-coords" style="display: none;">
+                        <span><i class="fas fa-map-pin"></i> Position detectee</span>
+                        <small id="gps-coords-display"></small>
+                    </div>
+
+                    <div class="gps-separator"><span>ou</span></div>
+
+                    <p class="gps-manual-hint"><i class="fas fa-info-circle"></i> Google Maps > clic droit sur votre boutique > copier les coordonnees</p>
+                    <div class="gps-manual-row">
+                        <div class="form-group">
+                            <label>Latitude</label>
+                            <input type="number" step="any" id="location-lat" placeholder="Ex: 5.3167" value="">
+                        </div>
+                        <div class="form-group">
+                            <label>Longitude</label>
+                            <input type="number" step="any" id="location-lng" placeholder="Ex: -3.9500" value="">
+                        </div>
+                    </div>
+                </div>
+
+                <button id="btn-save-location" class="btn-primary" onclick="saveLocation()">
+                    <i class="fas fa-check"></i>
+                    Continuer
+                </button>
+
+                <p class="location-hint">
+                    <i class="fas fa-info-circle"></i>
+                    Cette adresse sera envoyée automatiquement aux clients qui demandent où vous trouver.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dashboard" class="dashboard" style="display: none;">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="brand">
+                    <i class="fab fa-whatsapp brand-icon"></i>
+                    <span>KALGA</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-section="overview">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Aperçu</span>
+                </a>
+                <a href="#" class="nav-item" data-section="products">
+                    <i class="fas fa-box"></i>
+                    <span>Produits</span>
+                </a>
+                <a href="#" class="nav-item" data-section="conversations">
+                    <i class="fas fa-comments"></i>
+                    <span>Conversations</span>
+                    <span class="nav-badge" id="conv-badge">0</span>
+                </a>
+                <a href="#" class="nav-item" data-section="statistics">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Statistiques</span>
+                </a>
+                <a href="#" class="nav-item" data-section="settings">
+                    <i class="fas fa-cog"></i>
+                    <span>Paramètres</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="merchant-info">
+                    <div class="merchant-avatar">
+                        <i class="fas fa-store"></i>
+                    </div>
+                    <div class="merchant-details">
+                        <span class="merchant-name" id="sidebar-merchant-name">Marchand</span>
+                        <span class="merchant-phone" id="sidebar-merchant-phone">+225 00 00 00 00</span>
+                    </div>
+                </div>
+                <button class="btn-logout" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="main-header">
+                <div class="header-left">
+                    <button class="btn-mobile-menu" onclick="toggleSidebar()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h1 id="page-title">Aperçu</h1>
+                </div>
+                <div class="header-right">
+                    <div class="connection-status" id="wa-status">
+                        <span class="status-dot connected"></span>
+                        <span>WhatsApp Connecté</span>
+                    </div>
+                    <button class="btn-refresh" onclick="refreshData()">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Content Sections -->
+            <div class="content-wrapper">
+                <!-- Overview Section -->
+                <section id="section-overview" class="section active">
+                    <div class="stats-row">
+                        <div class="stat-card">
+                            <div class="stat-icon products">
+                                <i class="fas fa-box"></i>
+                            </div>
+                            <div class="stat-info">
+                                <span class="stat-value" id="stat-products">0</span>
+                                <span class="stat-label">Produits</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon conversations">
+                                <i class="fas fa-comments"></i>
+                            </div>
+                            <div class="stat-info">
+                                <span class="stat-value" id="stat-conversations">0</span>
+                                <span class="stat-label">Conversations</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon sales">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                            <div class="stat-info">
+                                <span class="stat-value" id="stat-sales">0</span>
+                                <span class="stat-label">Ventes</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon revenue">
+                                <i class="fas fa-coins"></i>
+                            </div>
+                            <div class="stat-info">
+                                <span class="stat-value" id="stat-revenue">0</span>
+                                <span class="stat-label">FCFA Total</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lien Vitrine Publique -->
+                    <div class="card storefront-link-card" id="storefront-link-section">
+                        <div class="card-header">
+                            <h3><i class="fas fa-store"></i> Votre Vitrine en ligne</h3>
+                        </div>
+                        <div class="card-body">
+                            <p style="margin-bottom: 10px; color: #666; font-size: 0.9rem;">
+                                Partagez ce lien avec vos clients pour qu'ils puissent voir vos produits :
+                            </p>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <input type="text" id="storefront-url" readonly
+                                    style="flex: 1; padding: 10px 14px; border: 2px solid #25d366; border-radius: 8px; font-size: 0.9rem; background: #f0faf4; color: #333; cursor: pointer;"
+                                    onclick="copyStorefrontLink()" title="Cliquez pour copier">
+                                <button onclick="copyStorefrontLink()"
+                                    style="padding: 10px 18px; background: #25d366; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; white-space: nowrap;">
+                                    <i class="fas fa-copy"></i> Copier
+                                </button>
+                                <button onclick="openStorefrontLink()"
+                                    style="padding: 10px 18px; background: #1a1a2e; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; white-space: nowrap;">
+                                    <i class="fas fa-external-link-alt"></i> Ouvrir
+                                </button>
+                            </div>
+                            <p id="storefront-copy-feedback" style="margin-top: 6px; font-size: 0.8rem; color: #25d366; display: none;">
+                                Lien copie dans le presse-papier !
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Section Ventes en attente - PRIORITAIRE -->
+                    <div class="card pending-sales-card" id="pending-sales-section" style="display: none;">
+                        <div class="card-header urgent">
+                            <h3><i class="fas fa-bell"></i> Ventes en attente <span class="badge-urgent" id="pending-count">0</span></h3>
+                            <span class="blink-dot"></span>
+                        </div>
+                        <div class="card-body" id="pending-sales-list">
+                            <!-- Ventes en attente seront chargées ici -->
+                        </div>
+                    </div>
+
+                    <div class="overview-grid">
+                        <div class="card recent-conversations">
+                            <div class="card-header">
+                                <h3><i class="fas fa-clock"></i> Conversations Récentes</h3>
+                                <a href="#" onclick="showSection('conversations')">Voir tout</a>
+                            </div>
+                            <div class="card-body" id="recent-conversations-list">
+                                <div class="empty-state">
+                                    <i class="fas fa-comments"></i>
+                                    <p>Aucune conversation</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card top-products">
+                            <div class="card-header">
+                                <h3><i class="fas fa-star"></i> Produits Populaires</h3>
+                                <a href="#" onclick="showSection('products')">Voir tout</a>
+                            </div>
+                            <div class="card-body" id="top-products-list">
+                                <div class="empty-state">
+                                    <i class="fas fa-box"></i>
+                                    <p>Aucun produit</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Products Section -->
+                <section id="section-products" class="section">
+                    <div class="section-header">
+                        <h2>Gestion des Produits</h2>
+                        <button class="btn-primary" onclick="showAddProductModal()">
+                            <i class="fas fa-plus"></i>
+                            Nouveau Produit
+                        </button>
+                    </div>
+
+                    <div class="products-grid" id="products-grid">
+                        <!-- Products will be loaded here -->
+                    </div>
+                </section>
+
+                <!-- Conversations Section -->
+                <section id="section-conversations" class="section">
+                    <div class="conversations-layout">
+                        <div class="conversations-list-panel">
+                            <div class="panel-header">
+                                <h3>Conversations</h3>
+                                <div class="filter-tabs">
+                                    <button class="filter-tab active" data-filter="active">Actives</button>
+                                    <button class="filter-tab" data-filter="completed">Terminées</button>
+                                    <button class="filter-tab" data-filter="all">Toutes</button>
+                                </div>
+                            </div>
+                            <div class="conversations-list" id="conversations-list">
+                                <!-- Conversations will be loaded here -->
+                            </div>
+                        </div>
+
+                        <div class="conversation-detail-panel" id="conversation-detail">
+                            <div class="empty-detail">
+                                <i class="fas fa-comments"></i>
+                                <p>Sélectionnez une conversation</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Statistics Section -->
+                <section id="section-statistics" class="section">
+                    <div class="section-header">
+                        <h2>Statistiques & Analytics</h2>
+                        <div class="stats-period-selector">
+                            <button class="period-btn active" data-days="7">7 jours</button>
+                            <button class="period-btn" data-days="30">30 jours</button>
+                            <button class="period-btn" data-days="90">90 jours</button>
+                        </div>
+                    </div>
+
+                    <!-- Summary Cards -->
+                    <div class="stats-summary-row" id="stats-summary">
+                        <div class="summary-card">
+                            <div class="summary-icon conversations">
+                                <i class="fas fa-comments"></i>
+                            </div>
+                            <div class="summary-content">
+                                <span class="summary-value" id="stats-total-conv">0</span>
+                                <span class="summary-label">Conversations</span>
+                            </div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="summary-icon sales">
+                                <i class="fas fa-shopping-cart"></i>
+                            </div>
+                            <div class="summary-content">
+                                <span class="summary-value" id="stats-total-sales">0</span>
+                                <span class="summary-label">Ventes</span>
+                            </div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="summary-icon revenue">
+                                <i class="fas fa-coins"></i>
+                            </div>
+                            <div class="summary-content">
+                                <span class="summary-value" id="stats-total-revenue">0 F</span>
+                                <span class="summary-label">Revenus</span>
+                            </div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="summary-icon rate">
+                                <i class="fas fa-percentage"></i>
+                            </div>
+                            <div class="summary-content">
+                                <span class="summary-value" id="stats-conversion-rate">0%</span>
+                                <span class="summary-label">Taux de conversion</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts -->
+                    <div class="stats-charts-grid">
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <h3><i class="fas fa-chart-area"></i> Activité quotidienne</h3>
+                            </div>
+                            <div class="chart-body">
+                                <canvas id="chart-daily-activity"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <h3><i class="fas fa-clock"></i> Activité par heure</h3>
+                            </div>
+                            <div class="chart-body">
+                                <canvas id="chart-hourly-activity"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Top Products -->
+                    <div class="stats-top-products">
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <h3><i class="fas fa-trophy"></i> Top Produits</h3>
+                            </div>
+                            <div class="chart-body" id="stats-top-products">
+                                <div class="empty-state">
+                                    <i class="fas fa-box"></i>
+                                    <p>Aucune donnée</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Settings Section -->
+                <section id="section-settings" class="section">
+                    <div class="settings-container">
+                        <div class="settings-card">
+                            <h3><i class="fas fa-user"></i> Profil Marchand</h3>
+                            <div class="settings-form">
+                                <div class="form-group">
+                                    <label>Nom de la boutique</label>
+                                    <input type="text" id="settings-name" placeholder="Nom de votre boutique">
+                                </div>
+                                <div class="form-group">
+                                    <label>Numéro WhatsApp</label>
+                                    <input type="text" id="settings-phone" disabled>
+                                </div>
+                                <button class="btn-primary" onclick="updateMerchant()">
+                                    <i class="fas fa-save"></i>
+                                    Sauvegarder
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Ma Vitrine -->
+                        <div class="settings-card">
+                            <h3><i class="fas fa-store"></i> Ma Vitrine</h3>
+                            <p style="color:#888;margin-bottom:16px;font-size:13px;">Personnalisez votre boutique en ligne</p>
+                            <div class="settings-form">
+                                <div class="form-group">
+                                    <label>Nom de la boutique (affiché sur la vitrine)</label>
+                                    <input type="text" id="storefront-business-name" placeholder="Ex: Fleurs d'Abidjan">
+                                </div>
+                                <div class="form-group">
+                                    <label>Slogan / Tagline</label>
+                                    <input type="text" id="storefront-tagline" placeholder="Ex: Les plus belles fleurs de Côte d'Ivoire" maxlength="120">
+                                </div>
+                                <div class="form-group">
+                                    <label>A propos de votre boutique</label>
+                                    <textarea id="storefront-about" rows="3" placeholder="Décrivez votre activité, vos spécialités..." maxlength="500"></textarea>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Image bannière (arrière-plan de l'en-tête)</label>
+                                    <div class="storefront-image-upload">
+                                        <div id="storefront-banner-preview" class="storefront-preview storefront-banner-preview">
+                                            <span class="storefront-preview-placeholder"><i class="fas fa-image"></i> Aucune bannière</span>
+                                        </div>
+                                        <div class="storefront-upload-actions">
+                                            <label class="btn-secondary btn-sm" for="storefront-banner-input">
+                                                <i class="fas fa-upload"></i> Choisir une image
+                                            </label>
+                                            <input type="file" id="storefront-banner-input" accept="image/*" style="display:none" onchange="previewStorefrontImage(this, 'banner')">
+                                            <button class="btn-danger btn-sm" onclick="removeStorefrontImage('banner')" id="storefront-banner-remove" style="display:none">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Logo de la boutique</label>
+                                    <div class="storefront-image-upload">
+                                        <div id="storefront-logo-preview" class="storefront-preview storefront-logo-preview">
+                                            <span class="storefront-preview-placeholder"><i class="fas fa-camera"></i> Aucun logo</span>
+                                        </div>
+                                        <div class="storefront-upload-actions">
+                                            <label class="btn-secondary btn-sm" for="storefront-logo-input">
+                                                <i class="fas fa-upload"></i> Choisir un logo
+                                            </label>
+                                            <input type="file" id="storefront-logo-input" accept="image/*" style="display:none" onchange="previewStorefrontImage(this, 'logo')">
+                                            <button class="btn-danger btn-sm" onclick="removeStorefrontImage('logo')" id="storefront-logo-remove" style="display:none">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button class="btn-primary" onclick="saveStorefrontProfile()">
+                                    <i class="fas fa-save"></i>
+                                    Sauvegarder ma vitrine
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="settings-card">
+                            <h3><i class="fas fa-map-marker-alt"></i> Localisation Boutique</h3>
+                            <div class="settings-form">
+                                <div class="form-group">
+                                    <label>Adresse de la boutique</label>
+                                    <input type="text" id="settings-address" placeholder="Ex: Cocody Angré, près du supermarché">
+                                </div>
+                                <div class="form-group">
+                                    <label>Position GPS</label>
+                                    <div class="gps-settings-row">
+                                        <button type="button" class="btn-secondary" onclick="getSettingsGPS()">
+                                            <i class="fas fa-crosshairs"></i> Detecter ma position
+                                        </button>
+                                        <span id="settings-gps-status" class="gps-mini-status"></span>
+                                    </div>
+                                    <p class="gps-manual-hint" style="margin-top: 8px;"><i class="fas fa-info-circle"></i> Ou entrez les coordonnees depuis Google Maps</p>
+                                    <div class="gps-manual-row">
+                                        <input type="number" step="any" id="settings-lat" placeholder="Latitude" value="">
+                                        <input type="number" step="any" id="settings-lng" placeholder="Longitude" value="">
+                                    </div>
+                                </div>
+                                <button class="btn-primary" onclick="updateLocation()">
+                                    <i class="fas fa-save"></i>
+                                    Sauvegarder la localisation
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Mode Absence -->
+                        <div class="settings-card away-mode-card">
+                            <h3><i class="fas fa-moon"></i> Mode Absence</h3>
+                            <div class="settings-form">
+                                <div class="away-toggle-row">
+                                    <div class="away-toggle-info">
+                                        <span class="away-toggle-title">Activer le mode absence</span>
+                                        <span class="away-toggle-desc">Envoie un message automatique quand vous êtes absent</span>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="away-mode-toggle" onchange="toggleAwayMode(this.checked)">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div id="away-status-indicator" class="away-status-indicator">
+                                    <i class="fas fa-circle"></i>
+                                    <span>Vous êtes disponible</span>
+                                </div>
+                                <div class="form-group">
+                                    <label>Message d'absence personnalisé</label>
+                                    <textarea id="away-message" rows="2" placeholder="Bonjour! Je suis actuellement absent. Je vous répondrai dès que possible."></textarea>
+                                </div>
+                                <button class="btn-secondary" onclick="showWorkingHoursModal()">
+                                    <i class="fas fa-clock"></i>
+                                    Configurer les horaires d'ouverture
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="settings-card">
+                            <h3><i class="fas fa-robot"></i> Configuration IA</h3>
+                            <div class="settings-form">
+                                <div class="form-group">
+                                    <label>Style de conversation</label>
+                                    <select id="settings-style">
+                                        <option value="friendly">Amical et décontracté</option>
+                                        <option value="professional">Professionnel</option>
+                                        <option value="local">Expressions locales (Ivoirien)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Agressivité négociation</label>
+                                    <input type="range" id="settings-negotiation" min="1" max="5" value="3">
+                                    <span class="range-labels">
+                                        <span>Souple</span>
+                                        <span>Équilibré</span>
+                                        <span>Ferme</span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="settings-card danger">
+                            <h3><i class="fas fa-exclamation-triangle"></i> Zone Dangereuse</h3>
+                            <p>Déconnecter votre compte WhatsApp de KALGA</p>
+                            <button class="btn-danger" onclick="disconnectWhatsApp()">
+                                <i class="fas fa-unlink"></i>
+                                Déconnecter WhatsApp
+                            </button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add Product Modal -->
+    <div id="modal-product" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-box"></i> Nouveau Produit</h3>
+                <button class="modal-close" onclick="closeModal('modal-product')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Nom du produit *</label>
+                    <input type="text" id="product-name" placeholder="Ex: iPhone 14 Pro Max">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Prix affiché (FCFA) *</label>
+                        <input type="number" id="product-price" placeholder="350000">
+                    </div>
+                    <div class="form-group">
+                        <label>Prix minimum (FCFA) *</label>
+                        <input type="number" id="product-min-price" placeholder="320000">
+                        <span class="form-hint">Prix en-dessous duquel vous ne vendez pas</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="product-description" rows="3" placeholder="Décrivez votre produit..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('modal-product')">Annuler</button>
+                <button class="btn-primary" onclick="createProduct()">
+                    <i class="fas fa-plus"></i>
+                    Créer le produit
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Code Modal -->
+    <div id="modal-code" class="modal">
+        <div class="modal-content modal-sm">
+            <div class="modal-header success">
+                <h3><i class="fas fa-check-circle"></i> Produit Créé!</h3>
+                <button class="modal-close" onclick="closeModal('modal-code')">&times;</button>
+            </div>
+            <div class="modal-body center">
+                <div class="product-code-display">
+                    <span id="new-product-code">#K001</span>
+                </div>
+                <p class="code-instructions">
+                    Ajoutez ce code à votre <strong>Status WhatsApp</strong> avec la photo du produit.
+                    <br>Les clients qui répondent seront gérés automatiquement!
+                </p>
+                <button class="btn-copy" onclick="copyProductCode()">
+                    <i class="fas fa-copy"></i>
+                    Copier le code
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stock Management Modal -->
+    <div id="modal-stock" class="modal">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3><i class="fas fa-boxes"></i> Gestion du Stock</h3>
+                <button class="modal-close" onclick="closeModal('modal-stock')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="stock-product-info">
+                    <span class="product-code-badge" id="stock-modal-code">#K001</span>
+                </div>
+                <div class="form-group">
+                    <label>Quantité en stock</label>
+                    <div class="stock-input-row">
+                        <button type="button" class="stock-btn minus" onclick="adjustStock(-1)">
+                            <i class="fas fa-minus"></i>
+                        </button>
+                        <input type="number" id="stock-quantity" min="-1" value="0">
+                        <button type="button" class="stock-btn plus" onclick="adjustStock(1)">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <span class="form-hint">-1 = Stock illimité (ne sera pas suivi)</span>
+                </div>
+                <div class="form-group">
+                    <label>Seuil d'alerte stock bas</label>
+                    <input type="number" id="stock-threshold" min="1" value="5">
+                    <span class="form-hint">Alerte quand le stock descend à ce niveau</span>
+                </div>
+                <div class="stock-quick-actions">
+                    <button type="button" class="btn-quick" onclick="setUnlimitedStock()">
+                        <i class="fas fa-infinity"></i> Illimité
+                    </button>
+                    <button type="button" class="btn-quick" onclick="setStockValue(10)">+10</button>
+                    <button type="button" class="btn-quick" onclick="setStockValue(25)">+25</button>
+                    <button type="button" class="btn-quick" onclick="setStockValue(50)">+50</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('modal-stock')">Annuler</button>
+                <button class="btn-primary" onclick="saveStock()">
+                    <i class="fas fa-save"></i>
+                    Sauvegarder
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Working Hours Modal -->
+    <div id="modal-working-hours" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-clock"></i> Horaires d'ouverture</h3>
+                <button class="modal-close" onclick="closeModal('modal-working-hours')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="working-hours-toggle">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="working-hours-enabled">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span>Activer la gestion automatique des horaires</span>
+                </div>
+                <p class="working-hours-hint">
+                    <i class="fas fa-info-circle"></i>
+                    Quand activé, les clients recevront un message d'absence en dehors de vos heures d'ouverture.
+                </p>
+
+                <div class="working-hours-schedule" id="working-hours-schedule">
+                    <div class="schedule-day" data-day="monday">
+                        <div class="day-toggle">
+                            <label class="toggle-switch small">
+                                <input type="checkbox" class="day-enabled" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="day-name">Lundi</span>
+                        </div>
+                        <div class="day-hours">
+                            <input type="time" class="time-open" value="08:00">
+                            <span>à</span>
+                            <input type="time" class="time-close" value="18:00">
+                        </div>
+                    </div>
+                    <div class="schedule-day" data-day="tuesday">
+                        <div class="day-toggle">
+                            <label class="toggle-switch small">
+                                <input type="checkbox" class="day-enabled" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="day-name">Mardi</span>
+                        </div>
+                        <div class="day-hours">
+                            <input type="time" class="time-open" value="08:00">
+                            <span>à</span>
+                            <input type="time" class="time-close" value="18:00">
+                        </div>
+                    </div>
+                    <div class="schedule-day" data-day="wednesday">
+                        <div class="day-toggle">
+                            <label class="toggle-switch small">
+                                <input type="checkbox" class="day-enabled" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="day-name">Mercredi</span>
+                        </div>
+                        <div class="day-hours">
+                            <input type="time" class="time-open" value="08:00">
+                            <span>à</span>
+                            <input type="time" class="time-close" value="18:00">
+                        </div>
+                    </div>
+                    <div class="schedule-day" data-day="thursday">
+                        <div class="day-toggle">
+                            <label class="toggle-switch small">
+                                <input type="checkbox" class="day-enabled" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="day-name">Jeudi</span>
+                        </div>
+                        <div class="day-hours">
+                            <input type="time" class="time-open" value="08:00">
+                            <span>à</span>
+                            <input type="time" class="time-close" value="18:00">
+                        </div>
+                    </div>
+                    <div class="schedule-day" data-day="friday">
+                        <div class="day-toggle">
+                            <label class="toggle-switch small">
+                                <input type="checkbox" class="day-enabled" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="day-name">Vendredi</span>
+                        </div>
+                        <div class="day-hours">
+                            <input type="time" class="time-open" value="08:00">
+                            <span>à</span>
+                            <input type="time" class="time-close" value="18:00">
+                        </div>
+                    </div>
+                    <div class="schedule-day" data-day="saturday">
+                        <div class="day-toggle">
+                            <label class="toggle-switch small">
+                                <input type="checkbox" class="day-enabled" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="day-name">Samedi</span>
+                        </div>
+                        <div class="day-hours">
+                            <input type="time" class="time-open" value="09:00">
+                            <span>à</span>
+                            <input type="time" class="time-close" value="14:00">
+                        </div>
+                    </div>
+                    <div class="schedule-day" data-day="sunday">
+                        <div class="day-toggle">
+                            <label class="toggle-switch small">
+                                <input type="checkbox" class="day-enabled">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="day-name">Dimanche</span>
+                        </div>
+                        <div class="day-hours">
+                            <input type="time" class="time-open" value="00:00" disabled>
+                            <span>à</span>
+                            <input type="time" class="time-close" value="00:00" disabled>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('modal-working-hours')">Annuler</button>
+                <button class="btn-primary" onclick="saveWorkingHours()">
+                    <i class="fas fa-save"></i>
+                    Sauvegarder
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="static/app.js"></script>
+</body>
+</html>

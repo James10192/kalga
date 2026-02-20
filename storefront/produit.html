@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Produit - KALGA</title>
+    <meta name="description" content="Detail du produit">
+    <meta name="theme-color" content="#1A1A1A">
+    <link rel="stylesheet" href="static/storefront.css?v=3.1">
+</head>
+<body>
+
+    <!-- Sticky Navigation -->
+    <nav class="site-nav" id="site-nav"></nav>
+
+    <!-- Product Detail -->
+    <main class="product-detail" id="product-detail">
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Chargement du produit...</p>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="store-footer">
+        <p>Propulse par <a href="#">KALGA</a></p>
+    </footer>
+
+    <script src="static/storefront.js?v=3.1"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', loadProductDetail);
+    </script>
+</body>
+</html>

@@ -1,0 +1,317 @@
+/**
+ * Service de traitement des messages
+ * Orchestre le traitement des messages clients et commandes marchands
+ */
+const { logger } = require('../utils/logger');
+const { extractPhone, isGroupJid, isStatusBroadcast } = require('../utils/jid');
+const { simulateHumanBehavior } = require('../utils/humanBehavior');
+const { kalgaApiService } = require('./kalga-api.service');
+const { mediaService } = require('./media.service');
+const { whatsappService } = require('./whatsapp.service');
+
+class MessageService {
+    constructor() {
+        // Préfixes de réponses du bot à ignorer
+        this.botPrefixes = ['📦', '✅', '📋', '🛒', '🏷️', '💰', '💵', '👉', '❌', '⚠️', '⏳', '🔧', '📸'];
+
+        // Mots-clés de réponses du bot à ignorer
+        this.botKeywords = [
+            'Création d\'un nouveau produit',
+            'Quel est le *nom*',
+            'Quel est le *prix*',
+            'Étape',
+            'produit créé',
+            'Description enregistrée',
+            'Image enregistrée',
+            'Envoie une *photo*',
+            'Commandes disponibles',
+            'Tu veux la livraison',
+            'passe au magasin',
+        ];
+    }
+
+    /**
+     * Traite un message client entrant
+     */
+    async handleClientMessage(merchantPhone, sock, message) {
+        const senderJid = message.key.remoteJid;
+        const senderPhoneRaw = extractPhone(senderJid);
+        // Résoudre le LID vers le vrai numéro de téléphone si disponible
+        const senderPhone = whatsappService.resolvePhone(senderPhoneRaw);
+        const messageText = this._extractMessageText(message);
+
+        // Ignorer les messages vocaux sauf s'ils répondent à un produit
+        if (message.message?.audioMessage) {
+            const hasProductCode = this._checkQuotedProductCode(message.message?.audioMessage?.contextInfo);
+            if (hasProductCode) {
+                await simulateHumanBehavior(
+                    sock,
+                    message.key,
+                    senderJid,
+                    merchantPhone,
+                    () => whatsappService.isClientReady(merchantPhone)
+                );
+                await whatsappService.sendMessage(
+                    merchantPhone,
+                    senderJid,
+                    "Désolé, je ne peux pas écouter les vocaux. Écris-moi en texte stp"
+                );
+            }
+            return;
+        }
+
+        // Ignorer les messages vides
+        if (!messageText) {
+            logger.debug('Message sans texte ignoré');
+            return;
+        }
+
+        // Ignorer si le client est le marchand lui-même
+        if (senderPhone === merchantPhone) {
+            logger.debug('Message du marchand à lui-même ignoré');
+            return;
+        }
+
+        // Extraire le code produit
+        const productCode = this._extractProductCode(message, messageText);
+
+        logger.message('MESSAGE CLIENT', {
+            merchantPhone,
+            clientPhone: senderPhone,
+            text: messageText,
+            productCode,
+        });
+
+        try {
+            // Nom WhatsApp du client (pushName)
+            const clientName = message.pushName || '';
+
+            // Appeler l'API KALGA
+            const response = await kalgaApiService.sendIncomingMessage({
+                merchantPhone,
+                clientPhone: senderPhone,
+                message: messageText,
+                productCode,
+                clientName,
+            });
+
+            // Vérifier si on doit répondre
+            if (response.no_response) {
+                logger.warn('PAS DE RÉPONSE - conversation terminée', { senderPhone });
+                return;
+            }
+
+            const botResponse = response.message;
+            if (!botResponse || botResponse.trim() === '') {
+                logger.warn('MESSAGE VIDE reçu de l\'API', { senderPhone });
+                return;
+            }
+
+            // Simuler comportement humain
+            await simulateHumanBehavior(
+                sock,
+                message.key,
+                senderJid,
+                merchantPhone,
+                () => whatsappService.isClientReady(merchantPhone)
+            );
+
+            // Envoyer la réponse
+            const sent = await whatsappService.sendMessage(merchantPhone, senderJid, botResponse);
+            if (sent) {
+                logger.info('RÉPONSE ENVOYÉE', { to: senderJid });
+            }
+
+            // Envoyer les images si présentes (variantes)
+            if (response.images_to_send && response.images_to_send.length > 0) {
+                await this._sendImages(merchantPhone, senderJid, response.images_to_send);
+            }
+
+        } catch (error) {
+            logger.error('Erreur traitement message client', { error: error.message });
+        }
+    }
+
+    /**
+     * Traite une commande marchand
+     */
+    async handleMerchantCommand(merchantPhone, sock, message) {
+        const messageText = this._extractMessageText(message) ||
+            message.message?.imageMessage?.caption || '';
+
+        const hasImage = !!message.message?.imageMessage;
+        let imagePath = null;
+
+        // Télécharger l'image si présente
+        if (hasImage) {
+            logger.info('Image marchand détectée', { merchantPhone });
+            imagePath = await mediaService.downloadAndSaveImage(sock, message, merchantPhone);
+
+            if (!messageText && !imagePath) return;
+        }
+
+        // Ignorer si pas de contenu
+        if (!messageText && !imagePath) return;
+
+        // Ignorer les réponses du bot
+        if (this._isBotResponse(messageText)) {
+            logger.debug('Ignoré: réponse du bot');
+            return;
+        }
+
+        logger.info('Commande marchand', { merchantPhone, text: messageText, imagePath });
+
+        try {
+            const response = await kalgaApiService.sendMerchantCommand({
+                merchantPhone,
+                message: messageText,
+                imagePath,
+            });
+
+            // Envoyer la réponse si nécessaire
+            if (response.action !== 'unknown' && response.action !== 'ignored') {
+                const responseText = response.response;
+                if (!responseText || responseText.trim() === '') {
+                    logger.debug('Pas de message à envoyer (vide)');
+                    return;
+                }
+
+                const merchantJid = whatsappService.getMerchantJid(
+                    merchantPhone,
+                    message.key.remoteJid
+                );
+
+                await sock.sendMessage(merchantJid, { text: responseText });
+                logger.info('Réponse envoyée au marchand', {
+                    merchantPhone,
+                    response: responseText.substring(0, 50),
+                });
+            }
+
+        } catch (error) {
+            logger.error('Erreur commande marchand', { error: error.message });
+
+            // Envoyer un message d'erreur au marchand
+            const merchantJid = whatsappService.getMerchantJid(
+                merchantPhone,
+                message.key.remoteJid
+            );
+            try {
+                await sock.sendMessage(merchantJid, {
+                    text: "⚠️ Service temporairement indisponible. Réessaie dans quelques instants.",
+                });
+            } catch (sendErr) {
+                logger.error('Impossible d\'envoyer l\'erreur au marchand');
+            }
+        }
+    }
+
+    /**
+     * Extrait le texte d'un message
+     */
+    _extractMessageText(message) {
+        return message.message?.conversation ||
+            message.message?.extendedTextMessage?.text || '';
+    }
+
+    /**
+     * Vérifie si un message cité contient un code produit
+     */
+    _checkQuotedProductCode(contextInfo) {
+        if (!contextInfo?.quotedMessage) return false;
+        const quotedText = contextInfo.quotedMessage.conversation ||
+            contextInfo.quotedMessage.imageMessage?.caption ||
+            contextInfo.quotedMessage.videoMessage?.caption || '';
+        return /#K\d{3}/i.test(quotedText);
+    }
+
+    /**
+     * Extrait le code produit d'un message
+     */
+    _extractProductCode(message, messageText) {
+        // Chercher dans le contexte (message cité)
+        let contextInfo = null;
+        const msgContent = message.message;
+
+        if (msgContent) {
+            for (const key of Object.keys(msgContent)) {
+                if (msgContent[key]?.contextInfo) {
+                    contextInfo = msgContent[key].contextInfo;
+                    break;
+                }
+            }
+        }
+
+        // Chercher dans le message cité
+        if (contextInfo?.quotedMessage) {
+            const quotedText = contextInfo.quotedMessage.conversation ||
+                contextInfo.quotedMessage.extendedTextMessage?.text ||
+                contextInfo.quotedMessage.imageMessage?.caption ||
+                contextInfo.quotedMessage.videoMessage?.caption || '';
+
+            const codeMatch = quotedText.match(/#K\d{3}/i);
+            if (codeMatch) {
+                logger.info('Code produit trouvé dans citation', { productCode: codeMatch[0] });
+                return codeMatch[0].toUpperCase();
+            }
+        }
+
+        // Chercher dans le message lui-même
+        const codeInMessage = messageText.match(/#K\d{3}/i);
+        if (codeInMessage) {
+            logger.info('Code produit trouvé dans message', { productCode: codeInMessage[0] });
+            return codeInMessage[0].toUpperCase();
+        }
+
+        return null;
+    }
+
+    /**
+     * Vérifie si c'est une réponse automatique du bot
+     */
+    _isBotResponse(text) {
+        if (!text) return false;
+
+        // Vérifier les préfixes emoji
+        if (this.botPrefixes.some(prefix => text.startsWith(prefix))) {
+            return true;
+        }
+
+        // Vérifier les mots-clés
+        return this.botKeywords.some(kw => text.includes(kw));
+    }
+
+    /**
+     * Envoie une liste d'images avec délai entre chaque envoi
+     * pour un comportement plus naturel
+     */
+    async _sendImages(merchantPhone, to, images) {
+        logger.info('Images à envoyer', { count: images.length });
+
+        for (let i = 0; i < images.length; i++) {
+            const img = images[i];
+
+            // Délai avant chaque image (sauf la première)
+            // 2-3 secondes entre chaque image pour paraître naturel
+            if (i > 0) {
+                const delay = 2000 + Math.random() * 1000; // 2-3 secondes
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+
+            const sent = await whatsappService.sendImage(
+                merchantPhone,
+                to,
+                img.image_path,
+                img.caption || ''
+            );
+            if (sent) {
+                logger.info('Image envoyée', { index: i + 1, total: images.length, imagePath: img.image_path });
+            }
+        }
+    }
+}
+
+// Instance singleton
+const messageService = new MessageService();
+
+module.exports = { MessageService, messageService };

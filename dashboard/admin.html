@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KALGA Admin - Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="static/admin.css">
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="login-screen" class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <h1>KALGA</h1>
+                <p>Administration</p>
+            </div>
+            <form id="login-form" class="login-form">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" placeholder="admin@kalga.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Mot de passe</label>
+                    <input type="password" id="password" placeholder="********" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">
+                    <span>Connexion</span>
+                </button>
+                <p id="login-error" class="error-message"></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dashboard" class="dashboard-container" style="display: none;">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>KALGA</h1>
+                <span class="badge badge-admin">Admin</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-section="overview">
+                    <span class="icon">&#128200;</span>
+                    <span>Vue d'ensemble</span>
+                </a>
+                <a href="#" class="nav-item" data-section="activations">
+                    <span class="icon">&#128273;</span>
+                    <span>Activations</span>
+                    <span class="nav-badge" id="pending-activations-badge" style="display: none;">0</span>
+                </a>
+                <a href="#" class="nav-item" data-section="merchants">
+                    <span class="icon">&#128101;</span>
+                    <span>Marchands</span>
+                </a>
+                <a href="#" class="nav-item" data-section="whatsapp">
+                    <span class="icon">&#128241;</span>
+                    <span>WhatsApp Status</span>
+                </a>
+                <a href="#" class="nav-item" data-section="subscriptions">
+                    <span class="icon">&#128179;</span>
+                    <span>Abonnements</span>
+                </a>
+                <a href="#" class="nav-item" data-section="audit">
+                    <span class="icon">&#128203;</span>
+                    <span>Logs d'audit</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="admin-info">
+                    <span id="admin-email">admin@kalga.com</span>
+                </div>
+                <button onclick="logout()" class="btn btn-secondary btn-small">
+                    Deconnexion
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Overview Section -->
+            <section id="section-overview" class="section active">
+                <header class="section-header">
+                    <h2>Vue d'ensemble</h2>
+                    <button onclick="refreshDashboard()" class="btn btn-secondary">
+                        Actualiser
+                    </button>
+                </header>
+
+                <!-- Stats Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon merchants">&#128101;</div>
+                        <div class="stat-content">
+                            <h3 id="stat-merchants-total">0</h3>
+                            <p>Marchands total</p>
+                            <span class="stat-sub" id="stat-merchants-active">0 actifs</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon conversations">&#128172;</div>
+                        <div class="stat-content">
+                            <h3 id="stat-conversations-total">0</h3>
+                            <p>Conversations</p>
+                            <span class="stat-sub" id="stat-conversations-today">0 aujourd'hui</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon sales">&#128184;</div>
+                        <div class="stat-content">
+                            <h3 id="stat-sales-total">0</h3>
+                            <p>Ventes</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon messages">&#128233;</div>
+                        <div class="stat-content">
+                            <h3 id="stat-messages-total">0</h3>
+                            <p>Messages echanges</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Subscriptions Overview -->
+                <div class="panel">
+                    <h3>Abonnements par plan</h3>
+                    <div class="subscription-bars" id="subscription-bars">
+                        <!-- Dynamically filled -->
+                    </div>
+                </div>
+
+                <!-- Expiring Soon -->
+                <div class="panel">
+                    <h3>Abonnements expirant bientot</h3>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Marchand</th>
+                                <th>Plan</th>
+                                <th>Expire le</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="expiring-list">
+                            <!-- Dynamically filled -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Activations Section -->
+            <section id="section-activations" class="section">
+                <header class="section-header">
+                    <h2>Activations en attente</h2>
+                    <button onclick="loadPendingActivations()" class="btn btn-secondary">
+                        Actualiser
+                    </button>
+                </header>
+
+                <div class="activation-info-box">
+                    <p><strong>Flux d'activation:</strong></p>
+                    <ol>
+                        <li>Le marchand se connecte et scanne le QR code WhatsApp</li>
+                        <li>Il apparait ici avec son numero</li>
+                        <li>Verifiez qu'il a effectue le paiement (SMS/notification)</li>
+                        <li>Cliquez "Envoyer code" pour generer et envoyer le code d'activation</li>
+                    </ol>
+                </div>
+
+                <div id="pending-activations-empty" class="empty-state" style="display: none;">
+                    <span class="icon">&#128077;</span>
+                    <h3>Aucune activation en attente</h3>
+                    <p>Tous les marchands sont actives</p>
+                </div>
+
+                <div class="activations-grid" id="pending-activations-list">
+                    <!-- Dynamically filled -->
+                </div>
+
+                <div class="section-divider"></div>
+
+                <header class="section-header">
+                    <h2>Historique des activations</h2>
+                </header>
+
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Marchand</th>
+                            <th>Code</th>
+                            <th>Status</th>
+                            <th>Admin</th>
+                        </tr>
+                    </thead>
+                    <tbody id="activation-history-list">
+                        <!-- Dynamically filled -->
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- Merchants Section -->
+            <section id="section-merchants" class="section">
+                <header class="section-header">
+                    <h2>Gestion des Marchands</h2>
+                    <div class="header-actions">
+                        <select id="merchant-filter" onchange="loadMerchants()">
+                            <option value="">Tous</option>
+                            <option value="active">Actifs</option>
+                            <option value="inactive">Inactifs</option>
+                            <option value="trial">En trial</option>
+                            <option value="expired">Expires</option>
+                        </select>
+                        <button onclick="loadMerchants()" class="btn btn-secondary">
+                            Actualiser
+                        </button>
+                    </div>
+                </header>
+
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Marchand</th>
+                            <th>Telephone</th>
+                            <th>WhatsApp</th>
+                            <th>Plan</th>
+                            <th>Messages</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="merchants-list">
+                        <!-- Dynamically filled -->
+                    </tbody>
+                </table>
+
+                <div class="pagination" id="merchants-pagination">
+                    <!-- Dynamically filled -->
+                </div>
+            </section>
+
+            <!-- WhatsApp Status Section -->
+            <section id="section-whatsapp" class="section">
+                <header class="section-header">
+                    <h2>Statut WhatsApp</h2>
+                    <button onclick="loadWhatsAppStatus()" class="btn btn-secondary">
+                        Actualiser
+                    </button>
+                </header>
+
+                <div class="whatsapp-summary" id="whatsapp-summary">
+                    <div class="wa-stat connected">
+                        <span class="wa-count" id="wa-connected">0</span>
+                        <span class="wa-label">Connectes</span>
+                    </div>
+                    <div class="wa-stat disconnected">
+                        <span class="wa-count" id="wa-disconnected">0</span>
+                        <span class="wa-label">Deconnectes</span>
+                    </div>
+                </div>
+
+                <div class="whatsapp-grid" id="whatsapp-grid">
+                    <!-- Dynamically filled -->
+                </div>
+            </section>
+
+            <!-- Subscriptions Section -->
+            <section id="section-subscriptions" class="section">
+                <header class="section-header">
+                    <h2>Gestion des Abonnements</h2>
+                </header>
+
+                <div class="panel">
+                    <h3>Actions systeme</h3>
+                    <div class="system-actions">
+                        <button onclick="runCleanup()" class="btn btn-warning">
+                            Nettoyer les expires
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Audit Logs Section -->
+            <section id="section-audit" class="section">
+                <header class="section-header">
+                    <h2>Logs d'audit</h2>
+                    <button onclick="loadAuditLogs()" class="btn btn-secondary">
+                        Actualiser
+                    </button>
+                </header>
+
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Admin</th>
+                            <th>Action</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="audit-list">
+                        <!-- Dynamically filled -->
+                    </tbody>
+                </table>
+            </section>
+        </main>
+    </div>
+
+    <!-- Merchant Detail Modal -->
+    <div id="merchant-modal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="modal-merchant-name">Details Marchand</h3>
+                <button onclick="closeModal('merchant-modal')" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" id="merchant-detail-content">
+                <!-- Dynamically filled -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Subscription Edit Modal -->
+    <div id="subscription-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Modifier l'abonnement</h3>
+                <button onclick="closeModal('subscription-modal')" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="sub-merchant-id">
+                <div class="form-group">
+                    <label for="sub-plan">Plan</label>
+                    <select id="sub-plan">
+                        <option value="trial">Trial</option>
+                        <option value="starter">Starter</option>
+                        <option value="pro">Pro</option>
+                        <option value="enterprise">Enterprise</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="sub-duration">Duree (mois)</label>
+                    <input type="number" id="sub-duration" value="1" min="1" max="12">
+                </div>
+                <div class="form-group">
+                    <label for="sub-messages">Limite messages</label>
+                    <input type="number" id="sub-messages" value="5000" min="100">
+                </div>
+                <div class="form-group">
+                    <label for="sub-products">Limite produits</label>
+                    <input type="number" id="sub-products" value="100" min="5">
+                </div>
+                <button onclick="saveSubscription()" class="btn btn-primary btn-full">
+                    Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="static/admin.js"></script>
+</body>
+</html>

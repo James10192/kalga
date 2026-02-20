@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boutique - KALGA</title>
+    <meta name="description" content="Decouvrez nos produits et commandez facilement">
+    <meta name="theme-color" content="#1A1A1A">
+    <link rel="stylesheet" href="static/storefront.css?v=3.1">
+</head>
+<body>
+
+    <!-- Sticky Navigation -->
+    <nav class="site-nav" id="site-nav"></nav>
+
+    <!-- Hero Section -->
+    <header class="store-hero" id="store-hero">
+        <div class="hero-content">
+            <div class="loading">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Section Header -->
+    <div class="section-header" id="section-header">
+        <span class="section-title">Collection</span>
+        <span class="section-count">--</span>
+    </div>
+
+    <!-- Product Grid -->
+    <div id="collection"></div>
+    <main class="product-grid" id="product-grid">
+        <!-- Skeleton loading -->
+        <div class="skeleton-card"><div class="sk-image skeleton"></div><div class="sk-body"><div class="sk-line skeleton"></div><div class="sk-line sk-line-short skeleton"></div><div class="sk-line sk-line-price skeleton"></div></div></div>
+        <div class="skeleton-card"><div class="sk-image skeleton"></div><div class="sk-body"><div class="sk-line skeleton"></div><div class="sk-line sk-line-short skeleton"></div><div class="sk-line sk-line-price skeleton"></div></div></div>
+        <div class="skeleton-card"><div class="sk-image skeleton"></div><div class="sk-body"><div class="sk-line skeleton"></div><div class="sk-line sk-line-short skeleton"></div><div class="sk-line sk-line-price skeleton"></div></div></div>
+        <div class="skeleton-card"><div class="sk-image skeleton"></div><div class="sk-body"><div class="sk-line skeleton"></div><div class="sk-line sk-line-short skeleton"></div><div class="sk-line sk-line-price skeleton"></div></div></div>
+    </main>
+
+    <!-- About Section (rendered by JS if merchant has about text) -->
+    <section class="about-section" id="about-section" style="display:none"></section>
+
+    <!-- Footer -->
+    <footer class="store-footer">
+        <p>Propulse par <a href="#">KALGA</a></p>
+    </footer>
+
+    <script src="static/storefront.js?v=3.1"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', loadBoutique);
+    </script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+node_modules/
+sessions/
+logs/
+.env
+.wwebjs_cache/
+nul
+server.log
+*.log
