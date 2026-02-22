@@ -249,7 +249,7 @@ async function loadDashboardStats() {
     try {
         const data = await apiGet('/api/admin/dashboard');
 
-        // Update stats
+        // Update primary KPI cards
         document.getElementById('stat-merchants-total').textContent = data.merchants.total;
         document.getElementById('stat-merchants-active').textContent = `${data.merchants.active} actifs`;
         document.getElementById('stat-conversations-total').textContent = data.conversations.total;
@@ -257,39 +257,64 @@ async function loadDashboardStats() {
         document.getElementById('stat-sales-total').textContent = data.sales.total;
         document.getElementById('stat-messages-total').textContent = formatNumber(data.messages.total);
 
+        // Secondary KPI row
+        const newEl = document.getElementById('stat-merchants-month');
+        if (newEl) newEl.innerHTML = `<i class="fas fa-arrow-trend-up"></i> +${data.merchants.this_month || 0} ce mois`;
+        const kpiNew = document.getElementById('kpi-new-merchants');
+        if (kpiNew) kpiNew.textContent = data.merchants.this_month || 0;
+        const kpiExp = document.getElementById('kpi-expiring');
+        if (kpiExp) kpiExp.textContent = data.subscriptions.expiring_soon || 0;
+
+        // Overview date
+        const dateEl = document.getElementById('overview-date');
+        if (dateEl) {
+            const now = new Date();
+            dateEl.textContent = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        }
+
         // Subscription bars
         renderSubscriptionBars(data.subscriptions.by_plan);
 
         // Expiring soon
         renderExpiringSoon(data.expiring_subscriptions);
 
+        // Load WhatsApp KPIs
+        loadWhatsAppKPIs();
+
     } catch (error) {
         console.error('Erreur chargement dashboard:', error);
     }
+}
+
+async function loadWhatsAppKPIs() {
+    try {
+        const data = await apiGet('/api/admin/system/whatsapp-status');
+        const conn = document.getElementById('kpi-wa-connected');
+        const disc = document.getElementById('kpi-wa-disconnected');
+        if (conn) conn.textContent = data.connected;
+        if (disc) disc.textContent = data.disconnected;
+    } catch (e) {}
 }
 
 function renderSubscriptionBars(plans) {
     const container = document.getElementById('subscription-bars');
     const total = Object.values(plans).reduce((a, b) => a + b, 0) || 1;
 
-    const planNames = {
-        trial: 'Trial',
-        starter: 'Starter',
-        pro: 'Pro',
-        enterprise: 'Enterprise'
-    };
+    const planNames = { trial: 'Trial', starter: 'Starter', pro: 'Pro', enterprise: 'Enterprise' };
 
     container.innerHTML = Object.entries(planNames).map(([key, label]) => {
         const count = plans[key] || 0;
-        const percent = (count / total) * 100;
+        const percent = Math.round((count / total) * 100);
 
         return `
             <div class="sub-bar-item">
-                <span class="sub-bar-label">${label}</span>
+                <div class="sub-bar-header">
+                    <span class="sub-bar-label">${label}</span>
+                    <span class="sub-bar-count">${count}</span>
+                </div>
                 <div class="sub-bar-track">
                     <div class="sub-bar-fill ${key}" style="width: ${percent}%"></div>
                 </div>
-                <span class="sub-bar-count">${count}</span>
             </div>
         `;
     }).join('');
