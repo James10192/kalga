@@ -1254,96 +1254,417 @@ body {
    WHATSAPP STATUS
    ============================================ */
 
-.whatsapp-summary {
-    display: flex;
-    gap: 1.5rem;
+/* ── WHATSAPP HEADER ─────────────────────────────────── */
+.whatsapp-header,
+.audit-header,
+.system-header {
+    background: linear-gradient(135deg, rgba(245,158,11,0.06) 0%, rgba(245,158,11,0.02) 60%, transparent 100%);
+    border: 1px solid rgba(245,158,11,0.12);
+    border-radius: 14px;
+    padding: 1.25rem 1.5rem;
     margin-bottom: 1.5rem;
+    align-items: center;
 }
 
-.wa-stat {
-    background: var(--bg-card);
-    padding: 1.5rem 2rem;
-    border-radius: 1rem;
-    text-align: center;
-    min-width: 150px;
-}
-
-.wa-stat.connected {
-    border: 2px solid var(--success);
-}
-
-.wa-stat.disconnected {
-    border: 2px solid var(--danger);
-}
-
-.wa-count {
-    display: block;
-    font-size: 2rem;
-    font-weight: 700;
-}
-
-.wa-stat.connected .wa-count { color: var(--success); }
-.wa-stat.disconnected .wa-count { color: var(--danger); }
-
-.wa-label {
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-}
-
-.whatsapp-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+.whatsapp-header-title,
+.audit-header-title,
+.system-header-title {
+    display: flex;
+    align-items: center;
     gap: 1rem;
+}
+
+.whatsapp-header-icon,
+.audit-header-icon,
+.system-header-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(245,158,11,0.25), rgba(245,158,11,0.1));
+    border: 1px solid rgba(245,158,11,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #f59e0b;
+    font-size: 1.3rem;
+    flex-shrink: 0;
+}
+
+.whatsapp-header h2,
+.audit-header h2,
+.system-header h2 {
+    font-size: 1.35rem;
+    font-weight: 700;
+    font-family: 'Outfit', sans-serif;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.whatsapp-header .section-subtitle,
+.audit-header .section-subtitle,
+.system-header .section-subtitle {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    margin-top: 0.15rem;
+}
+
+/* ── WHATSAPP KPIs ───────────────────────────────────── */
+.wa-kpis {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.75rem;
+}
+
+.wa-kpi {
+    position: relative;
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 1.5rem 1.75rem;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    border: 1px solid rgba(255,255,255,0.06);
+    overflow: hidden;
+    transition: transform 0.2s;
+}
+
+.wa-kpi:hover { transform: translateY(-2px); }
+
+.wa-kpi.connected {
+    border-color: rgba(52,211,153,0.2);
+    background: linear-gradient(135deg, rgba(52,211,153,0.07) 0%, rgba(52,211,153,0.02) 100%);
+}
+
+.wa-kpi.disconnected {
+    border-color: rgba(248,113,113,0.2);
+    background: linear-gradient(135deg, rgba(248,113,113,0.07) 0%, rgba(248,113,113,0.02) 100%);
+}
+
+.wa-kpi-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    flex-shrink: 0;
+}
+
+.wa-kpi.connected .wa-kpi-icon {
+    background: rgba(52,211,153,0.15);
+    color: #34d399;
+    border: 1px solid rgba(52,211,153,0.25);
+}
+
+.wa-kpi.disconnected .wa-kpi-icon {
+    background: rgba(248,113,113,0.15);
+    color: #f87171;
+    border: 1px solid rgba(248,113,113,0.25);
+}
+
+.wa-kpi-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.wa-kpi-count {
+    font-family: 'Outfit', sans-serif;
+    font-size: 2.4rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.wa-kpi.connected .wa-kpi-count { color: #34d399; }
+.wa-kpi.disconnected .wa-kpi-count { color: #f87171; }
+
+.wa-kpi-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+/* Dot animé pour "Connecté" */
+.wa-kpi-dot {
+    position: absolute;
+    top: 1.25rem;
+    right: 1.25rem;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #34d399;
+    box-shadow: 0 0 0 0 rgba(52,211,153,0.5);
+    animation: wa-pulse 2s infinite;
+}
+
+@keyframes wa-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(52,211,153,0.5); }
+    70%  { box-shadow: 0 0 0 8px rgba(52,211,153,0); }
+    100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); }
+}
+
+/* ── WHATSAPP LIST HEADER ─────────────────────────────── */
+.wa-list-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding: 0 0.25rem;
+}
+
+.wa-list-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* ── WHATSAPP GRID & CARDS ───────────────────────────── */
+.whatsapp-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
 }
 
 .wa-card {
     background: var(--bg-card);
-    border-radius: 0.75rem;
-    padding: 1rem;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 1rem;
-    border-left: 4px solid var(--border-color);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-left: 3px solid transparent;
+    transition: background 0.15s, border-color 0.15s, transform 0.15s;
 }
 
-.wa-card.connected {
-    border-left-color: var(--success);
+.wa-card:hover {
+    background: rgba(255,255,255,0.03);
+    transform: translateX(2px);
 }
 
-.wa-card.disconnected {
-    border-left-color: var(--danger);
+.wa-card.connected { border-left-color: #34d399; }
+.wa-card.disconnected { border-left-color: #f87171; }
+
+.wa-card-left {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    flex: 1;
+    min-width: 0;
 }
 
-.wa-card-icon {
+.wa-card-avatar {
     width: 40px;
     height: 40px;
-    border-radius: 50%;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.25rem;
+    font-size: 1rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    font-family: 'Outfit', sans-serif;
 }
 
-.wa-card.connected .wa-card-icon {
-    background: rgba(72, 187, 120, 0.2);
+.wa-card-avatar.connected {
+    background: rgba(52,211,153,0.15);
+    color: #34d399;
+    border: 1px solid rgba(52,211,153,0.2);
 }
 
-.wa-card.disconnected .wa-card-icon {
-    background: rgba(245, 101, 101, 0.2);
+.wa-card-avatar.disconnected {
+    background: rgba(248,113,113,0.12);
+    color: #f87171;
+    border: 1px solid rgba(248,113,113,0.2);
 }
 
 .wa-card-info {
-    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
 }
 
 .wa-card-name {
-    font-weight: 500;
-    margin-bottom: 0.25rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .wa-card-phone {
+    font-size: 0.78rem;
     color: var(--text-muted);
-    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.wa-card-phone i {
+    font-size: 0.65rem;
+    opacity: 0.6;
+}
+
+.wa-card-right {
+    flex-shrink: 0;
+}
+
+.wa-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.wa-badge.connected {
+    background: rgba(52,211,153,0.12);
+    color: #34d399;
+    border: 1px solid rgba(52,211,153,0.22);
+}
+
+.wa-badge.disconnected {
+    background: rgba(248,113,113,0.12);
+    color: #f87171;
+    border: 1px solid rgba(248,113,113,0.22);
+}
+
+.wa-badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.wa-badge.connected .wa-badge-dot { background: #34d399; }
+.wa-badge.disconnected .wa-badge-dot { background: #f87171; }
+
+.wa-empty {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-muted);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.wa-empty i {
+    font-size: 2.5rem;
+    opacity: 0.3;
+}
+
+/* ── AUDIT TABLE RICH STYLES ─────────────────────────── */
+.audit-row td {
+    padding: 0.85rem 1rem;
+    vertical-align: middle;
+}
+
+.audit-row:hover td {
+    background: rgba(245,158,11,0.03);
+}
+
+.audit-date {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.audit-date i {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+}
+
+.audit-admin {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.audit-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(245,158,11,0.3), rgba(245,158,11,0.1));
+    border: 1px solid rgba(245,158,11,0.25);
+    color: #f59e0b;
+    font-size: 0.7rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.audit-email {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+}
+
+.audit-action-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.65rem;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+.badge--green  { background: rgba(52,211,153,0.15); color: #34d399; border: 1px solid rgba(52,211,153,0.25); }
+.badge--blue   { background: rgba(66,153,225,0.15); color: #63b3ed; border: 1px solid rgba(66,153,225,0.25); }
+.badge--amber  { background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.25); }
+.badge--red    { background: rgba(248,113,113,0.15); color: #f87171; border: 1px solid rgba(248,113,113,0.25); }
+.badge--purple { background: rgba(167,139,250,0.15); color: #a78bfa; border: 1px solid rgba(167,139,250,0.25); }
+.badge--gray   { background: rgba(160,174,192,0.1); color: #a0aec0; border: 1px solid rgba(160,174,192,0.2); }
+
+.audit-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.audit-detail-pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 5px;
+    overflow: hidden;
+    font-size: 0.72rem;
+    border: 1px solid rgba(255,255,255,0.08);
+}
+
+.audit-detail-key {
+    background: rgba(255,255,255,0.06);
+    padding: 0.2rem 0.45rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.audit-detail-val {
+    background: rgba(255,255,255,0.03);
+    padding: 0.2rem 0.45rem;
+    color: var(--text-secondary);
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.05em;
 }
 
 /* ============================================
@@ -1636,6 +1957,162 @@ body {
 .system-actions {
     display: flex;
     gap: 1rem;
+}
+
+/* ── SYSTEM GRID ─────────────────────────────────────── */
+.system-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+}
+
+.system-card {
+    background: var(--bg-card);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.system-card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.system-card-header h3 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    font-family: 'Outfit', sans-serif;
+    color: var(--text-primary);
+    margin-bottom: 0.2rem;
+}
+
+.system-card-header p {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+.system-card-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.system-card-icon--warning {
+    background: rgba(251,191,36,0.12);
+    border: 1px solid rgba(251,191,36,0.25);
+    color: #fbbf24;
+}
+
+.system-card-icon--blue {
+    background: rgba(96,165,250,0.12);
+    border: 1px solid rgba(96,165,250,0.25);
+    color: #60a5fa;
+}
+
+.btn-system-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    font-weight: 600;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.875rem;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+    width: 100%;
+}
+
+.btn-system-action--warning {
+    background: rgba(251,191,36,0.1);
+    border-color: rgba(251,191,36,0.25);
+    color: #fbbf24;
+}
+
+.btn-system-action--warning:hover {
+    background: rgba(251,191,36,0.18);
+    border-color: rgba(251,191,36,0.4);
+    box-shadow: 0 0 12px rgba(251,191,36,0.15);
+}
+
+.btn-system-action--blue {
+    background: rgba(96,165,250,0.1);
+    border-color: rgba(96,165,250,0.25);
+    color: #60a5fa;
+}
+
+.btn-system-action--blue:hover {
+    background: rgba(96,165,250,0.18);
+    border-color: rgba(96,165,250,0.4);
+    box-shadow: 0 0 12px rgba(96,165,250,0.15);
+}
+
+/* ── ADMINS LIST ─────────────────────────────────────── */
+.admins-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.admin-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 9px;
+}
+
+.admin-row-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: rgba(245,158,11,0.12);
+    border: 1px solid rgba(245,158,11,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #f59e0b;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+}
+
+.admin-row-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+}
+
+.admin-row-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.admin-row-email {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* ============================================

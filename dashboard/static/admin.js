@@ -213,6 +213,9 @@ function navigateTo(section) {
         case 'whatsapp':
             loadWhatsAppStatus();
             break;
+        case 'subscriptions':
+            loadAdmins();
+            break;
         case 'audit':
             loadAuditLogs();
             break;
@@ -619,16 +622,27 @@ async function loadWhatsAppStatus() {
         document.getElementById('wa-disconnected').textContent = data.disconnected;
 
         const grid = document.getElementById('whatsapp-grid');
+        if (!data.statuses || data.statuses.length === 0) {
+            grid.innerHTML = '<div class="wa-empty"><i class="fab fa-whatsapp"></i><p>Aucune session WhatsApp configurée</p></div>';
+            return;
+        }
         grid.innerHTML = data.statuses.map(s => {
             const statusClass = s.ready ? 'connected' : 'disconnected';
-            const icon = s.ready ? '&#9989;' : '&#10060;';
-
+            const statusLabel = s.ready ? 'Connecté' : 'Déconnecté';
+            const initial = s.name ? s.name.replace(/[^a-zA-Z0-9]/g, '').charAt(0).toUpperCase() || '#' : '#';
             return `
                 <div class="wa-card ${statusClass}">
-                    <div class="wa-card-icon">${icon}</div>
-                    <div class="wa-card-info">
-                        <div class="wa-card-name">${s.name}</div>
-                        <div class="wa-card-phone">${s.phone}</div>
+                    <div class="wa-card-left">
+                        <div class="wa-card-avatar ${statusClass}">${initial}</div>
+                        <div class="wa-card-info">
+                            <span class="wa-card-name">${s.name}</span>
+                            <span class="wa-card-phone"><i class="fas fa-phone-alt"></i>${s.phone}</span>
+                        </div>
+                    </div>
+                    <div class="wa-card-right">
+                        <span class="wa-badge ${statusClass}">
+                            <span class="wa-badge-dot"></span>${statusLabel}
+                        </span>
                     </div>
                 </div>
             `;
@@ -654,14 +668,34 @@ async function loadAuditLogs() {
             return;
         }
 
-        tbody.innerHTML = data.logs.map(log => `
-            <tr>
-                <td>${formatDateTime(log.created_at)}</td>
-                <td>${log.admin_email}</td>
-                <td>${formatAction(log.action)}</td>
-                <td><small style="color: var(--text-muted)">${log.details || ''}</small></td>
-            </tr>
-        `).join('');
+        tbody.innerHTML = data.logs.map(log => {
+            const initial = log.admin_email ? log.admin_email[0].toUpperCase() : '?';
+            const actionLabel = formatAction(log.action);
+            const actionClass = getActionClass(log.action);
+            let detailsHtml = '';
+            if (log.details) {
+                try {
+                    const d = typeof log.details === 'string' ? JSON.parse(log.details) : log.details;
+                    detailsHtml = Object.entries(d).map(([k, v]) =>
+                        `<span class="audit-detail-pill"><span class="audit-detail-key">${k}</span><span class="audit-detail-val">${v}</span></span>`
+                    ).join('');
+                } catch {
+                    detailsHtml = `<span class="audit-detail-pill"><span class="audit-detail-val">${log.details}</span></span>`;
+                }
+            }
+            return `
+            <tr class="audit-row">
+                <td><span class="audit-date"><i class="fas fa-clock"></i> ${formatDateTime(log.created_at)}</span></td>
+                <td>
+                    <span class="audit-admin">
+                        <span class="audit-avatar">${initial}</span>
+                        <span class="audit-email">${log.admin_email}</span>
+                    </span>
+                </td>
+                <td><span class="audit-action-badge ${actionClass}">${actionLabel}</span></td>
+                <td><span class="audit-details">${detailsHtml}</span></td>
+            </tr>`;
+        }).join('');
 
     } catch (error) {
         console.error('Erreur chargement logs:', error);
@@ -670,12 +704,28 @@ async function loadAuditLogs() {
 
 function formatAction(action) {
     const actions = {
-        'merchant_status_update': 'Modification statut marchand',
-        'subscription_update': 'Modification abonnement',
-        'admin_created': 'Creation administrateur',
-        'system_cleanup': 'Nettoyage systeme'
+        'merchant_status_update': 'Statut marchand',
+        'subscription_update': 'Abonnement',
+        'admin_created': 'Admin créé',
+        'system_cleanup': 'Nettoyage',
+        'activation_code_sent': 'Code envoyé',
+        'login': 'Connexion',
+        'logout': 'Déconnexion'
     };
     return actions[action] || action;
+}
+
+function getActionClass(action) {
+    const classes = {
+        'merchant_status_update': 'badge--blue',
+        'subscription_update': 'badge--purple',
+        'admin_created': 'badge--amber',
+        'system_cleanup': 'badge--red',
+        'activation_code_sent': 'badge--green',
+        'login': 'badge--gray',
+        'logout': 'badge--gray'
+    };
+    return classes[action] || 'badge--gray';
 }
 
 // ============================================
@@ -695,6 +745,63 @@ async function runCleanup() {
     } catch (error) {
         console.error('Erreur nettoyage:', error);
         alert('Erreur lors du nettoyage');
+    }
+}
+
+// ============================================
+// ADMINS
+// ============================================
+
+async function loadAdmins() {
+    try {
+        const data = await apiGet('/api/admin/admins');
+        const container = document.getElementById('admins-list');
+        if (!container) return;
+
+        if (!data.admins || !data.admins.length) {
+            container.innerHTML = '<p style="color:var(--text-muted);font-size:0.8rem;">Aucun administrateur trouvé</p>';
+            return;
+        }
+
+        container.innerHTML = data.admins.map(a => `
+            <div class="admin-row">
+                <div class="admin-row-avatar"><i class="fas fa-user-shield"></i></div>
+                <div class="admin-row-info">
+                    <span class="admin-row-name">${a.name || 'Admin'}</span>
+                    <span class="admin-row-email">${a.email}</span>
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Erreur chargement admins:', error);
+    }
+}
+
+function openCreateAdminModal() {
+    document.getElementById('admin-new-name').value = '';
+    document.getElementById('admin-new-email').value = '';
+    document.getElementById('admin-new-password').value = '';
+    openModal('create-admin-modal');
+}
+
+async function createAdmin() {
+    const name = document.getElementById('admin-new-name').value.trim();
+    const email = document.getElementById('admin-new-email').value.trim();
+    const password = document.getElementById('admin-new-password').value;
+
+    if (!name || !email || !password) {
+        alert('Tous les champs sont requis');
+        return;
+    }
+
+    try {
+        await apiPost('/api/admin/admins', { name, email, password });
+        closeModal('create-admin-modal');
+        loadAdmins();
+        alert('Administrateur créé avec succès');
+    } catch (error) {
+        console.error('Erreur création admin:', error);
+        alert('Erreur lors de la création');
     }
 }
 
