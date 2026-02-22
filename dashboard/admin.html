@@ -314,26 +314,55 @@
             <!-- Activations Section -->
             <section id="section-activations" class="section">
                 <header class="section-header">
-                    <h2>Activations en attente</h2>
-                    <button onclick="loadPendingActivations()" class="btn btn-secondary">
-                        Actualiser
+                    <div class="section-header-left">
+                        <h2><i class="fas fa-bolt"></i> Activations en attente</h2>
+                        <p class="section-subtitle">Validez les marchands qui ont payé et scané leur QR code</p>
+                    </div>
+                    <button onclick="loadPendingActivations()" class="btn-refresh">
+                        <i class="fas fa-sync-alt"></i> Actualiser
                     </button>
                 </header>
 
                 <div class="activation-info-box">
-                    <p><strong>Flux d'activation:</strong></p>
-                    <ol>
-                        <li>Le marchand se connecte et scanne le QR code WhatsApp</li>
-                        <li>Il apparait ici avec son numero</li>
-                        <li>Verifiez qu'il a effectue le paiement (SMS/notification)</li>
-                        <li>Cliquez "Envoyer code" pour generer et envoyer le code d'activation</li>
-                    </ol>
+                    <div class="activation-steps">
+                        <div class="activation-step">
+                            <div class="activation-step-icon"><i class="fab fa-whatsapp"></i></div>
+                            <div class="activation-step-text">
+                                <strong>1. Connexion WhatsApp</strong>
+                                <span>Le marchand scanne le QR code</span>
+                            </div>
+                        </div>
+                        <div class="activation-step-arrow"><i class="fas fa-chevron-right"></i></div>
+                        <div class="activation-step">
+                            <div class="activation-step-icon"><i class="fas fa-eye"></i></div>
+                            <div class="activation-step-text">
+                                <strong>2. Apparaît ici</strong>
+                                <span>Avec son numéro WhatsApp</span>
+                            </div>
+                        </div>
+                        <div class="activation-step-arrow"><i class="fas fa-chevron-right"></i></div>
+                        <div class="activation-step">
+                            <div class="activation-step-icon"><i class="fas fa-money-bill-wave"></i></div>
+                            <div class="activation-step-text">
+                                <strong>3. Vérifier paiement</strong>
+                                <span>SMS / notification reçue</span>
+                            </div>
+                        </div>
+                        <div class="activation-step-arrow"><i class="fas fa-chevron-right"></i></div>
+                        <div class="activation-step activation-step--action">
+                            <div class="activation-step-icon"><i class="fas fa-paper-plane"></i></div>
+                            <div class="activation-step-text">
+                                <strong>4. Envoyer le code</strong>
+                                <span>Génère &amp; envoie l'activation</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div id="pending-activations-empty" class="empty-state" style="display: none;">
-                    <span class="icon">&#128077;</span>
+                    <div class="empty-state-icon"><i class="fas fa-check-circle"></i></div>
                     <h3>Aucune activation en attente</h3>
-                    <p>Tous les marchands sont actives</p>
+                    <p>Tous les marchands sont activés</p>
                 </div>
 
                 <div class="activations-grid" id="pending-activations-list">
@@ -343,23 +372,27 @@
                 <div class="section-divider"></div>
 
                 <header class="section-header">
-                    <h2>Historique des activations</h2>
+                    <div class="section-header-left">
+                        <h2><i class="fas fa-history"></i> Historique des activations</h2>
+                    </div>
                 </header>
 
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Marchand</th>
-                            <th>Code</th>
-                            <th>Status</th>
-                            <th>Admin</th>
-                        </tr>
-                    </thead>
-                    <tbody id="activation-history-list">
-                        <!-- Dynamically filled -->
-                    </tbody>
-                </table>
+                <div class="panel">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th><i class="fas fa-calendar-alt"></i> Date</th>
+                                <th><i class="fas fa-store"></i> Marchand</th>
+                                <th><i class="fas fa-key"></i> Code</th>
+                                <th><i class="fas fa-circle"></i> Statut</th>
+                                <th><i class="fas fa-user-shield"></i> Admin</th>
+                            </tr>
+                        </thead>
+                        <tbody id="activation-history-list">
+                            <!-- Dynamically filled -->
+                        </tbody>
+                    </table>
+                </div>
             </section>
 
             <!-- Merchants Section -->
