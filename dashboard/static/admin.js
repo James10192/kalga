@@ -354,10 +354,19 @@ function renderExpiringSoon(subscriptions) {
 // MERCHANTS
 // ============================================
 
+function setMerchantFilter(btn, value) {
+    document.getElementById('merchant-filter').value = value;
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    state.merchantsPage = 1;
+    loadMerchants();
+}
+
 async function loadMerchants() {
     try {
         const filter = document.getElementById('merchant-filter').value;
-        const data = await apiGet(`/api/admin/merchants?page=${state.merchantsPage}&limit=20&status_filter=${filter}`);
+        const filterParam = filter ? `&status_filter=${filter}` : '';
+        const data = await apiGet(`/api/admin/merchants?page=${state.merchantsPage}&limit=20${filterParam}`);
 
         renderMerchantsList(data.merchants);
         renderPagination(data.page, data.pages, 'merchants');
