@@ -99,42 +99,50 @@
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <h1>KALGA</h1>
+                <div class="sidebar-logo">
+                    <div class="sidebar-logo-icon"><i class="fas fa-store"></i></div>
+                    <span class="sidebar-logo-name">KALGA</span>
+                </div>
                 <span class="badge badge-admin">Admin</span>
             </div>
             <nav class="sidebar-nav">
                 <a href="#" class="nav-item active" data-section="overview">
-                    <span class="icon">&#128200;</span>
+                    <span class="nav-icon"><i class="fas fa-chart-pie"></i></span>
                     <span>Vue d'ensemble</span>
                 </a>
                 <a href="#" class="nav-item" data-section="activations">
-                    <span class="icon">&#128273;</span>
+                    <span class="nav-icon"><i class="fas fa-key"></i></span>
                     <span>Activations</span>
                     <span class="nav-badge" id="pending-activations-badge" style="display: none;">0</span>
                 </a>
                 <a href="#" class="nav-item" data-section="merchants">
-                    <span class="icon">&#128101;</span>
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
                     <span>Marchands</span>
                 </a>
                 <a href="#" class="nav-item" data-section="whatsapp">
-                    <span class="icon">&#128241;</span>
-                    <span>WhatsApp Status</span>
+                    <span class="nav-icon"><i class="fab fa-whatsapp"></i></span>
+                    <span>WhatsApp</span>
                 </a>
                 <a href="#" class="nav-item" data-section="subscriptions">
-                    <span class="icon">&#128179;</span>
+                    <span class="nav-icon"><i class="fas fa-credit-card"></i></span>
                     <span>Abonnements</span>
                 </a>
                 <a href="#" class="nav-item" data-section="audit">
-                    <span class="icon">&#128203;</span>
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
                     <span>Logs d'audit</span>
                 </a>
             </nav>
             <div class="sidebar-footer">
-                <div class="admin-info">
-                    <span id="admin-email">admin@kalga.com</span>
+                <div class="sidebar-user">
+                    <div class="sidebar-user-avatar"><i class="fas fa-user-shield"></i></div>
+                    <div class="sidebar-user-info">
+                        <span id="admin-email">admin@kalga.com</span>
+                        <span class="sidebar-user-role">Administrateur</span>
+                    </div>
                 </div>
-                <button onclick="logout()" class="btn btn-secondary btn-small">
-                    Deconnexion
+                <button onclick="logout()" class="btn-logout">
+                    <i class="fas fa-right-from-bracket"></i>
+                    Déconnexion
                 </button>
             </div>
         </aside>
