@@ -115,7 +115,7 @@ function logout() {
 }
 
 function showLogin() {
-    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('login-screen').style.display = 'grid';
     document.getElementById('dashboard').style.display = 'none';
 }
 

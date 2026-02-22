@@ -4,31 +4,93 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KALGA Admin - Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="static/admin.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" media="print" onload="this.media='all'">
 </head>
 <body>
     <!-- Login Screen -->
     <div id="login-screen" class="login-container">
-        <div class="login-card">
-            <div class="login-header">
-                <h1>KALGA</h1>
-                <p>Administration</p>
+
+        <!-- Decorative background orbs -->
+        <div class="login-orb login-orb-1" aria-hidden="true"></div>
+        <div class="login-orb login-orb-2" aria-hidden="true"></div>
+
+        <!-- Left branding panel -->
+        <div class="login-left">
+            <div class="login-left-inner">
+                <div class="login-brand">
+                    <div class="login-brand-icon">
+                        <i class="fas fa-chart-network"></i>
+                    </div>
+                    <span class="login-brand-name">KALGA</span>
+                </div>
+
+                <div class="login-hero-text">
+                    <h2>Plateforme<br><em>d'administration</em><br>centralisée</h2>
+                    <p>Gérez les marchands, activations et abonnements depuis un seul espace sécurisé.</p>
+                </div>
+
+                <div class="login-stats">
+                    <div class="login-stat">
+                        <span class="login-stat-value" id="lp-merchant-count">—</span>
+                        <span class="login-stat-label">Marchands actifs</span>
+                    </div>
+                    <div class="login-stat-divider"></div>
+                    <div class="login-stat">
+                        <span class="login-stat-value">24/7</span>
+                        <span class="login-stat-label">Disponibilité</span>
+                    </div>
+                    <div class="login-stat-divider"></div>
+                    <div class="login-stat">
+                        <span class="login-stat-value">v1.0</span>
+                        <span class="login-stat-label">Version</span>
+                    </div>
+                </div>
             </div>
-            <form id="login-form" class="login-form">
-                <div class="form-group">
-                    <label for="email">Email</label>
-                    <input type="email" id="email" placeholder="admin@kalga.com" required>
+        </div>
+
+        <!-- Right form panel -->
+        <div class="login-right">
+            <div class="login-card">
+                <div class="login-card-top">
+                    <div class="login-tag">Accès restreint</div>
                 </div>
-                <div class="form-group">
-                    <label for="password">Mot de passe</label>
-                    <input type="password" id="password" placeholder="********" required>
+
+                <div class="login-heading">
+                    <h1>Connexion<br>administrateur</h1>
+                    <p>Entrez vos identifiants pour accéder au tableau de bord.</p>
                 </div>
-                <button type="submit" class="btn btn-primary btn-full">
-                    <span>Connexion</span>
-                </button>
-                <p id="login-error" class="error-message"></p>
-            </form>
+
+                <form id="login-form" class="login-form">
+                    <div class="form-group">
+                        <label for="email">Adresse email</label>
+                        <div class="input-field">
+                            <i class="fas fa-envelope input-icon"></i>
+                            <input type="email" id="email" placeholder="admin@kalga.com" required autocomplete="username">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Mot de passe</label>
+                        <div class="input-field">
+                            <i class="fas fa-lock input-icon"></i>
+                            <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-login">
+                        <span>Se connecter</span>
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                    <p id="login-error" class="error-message"></p>
+                </form>
+
+                <p class="login-secure-note">
+                    <i class="fas fa-shield-halved"></i>
+                    Connexion sécurisée — accès journalisé
+                </p>
+            </div>
         </div>
     </div>
 
@@ -358,5 +420,18 @@
     </div>
 
     <script src="static/admin.js"></script>
+    <script>
+        // Populate left-panel merchant count on login screen
+        fetch('http://localhost:8000/api/merchants/?limit=1')
+            .then(r => r.json())
+            .then(d => {
+                const el = document.getElementById('lp-merchant-count');
+                if (el) el.textContent = (d.total ?? 0) + ' ACTIF(S)';
+            })
+            .catch(() => {
+                const el = document.getElementById('lp-merchant-count');
+                if (el) el.textContent = '—';
+            });
+    </script>
 </body>
 </html>
