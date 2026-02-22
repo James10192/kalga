@@ -765,35 +765,53 @@ async function loadPendingActivations() {
 
         emptyState.style.display = 'none';
 
-        container.innerHTML = data.merchants.map(m => `
-            <div class="activation-card" data-merchant-id="${m.id}">
-                <div class="activation-card-header">
-                    <div>
-                        <h3>${m.business_name || m.name || 'Nouveau marchand'}</h3>
-                        <div class="phone">${formatPhone(m.phone)}</div>
+        container.innerHTML = data.merchants.map(m => {
+            const name = m.business_name || m.name || 'Nouveau marchand';
+            const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+            const isConnected = m.whatsapp_connected;
+            const hasCode = !!m.pending_code;
+            return `
+            <div class="activation-card ${isConnected ? 'ac--connected' : 'ac--disconnected'}" data-merchant-id="${m.id}">
+                <div class="ac-top-bar"></div>
+                <div class="ac-header">
+                    <div class="ac-avatar">${initials}</div>
+                    <div class="ac-identity">
+                        <h3 class="ac-name">${name}</h3>
+                        <div class="ac-phone">
+                            <i class="fas fa-phone-alt"></i>
+                            <span>${formatPhone(m.phone)}</span>
+                        </div>
                     </div>
-                    <div class="whatsapp-status ${m.whatsapp_connected ? 'connected' : 'disconnected'}">
-                        <span>${m.whatsapp_connected ? '&#9989;' : '&#10060;'}</span>
-                        <span>${m.whatsapp_connected ? 'Connecte' : 'Deconnecte'}</span>
+                    <div class="ac-wa-badge ${isConnected ? 'ac-wa-badge--on' : 'ac-wa-badge--off'}">
+                        <i class="fab fa-whatsapp"></i>
+                        <span>${isConnected ? 'Connecté' : 'Déconnecté'}</span>
                     </div>
                 </div>
-                <div class="activation-card-body">
-                    <div class="created-at">Inscrit le ${formatDateTime(m.created_at)}</div>
-                    ${m.pending_code ? `
-                        <div class="pending-code">
-                            Code envoye: <strong>${m.pending_code}</strong>
-                            ${m.pending_code_sent_at ? ` (${formatDateTime(m.pending_code_sent_at)})` : ''}
+                <div class="ac-divider"></div>
+                <div class="ac-meta">
+                    <div class="ac-meta-row">
+                        <i class="fas fa-calendar-plus"></i>
+                        <span>Inscrit le <strong>${formatDateTime(m.created_at)}</strong></span>
+                    </div>
+                    ${hasCode ? `
+                    <div class="ac-code-block">
+                        <div class="ac-code-label">
+                            <i class="fas fa-key"></i>
+                            <span>Code envoyé</span>
                         </div>
+                        <div class="ac-code-value">${m.pending_code}</div>
+                        ${m.pending_code_sent_at ? `<div class="ac-code-time"><i class="fas fa-clock"></i> ${formatDateTime(m.pending_code_sent_at)}</div>` : ''}
+                    </div>
                     ` : ''}
                 </div>
-                <div class="activation-card-footer">
-                    <button class="btn-send-code" onclick="sendActivationCode(${m.id}, this, ${m.whatsapp_connected ? 'true' : 'false'})">
-                        <span>&#128273;</span>
-                        <span>${m.pending_code ? 'Renvoyer code' : 'Envoyer code'}</span>
+                <div class="ac-footer">
+                    <button class="btn-send-code" onclick="sendActivationCode(${m.id}, this, ${isConnected ? 'true' : 'false'})">
+                        <i class="fas fa-paper-plane"></i>
+                        <span>${hasCode ? 'Renvoyer le code' : 'Envoyer le code'}</span>
                     </button>
                 </div>
             </div>
-        `).join('');
+        `}).join('');
 
     } catch (error) {
         console.error('Erreur chargement activations:', error);
@@ -803,14 +821,17 @@ async function loadPendingActivations() {
 async function sendActivationCode(merchantId, btn, waConnected) {
     const originalHtml = btn.innerHTML;
     btn.disabled = true;
-    btn.innerHTML = '<span>&#8987;</span> Envoi en cours...';
+    btn.classList.add('btn--loading');
+    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i><span>Envoi en cours…</span>';
 
     try {
         const result = await apiPost(`/api/admin/send-activation/${merchantId}`);
 
         if (result.success) {
-            btn.innerHTML = '<span>&#9989;</span> Code envoye!';
-            btn.style.background = '#38a169';
+            btn.classList.remove('btn--loading');
+            btn.classList.add('btn--success');
+            btn.innerHTML = '<i class="fas fa-circle-check"></i><span>Code envoyé !</span>';
+            btn.style.background = '';
 
             // Show the code
             alert(`Code envoye avec succes!\n\nCode: ${result.code}\n\n${result.message}`);
@@ -823,8 +844,10 @@ async function sendActivationCode(merchantId, btn, waConnected) {
         } else {
             // Code généré mais WhatsApp non connecté - afficher le code quand même
             if (result.code) {
-                btn.innerHTML = '<span>&#128273;</span> Code genere';
-                btn.style.background = '#d69e2e';
+                btn.classList.remove('btn--loading');
+                btn.classList.add('btn--warning');
+                btn.innerHTML = '<i class="fas fa-key"></i><span>Code généré</span>';
+                btn.style.background = '';
                 alert(`${result.message}\n\nCode: ${result.code}\n\nCommuniquez ce code au marchand manuellement.`);
                 setTimeout(() => {
                     loadPendingActivations();
@@ -837,13 +860,16 @@ async function sendActivationCode(merchantId, btn, waConnected) {
 
     } catch (error) {
         console.error('Erreur envoi code:', error);
-        btn.innerHTML = '<span>&#10060;</span> Erreur';
-        btn.style.background = '#f56565';
+        btn.classList.remove('btn--loading');
+        btn.classList.add('btn--error');
+        btn.innerHTML = '<i class="fas fa-triangle-exclamation"></i><span>Erreur</span>';
+        btn.style.background = '';
         alert(`Erreur: ${error.message}`);
 
         setTimeout(() => {
             btn.innerHTML = originalHtml;
             btn.style.background = '';
+            btn.classList.remove('btn--loading', 'btn--success', 'btn--warning', 'btn--error');
             btn.disabled = false;
         }, 2000);
     }
@@ -861,14 +887,26 @@ async function loadActivationHistory() {
 
         tbody.innerHTML = data.history.map(h => `
             <tr>
-                <td>${formatDateTime(h.created_at)}</td>
                 <td>
-                    <strong>${h.merchant_name || 'N/A'}</strong>
-                    <br><small style="color: var(--text-muted)">${formatPhone(h.merchant_phone)}</small>
+                    <div class="history-date">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span>${formatDateTime(h.created_at)}</span>
+                    </div>
                 </td>
-                <td><code>${h.code}</code></td>
-                <td><span class="badge-status ${h.status}">${getStatusLabel(h.status)}</span></td>
-                <td>${h.admin_email || 'Systeme'}</td>
+                <td>
+                    <div class="history-merchant">
+                        <span class="history-merchant-name">${h.merchant_name || 'N/A'}</span>
+                        <span class="history-merchant-phone"><i class="fas fa-phone-alt"></i> ${formatPhone(h.merchant_phone)}</span>
+                    </div>
+                </td>
+                <td><span class="history-code"><i class="fas fa-key"></i>${h.code}</span></td>
+                <td><span class="badge-status ${h.status}"><i class="fas ${h.status === 'used' ? 'fa-circle-check' : h.status === 'expired' ? 'fa-circle-xmark' : 'fa-clock'}"></i> ${getStatusLabel(h.status)}</span></td>
+                <td>
+                    <div class="history-admin">
+                        <i class="fas fa-user-shield"></i>
+                        <span>${h.admin_email || 'Système'}</span>
+                    </div>
+                </td>
             </tr>
         `).join('');
 
