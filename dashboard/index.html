@@ -4,63 +4,205 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KALGA - Dashboard Marchand</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="static/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <!-- Login Screen - Simple QR Code -->
+    <!-- Login Screen -->
     <div id="login-screen" class="login-screen">
-        <div class="login-container">
-            <div class="login-logo">
-                <div class="logo-icon">
-                    <i class="fab fa-whatsapp"></i>
+        <!-- Panneau gauche décoratif -->
+        <div class="login-panel-left">
+            <div class="panel-left-inner">
+                <div class="panel-brand">
+                    <div class="panel-logo-mark">
+                        <i class="fab fa-whatsapp"></i>
+                    </div>
+                    <span class="panel-brand-name">KALGA</span>
                 </div>
-                <h1>KALGA</h1>
-                <p>Commerce WhatsApp Automatisé</p>
-            </div>
-
-            <div class="login-form">
-                <div class="input-group phone-input-group">
-                    <select id="login-country" class="country-select">
-                        <option value="225">🇨🇮 +225</option>
-                        <option value="224">🇬🇳 +224</option>
-                        <option value="223">🇲🇱 +223</option>
-                        <option value="226">🇧🇫 +226</option>
-                        <option value="228">🇹🇬 +228</option>
-                        <option value="229">🇧🇯 +229</option>
-                        <option value="221">🇸🇳 +221</option>
-                        <option value="237">🇨🇲 +237</option>
-                        <option value="241">🇬🇦 +241</option>
-                        <option value="242">🇨🇬 +242</option>
-                        <option value="243">🇨🇩 +243</option>
-                        <option value="33">🇫🇷 +33</option>
-                    </select>
-                    <input type="text" id="login-phone" placeholder="Numéro (ex: 0161407534)">
+                <div class="panel-hero">
+                    <h2 class="panel-headline">Commerce<br><em>WhatsApp</em><br>réinventé.</h2>
+                    <p class="panel-sub">Automatisez vos ventes, gérez vos clients et développez votre boutique — depuis votre téléphone.</p>
                 </div>
-                <button id="btn-connect" onclick="initConnection()">
-                    <i class="fab fa-whatsapp"></i>
-                    Connecter WhatsApp
-                </button>
+                <div class="panel-stats">
+                    <div class="panel-stat">
+                        <span class="panel-stat-value" id="stat-merchants">—</span>
+                        <span class="panel-stat-label">Marchands actifs</span>
+                    </div>
+                    <div class="panel-stat">
+                        <span class="panel-stat-value">98%</span>
+                        <span class="panel-stat-label">Taux de réponse</span>
+                    </div>
+                    <div class="panel-stat">
+                        <span class="panel-stat-value">24/7</span>
+                        <span class="panel-stat-label">IA disponible</span>
+                    </div>
+                </div>
+                <!-- Éléments décoratifs géométriques -->
+                <div class="panel-deco panel-deco-1"></div>
+                <div class="panel-deco panel-deco-2"></div>
+                <div class="panel-deco panel-deco-3"></div>
+                <div class="panel-orb panel-orb-1"></div>
+                <div class="panel-orb panel-orb-2"></div>
             </div>
+        </div>
 
-            <div id="qr-container" class="qr-container" style="display: none;">
-                <h3>Scannez le QR Code</h3>
-                <p>Ouvrez WhatsApp sur votre téléphone et scannez ce code</p>
-                <div id="qr-frame-container"></div>
-                <div class="qr-spinner" id="qr-loading">
-                    <i class="fas fa-spinner fa-spin"></i>
-                    <span>Chargement du QR code...</span>
+        <!-- Panneau droit : formulaire -->
+        <div class="login-panel-right">
+            <div class="login-container">
+                <div class="login-logo">
+                    <div class="logo-icon">
+                        <i class="fab fa-whatsapp"></i>
+                    </div>
+                    <h1>Bienvenue</h1>
+                    <p>Connectez votre WhatsApp pour accéder à votre boutique</p>
+                </div>
+
+                <div class="login-form">
+                    <label class="form-label-float">
+                        <span>Votre numéro WhatsApp</span>
+                    </label>
+                    <div class="input-group phone-input-group">
+                        <div class="country-select-wrapper" id="country-select-wrapper">
+                            <!-- Select caché pour la logique JS -->
+                            <select id="login-country" class="country-select-hidden">
+                                <option value="225">+225</option>
+                                <option value="224">+224</option>
+                                <option value="223">+223</option>
+                                <option value="226">+226</option>
+                                <option value="228">+228</option>
+                                <option value="229">+229</option>
+                                <option value="221">+221</option>
+                                <option value="237">+237</option>
+                                <option value="241">+241</option>
+                                <option value="242">+242</option>
+                                <option value="243">+243</option>
+                                <option value="33">+33</option>
+                            </select>
+                            <!-- Trigger custom -->
+                            <div class="country-custom" id="country-custom" onclick="toggleCountryDropdown()">
+                                <span class="country-custom-flag" id="country-custom-flag">🇨🇮</span>
+                                <span class="country-custom-code" id="country-custom-code">+225</span>
+                                <i class="fas fa-chevron-down country-chevron"></i>
+                            </div>
+                            <!-- Liste déroulante -->
+                            <div class="country-dropdown" id="country-dropdown">
+                                <div class="country-dropdown-inner">
+                                    <div class="country-option active" data-value="225" data-flag="🇨🇮" data-code="+225">
+                                        <span class="country-option-flag">🇨🇮</span>
+                                        <span class="country-option-name">Côte d'Ivoire</span>
+                                        <span class="country-option-dial">+225</span>
+                                    </div>
+                                    <div class="country-option" data-value="224" data-flag="🇬🇳" data-code="+224">
+                                        <span class="country-option-flag">🇬🇳</span>
+                                        <span class="country-option-name">Guinée</span>
+                                        <span class="country-option-dial">+224</span>
+                                    </div>
+                                    <div class="country-option" data-value="223" data-flag="🇲🇱" data-code="+223">
+                                        <span class="country-option-flag">🇲🇱</span>
+                                        <span class="country-option-name">Mali</span>
+                                        <span class="country-option-dial">+223</span>
+                                    </div>
+                                    <div class="country-option" data-value="226" data-flag="🇧🇫" data-code="+226">
+                                        <span class="country-option-flag">🇧🇫</span>
+                                        <span class="country-option-name">Burkina Faso</span>
+                                        <span class="country-option-dial">+226</span>
+                                    </div>
+                                    <div class="country-option" data-value="228" data-flag="🇹🇬" data-code="+228">
+                                        <span class="country-option-flag">🇹🇬</span>
+                                        <span class="country-option-name">Togo</span>
+                                        <span class="country-option-dial">+228</span>
+                                    </div>
+                                    <div class="country-option" data-value="229" data-flag="🇧🇯" data-code="+229">
+                                        <span class="country-option-flag">🇧🇯</span>
+                                        <span class="country-option-name">Bénin</span>
+                                        <span class="country-option-dial">+229</span>
+                                    </div>
+                                    <div class="country-option" data-value="221" data-flag="🇸🇳" data-code="+221">
+                                        <span class="country-option-flag">🇸🇳</span>
+                                        <span class="country-option-name">Sénégal</span>
+                                        <span class="country-option-dial">+221</span>
+                                    </div>
+                                    <div class="country-option" data-value="237" data-flag="🇨🇲" data-code="+237">
+                                        <span class="country-option-flag">🇨🇲</span>
+                                        <span class="country-option-name">Cameroun</span>
+                                        <span class="country-option-dial">+237</span>
+                                    </div>
+                                    <div class="country-option" data-value="241" data-flag="🇬🇦" data-code="+241">
+                                        <span class="country-option-flag">🇬🇦</span>
+                                        <span class="country-option-name">Gabon</span>
+                                        <span class="country-option-dial">+241</span>
+                                    </div>
+                                    <div class="country-option" data-value="242" data-flag="🇨🇬" data-code="+242">
+                                        <span class="country-option-flag">🇨🇬</span>
+                                        <span class="country-option-name">Congo</span>
+                                        <span class="country-option-dial">+242</span>
+                                    </div>
+                                    <div class="country-option" data-value="243" data-flag="🇨🇩" data-code="+243">
+                                        <span class="country-option-flag">🇨🇩</span>
+                                        <span class="country-option-name">RD Congo</span>
+                                        <span class="country-option-dial">+243</span>
+                                    </div>
+                                    <div class="country-option" data-value="33" data-flag="🇫🇷" data-code="+33">
+                                        <span class="country-option-flag">🇫🇷</span>
+                                        <span class="country-option-name">France</span>
+                                        <span class="country-option-dial">+33</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <input type="text" id="login-phone" placeholder="0 00 00 00 00">
+                    </div>
+                    <button id="btn-connect" onclick="initConnection()">
+                        <i class="fab fa-whatsapp"></i>
+                        <span>Connecter WhatsApp</span>
+                        <i class="fas fa-arrow-right btn-arrow"></i>
+                    </button>
+                </div>
+
+                <div id="qr-container" class="qr-container" style="display: none;">
+                    <div class="qr-header">
+                        <div class="qr-step-badge">Étape 2 / 2</div>
+                        <h3>Scannez le QR Code</h3>
+                        <p>Ouvrez WhatsApp → Menu → Appareils connectés → Connecter un appareil</p>
+                    </div>
+                    <div class="qr-frame-wrapper">
+                        <div id="qr-frame-container"></div>
+                        <div class="qr-corner qr-corner-tl"></div>
+                        <div class="qr-corner qr-corner-tr"></div>
+                        <div class="qr-corner qr-corner-bl"></div>
+                        <div class="qr-corner qr-corner-br"></div>
+                    </div>
+                    <div class="qr-spinner" id="qr-loading">
+                        <div class="qr-spinner-ring"></div>
+                        <span>Génération du QR code...</span>
+                    </div>
+                </div>
+
+                <div id="login-status" class="login-status"></div>
+
+                <div class="login-footer">
+                    <i class="fas fa-shield-alt"></i>
+                    Connexion sécurisée · Vos données restent privées
                 </div>
             </div>
-
-            <div id="login-status" class="login-status"></div>
         </div>
     </div>
 
     <!-- Payment Screen - Choix du moyen de paiement -->
-    <div id="payment-screen" class="login-screen" style="display: none;">
+    <div id="payment-screen" class="login-screen onboarding-screen" style="display: none;">
+        <div class="onboarding-wrapper">
         <div class="login-container payment-container">
+            <div class="onboarding-step-indicator">
+                <div class="step-dot step-done"></div>
+                <div class="step-line step-done"></div>
+                <div class="step-dot step-active"></div>
+                <div class="step-line"></div>
+                <div class="step-dot"></div>
+            </div>
             <div class="login-logo">
                 <div class="logo-icon payment-icon">
                     <i class="fas fa-credit-card"></i>
@@ -113,18 +255,28 @@
 
                 <div class="payment-waiting" id="payment-waiting" style="display: none;">
                     <div class="waiting-animation">
-                        <i class="fas fa-spinner fa-spin"></i>
+                        <div class="waiting-pulse-ring"></div>
+                        <i class="fas fa-whatsapp"></i>
                     </div>
                     <p>En attente de validation...</p>
                     <small>Vous recevrez votre code par WhatsApp</small>
                 </div>
             </div>
         </div>
+        </div>
     </div>
 
     <!-- Activation Code Screen - Saisie du code -->
-    <div id="activation-screen" class="login-screen" style="display: none;">
+    <div id="activation-screen" class="login-screen onboarding-screen" style="display: none;">
+        <div class="onboarding-wrapper">
         <div class="login-container">
+            <div class="onboarding-step-indicator">
+                <div class="step-dot step-done"></div>
+                <div class="step-line step-done"></div>
+                <div class="step-dot step-done"></div>
+                <div class="step-line step-done"></div>
+                <div class="step-dot step-active"></div>
+            </div>
             <div class="login-logo">
                 <div class="logo-icon code-icon">
                     <i class="fas fa-key"></i>
@@ -155,17 +307,26 @@
                 </button>
             </div>
         </div>
+        </div>
     </div>
 
     <!-- Location Setup Screen -->
-    <div id="location-screen" class="login-screen" style="display: none;">
-        <div class="login-container">
+    <div id="location-screen" class="login-screen onboarding-screen" style="display: none;">
+        <div class="onboarding-wrapper">
+        <div class="login-container location-container">
+            <div class="onboarding-step-indicator">
+                <div class="step-dot step-done"></div>
+                <div class="step-line step-done"></div>
+                <div class="step-dot step-done"></div>
+                <div class="step-line step-done"></div>
+                <div class="step-dot step-active"></div>
+            </div>
             <div class="login-logo">
                 <div class="logo-icon location-icon">
                     <i class="fas fa-map-marker-alt"></i>
                 </div>
-                <h1>Localisation</h1>
-                <p>Ajoutez l'adresse de votre boutique</p>
+                <h1>Votre boutique</h1>
+                <p>Indiquez où vos clients peuvent vous trouver</p>
             </div>
 
             <div class="location-form">
@@ -211,6 +372,7 @@
                     Cette adresse sera envoyée automatiquement aux clients qui demandent où vous trouver.
                 </p>
             </div>
+        </div>
         </div>
     </div>
 
@@ -946,5 +1108,37 @@
     <div id="toast-container" class="toast-container"></div>
 
     <script src="static/app.js"></script>
+    <script>
+    function toggleCountryDropdown() {
+        document.getElementById('country-select-wrapper').classList.toggle('open');
+    }
+
+    document.querySelectorAll('.country-option').forEach(function(opt) {
+        opt.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var val = this.dataset.value;
+            var flag = this.dataset.flag;
+            var code = this.dataset.code;
+            // Mettre à jour le select caché
+            document.getElementById('login-country').value = val;
+            // Mettre à jour l'affichage du trigger
+            document.getElementById('country-custom-flag').textContent = flag;
+            document.getElementById('country-custom-code').textContent = code;
+            // Mettre à jour la classe active
+            document.querySelectorAll('.country-option').forEach(function(o) {
+                o.classList.remove('active');
+            });
+            this.classList.add('active');
+            // Fermer
+            document.getElementById('country-select-wrapper').classList.remove('open');
+        });
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#country-select-wrapper')) {
+            document.getElementById('country-select-wrapper').classList.remove('open');
+        }
+    });
+    </script>
 </body>
 </html>
