@@ -99,42 +99,50 @@
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <h1>KALGA</h1>
+                <div class="sidebar-logo">
+                    <div class="sidebar-logo-icon"><i class="fas fa-store"></i></div>
+                    <span class="sidebar-logo-name">KALGA</span>
+                </div>
                 <span class="badge badge-admin">Admin</span>
             </div>
             <nav class="sidebar-nav">
                 <a href="#" class="nav-item active" data-section="overview">
-                    <span class="icon">&#128200;</span>
+                    <span class="nav-icon"><i class="fas fa-chart-pie"></i></span>
                     <span>Vue d'ensemble</span>
                 </a>
                 <a href="#" class="nav-item" data-section="activations">
-                    <span class="icon">&#128273;</span>
+                    <span class="nav-icon"><i class="fas fa-key"></i></span>
                     <span>Activations</span>
                     <span class="nav-badge" id="pending-activations-badge" style="display: none;">0</span>
                 </a>
                 <a href="#" class="nav-item" data-section="merchants">
-                    <span class="icon">&#128101;</span>
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
                     <span>Marchands</span>
                 </a>
                 <a href="#" class="nav-item" data-section="whatsapp">
-                    <span class="icon">&#128241;</span>
-                    <span>WhatsApp Status</span>
+                    <span class="nav-icon"><i class="fab fa-whatsapp"></i></span>
+                    <span>WhatsApp</span>
                 </a>
                 <a href="#" class="nav-item" data-section="subscriptions">
-                    <span class="icon">&#128179;</span>
+                    <span class="nav-icon"><i class="fas fa-credit-card"></i></span>
                     <span>Abonnements</span>
                 </a>
                 <a href="#" class="nav-item" data-section="audit">
-                    <span class="icon">&#128203;</span>
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
                     <span>Logs d'audit</span>
                 </a>
             </nav>
             <div class="sidebar-footer">
-                <div class="admin-info">
-                    <span id="admin-email">admin@kalga.com</span>
+                <div class="sidebar-user">
+                    <div class="sidebar-user-avatar"><i class="fas fa-user-shield"></i></div>
+                    <div class="sidebar-user-info">
+                        <span id="admin-email">admin@kalga.com</span>
+                        <span class="sidebar-user-role">Administrateur</span>
+                    </div>
                 </div>
-                <button onclick="logout()" class="btn btn-secondary btn-small">
-                    Deconnexion
+                <button onclick="logout()" class="btn-logout">
+                    <i class="fas fa-right-from-bracket"></i>
+                    Déconnexion
                 </button>
             </div>
         </aside>
@@ -144,70 +152,162 @@
             <!-- Overview Section -->
             <section id="section-overview" class="section active">
                 <header class="section-header">
-                    <h2>Vue d'ensemble</h2>
-                    <button onclick="refreshDashboard()" class="btn btn-secondary">
+                    <div class="section-header-left">
+                        <h2>Vue d'ensemble</h2>
+                        <span class="section-date" id="overview-date"></span>
+                    </div>
+                    <button onclick="refreshDashboard()" class="btn-refresh">
+                        <i class="fas fa-rotate-right"></i>
                         Actualiser
                     </button>
                 </header>
 
-                <!-- Stats Cards -->
+                <!-- Primary KPI Cards -->
                 <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-icon merchants">&#128101;</div>
-                        <div class="stat-content">
-                            <h3 id="stat-merchants-total">0</h3>
-                            <p>Marchands total</p>
-                            <span class="stat-sub" id="stat-merchants-active">0 actifs</span>
+                    <div class="stat-card stat-card--merchants">
+                        <div class="stat-card-accent"></div>
+                        <div class="stat-card-body">
+                            <div class="stat-card-icon">
+                                <i class="fas fa-store"></i>
+                            </div>
+                            <div class="stat-card-data">
+                                <span class="stat-card-label">Marchands</span>
+                                <h3 class="stat-card-value" id="stat-merchants-total">0</h3>
+                                <span class="stat-card-sub" id="stat-merchants-active">0 actifs</span>
+                            </div>
+                        </div>
+                        <div class="stat-card-footer">
+                            <span class="stat-trend stat-trend--up" id="stat-merchants-month">
+                                <i class="fas fa-arrow-trend-up"></i> ce mois
+                            </span>
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon conversations">&#128172;</div>
-                        <div class="stat-content">
-                            <h3 id="stat-conversations-total">0</h3>
-                            <p>Conversations</p>
-                            <span class="stat-sub" id="stat-conversations-today">0 aujourd'hui</span>
+
+                    <div class="stat-card stat-card--conversations">
+                        <div class="stat-card-accent"></div>
+                        <div class="stat-card-body">
+                            <div class="stat-card-icon">
+                                <i class="fas fa-comments"></i>
+                            </div>
+                            <div class="stat-card-data">
+                                <span class="stat-card-label">Conversations</span>
+                                <h3 class="stat-card-value" id="stat-conversations-total">0</h3>
+                                <span class="stat-card-sub" id="stat-conversations-today">0 aujourd'hui</span>
+                            </div>
+                        </div>
+                        <div class="stat-card-footer">
+                            <span class="stat-trend">
+                                <i class="fas fa-clock"></i> en temps réel
+                            </span>
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon sales">&#128184;</div>
-                        <div class="stat-content">
-                            <h3 id="stat-sales-total">0</h3>
-                            <p>Ventes</p>
+
+                    <div class="stat-card stat-card--sales">
+                        <div class="stat-card-accent"></div>
+                        <div class="stat-card-body">
+                            <div class="stat-card-icon">
+                                <i class="fas fa-bag-shopping"></i>
+                            </div>
+                            <div class="stat-card-data">
+                                <span class="stat-card-label">Ventes</span>
+                                <h3 class="stat-card-value" id="stat-sales-total">0</h3>
+                                <span class="stat-card-sub">total plateforme</span>
+                            </div>
+                        </div>
+                        <div class="stat-card-footer">
+                            <span class="stat-trend">
+                                <i class="fas fa-chart-line"></i> cumulé
+                            </span>
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon messages">&#128233;</div>
-                        <div class="stat-content">
-                            <h3 id="stat-messages-total">0</h3>
-                            <p>Messages echanges</p>
+
+                    <div class="stat-card stat-card--messages">
+                        <div class="stat-card-accent"></div>
+                        <div class="stat-card-body">
+                            <div class="stat-card-icon">
+                                <i class="fas fa-paper-plane"></i>
+                            </div>
+                            <div class="stat-card-data">
+                                <span class="stat-card-label">Messages</span>
+                                <h3 class="stat-card-value" id="stat-messages-total">0</h3>
+                                <span class="stat-card-sub">échangés</span>
+                            </div>
+                        </div>
+                        <div class="stat-card-footer">
+                            <span class="stat-trend">
+                                <i class="fas fa-whatsapp fab"></i> via WhatsApp
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Secondary KPI row -->
+                <div class="kpi-row">
+                    <div class="kpi-item">
+                        <i class="fas fa-circle-check kpi-icon kpi-icon--green"></i>
+                        <div class="kpi-data">
+                            <span class="kpi-value" id="kpi-wa-connected">—</span>
+                            <span class="kpi-label">WhatsApp connectés</span>
+                        </div>
+                    </div>
+                    <div class="kpi-divider"></div>
+                    <div class="kpi-item">
+                        <i class="fas fa-circle-xmark kpi-icon kpi-icon--red"></i>
+                        <div class="kpi-data">
+                            <span class="kpi-value" id="kpi-wa-disconnected">—</span>
+                            <span class="kpi-label">WhatsApp déconnectés</span>
+                        </div>
+                    </div>
+                    <div class="kpi-divider"></div>
+                    <div class="kpi-item">
+                        <i class="fas fa-user-plus kpi-icon kpi-icon--amber"></i>
+                        <div class="kpi-data">
+                            <span class="kpi-value" id="kpi-new-merchants">—</span>
+                            <span class="kpi-label">Nouveaux ce mois</span>
+                        </div>
+                    </div>
+                    <div class="kpi-divider"></div>
+                    <div class="kpi-item">
+                        <i class="fas fa-triangle-exclamation kpi-icon kpi-icon--orange"></i>
+                        <div class="kpi-data">
+                            <span class="kpi-value" id="kpi-expiring">—</span>
+                            <span class="kpi-label">Expirent bientôt</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- Subscriptions Overview -->
-                <div class="panel">
-                    <h3>Abonnements par plan</h3>
-                    <div class="subscription-bars" id="subscription-bars">
-                        <!-- Dynamically filled -->
-                    </div>
-                </div>
-
-                <!-- Expiring Soon -->
-                <div class="panel">
-                    <h3>Abonnements expirant bientot</h3>
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Marchand</th>
-                                <th>Plan</th>
-                                <th>Expire le</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="expiring-list">
+                <div class="overview-panels">
+                    <div class="panel panel--sub">
+                        <div class="panel-header">
+                            <h3>Abonnements par plan</h3>
+                            <span class="panel-tag">Répartition</span>
+                        </div>
+                        <div class="subscription-bars" id="subscription-bars">
                             <!-- Dynamically filled -->
-                        </tbody>
-                    </table>
+                        </div>
+                    </div>
+
+                    <!-- Expiring Soon -->
+                    <div class="panel panel--expiring">
+                        <div class="panel-header">
+                            <h3>Expirent bientôt</h3>
+                            <span class="panel-tag panel-tag--warn">À traiter</span>
+                        </div>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Marchand</th>
+                                    <th>Plan</th>
+                                    <th>Expire le</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="expiring-list">
+                                <!-- Dynamically filled -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
 
