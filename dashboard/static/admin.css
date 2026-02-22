@@ -1446,45 +1446,123 @@ body {
     font-weight: 600;
 }
 
+/* ── ACTIVATION INFO BOX ─────────────────────────────── */
 .activation-info-box {
-    background: rgba(66, 153, 225, 0.1);
-    border: 1px solid var(--info);
+    background: linear-gradient(135deg, rgba(245,158,11,0.07) 0%, rgba(245,158,11,0.03) 100%);
+    border: 1px solid rgba(245,158,11,0.25);
+    border-radius: 14px;
+    padding: 1.25rem 1.75rem;
+    margin-bottom: 2rem;
+}
+
+.activation-steps {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.activation-step {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    flex: 1;
+    min-width: 160px;
+    transition: border-color 0.2s;
+}
+
+.activation-step:hover {
+    border-color: rgba(245,158,11,0.3);
+}
+
+.activation-step--action {
+    border-color: rgba(245,158,11,0.35);
+    background: rgba(245,158,11,0.07);
+}
+
+.activation-step-icon {
+    width: 36px;
+    height: 36px;
     border-radius: 8px;
-    padding: 1rem 1.5rem;
-    margin-bottom: 1.5rem;
+    background: rgba(245,158,11,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #f59e0b;
+    font-size: 1rem;
+    flex-shrink: 0;
 }
 
-.activation-info-box p {
-    color: var(--info);
-    margin-bottom: 0.5rem;
+.activation-step--action .activation-step-icon {
+    background: rgba(245,158,11,0.3);
 }
 
-.activation-info-box ol {
-    margin-left: 1.5rem;
+.activation-step-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.activation-step-text strong {
+    color: var(--text-primary);
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-family: 'Outfit', sans-serif;
+}
+
+.activation-step-text span {
     color: var(--text-secondary);
+    font-size: 0.75rem;
 }
 
-.activation-info-box li {
-    margin-bottom: 0.25rem;
+.activation-step-arrow {
+    color: rgba(245,158,11,0.4);
+    font-size: 0.85rem;
+    flex-shrink: 0;
 }
 
+/* ── ACTIVATIONS GRID ─────────────────────────────────── */
 .activations-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 1rem;
+    gap: 1.25rem;
     margin-bottom: 2rem;
 }
 
 .activation-card {
     background: var(--bg-card);
-    border-radius: 12px;
+    border-radius: 14px;
     padding: 1.5rem;
     border: 1px solid var(--border-color);
-    transition: all 0.2s;
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+}
+
+.activation-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #f59e0b, #d97706);
+    opacity: 0;
+    transition: opacity 0.25s;
 }
 
 .activation-card:hover {
-    border-color: var(--primary);
+    border-color: rgba(245,158,11,0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+
+.activation-card:hover::before {
+    opacity: 1;
 }
 
 .activation-card-header {
@@ -1495,91 +1573,134 @@ body {
 }
 
 .activation-card-header h3 {
-    font-size: 1.1rem;
+    font-size: 1rem;
     color: var(--text-primary);
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
 }
 
 .activation-card-header .phone {
     color: var(--text-secondary);
-    font-size: 0.9rem;
-    margin-top: 0.25rem;
+    font-size: 0.85rem;
+    margin-top: 0.2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
 }
 
 .activation-card-header .whatsapp-status {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    font-size: 0.8rem;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 20px;
+    font-weight: 600;
 }
 
 .activation-card-header .whatsapp-status.connected {
-    color: var(--success);
+    color: #48bb78;
+    background: rgba(72,187,120,0.12);
+    border: 1px solid rgba(72,187,120,0.25);
 }
 
 .activation-card-header .whatsapp-status.disconnected {
-    color: var(--danger);
+    color: #fc8181;
+    background: rgba(252,129,129,0.12);
+    border: 1px solid rgba(252,129,129,0.25);
 }
 
 .activation-card-body {
-    margin-bottom: 1rem;
+    margin-bottom: 1.25rem;
 }
 
 .activation-card-body .created-at {
     color: var(--text-muted);
-    font-size: 0.85rem;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
 }
 
 .activation-card-body .pending-code {
-    margin-top: 0.5rem;
-    padding: 0.5rem;
-    background: rgba(237, 137, 54, 0.1);
-    border-radius: 6px;
-    color: var(--warning);
-    font-size: 0.85rem;
+    margin-top: 0.75rem;
+    padding: 0.6rem 0.9rem;
+    background: rgba(245,158,11,0.1);
+    border: 1px solid rgba(245,158,11,0.2);
+    border-radius: 8px;
+    color: #f59e0b;
+    font-size: 0.82rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.5px;
 }
 
 .activation-card-footer {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.75rem;
 }
 
 .btn-send-code {
     flex: 1;
-    background: var(--success);
-    color: white;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #0f1117;
     border: none;
-    padding: 0.75rem 1rem;
-    border-radius: 8px;
-    font-weight: 600;
+    padding: 0.8rem 1rem;
+    border-radius: 9px;
+    font-weight: 700;
+    font-family: 'Outfit', sans-serif;
     cursor: pointer;
     transition: all 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
+    font-size: 0.9rem;
+    letter-spacing: 0.02em;
 }
 
 .btn-send-code:hover {
-    background: #38a169;
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
     transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(245,158,11,0.4);
 }
 
 .btn-send-code:disabled {
-    background: var(--secondary);
+    background: rgba(255,255,255,0.08);
+    color: var(--text-muted);
     cursor: not-allowed;
     transform: none;
+    box-shadow: none;
 }
 
+/* ── SECTION DIVIDER ─────────────────────────────────── */
 .section-divider {
     height: 1px;
-    background: var(--border-color);
-    margin: 2rem 0;
+    background: linear-gradient(90deg, transparent, var(--border-color), transparent);
+    margin: 2.5rem 0;
 }
 
+/* ── EMPTY STATE ─────────────────────────────────────── */
 .empty-state {
     text-align: center;
-    padding: 3rem;
+    padding: 4rem 2rem;
     color: var(--text-secondary);
+}
+
+.empty-state-icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: rgba(72,187,120,0.1);
+    border: 1px solid rgba(72,187,120,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.25rem;
+    font-size: 2rem;
+    color: #48bb78;
 }
 
 .empty-state .icon {
@@ -1591,6 +1712,39 @@ body {
 .empty-state h3 {
     margin-bottom: 0.5rem;
     color: var(--text-primary);
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.1rem;
+}
+
+/* ── BTN REFRESH ─────────────────────────────────────── */
+.btn-refresh {
+    background: rgba(245,158,11,0.12);
+    color: #f59e0b;
+    border: 1px solid rgba(245,158,11,0.3);
+    padding: 0.6rem 1.2rem;
+    border-radius: 9px;
+    font-weight: 600;
+    font-family: 'Outfit', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.btn-refresh:hover {
+    background: rgba(245,158,11,0.2);
+    border-color: rgba(245,158,11,0.5);
+}
+
+.btn-refresh:hover i {
+    animation: spin 0.5s linear;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 .badge-status {
