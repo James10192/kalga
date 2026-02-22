@@ -985,37 +985,44 @@ async function sendActivationCode(merchantId, btn, waConnected) {
 async function loadActivationHistory() {
     try {
         const data = await apiGet('/api/admin/activation-history?limit=20');
-        const tbody = document.getElementById('activation-history-list');
+        const container = document.getElementById('activation-history-list');
 
         if (data.history.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Aucun historique</td></tr>';
+            container.innerHTML = '<div class="hist-empty"><i class="fas fa-inbox"></i><p>Aucun historique d\'activation</p></div>';
             return;
         }
 
-        tbody.innerHTML = data.history.map(h => `
-            <tr>
-                <td>
-                    <div class="history-date">
-                        <i class="fas fa-calendar-alt"></i>
-                        <span>${formatDateTime(h.created_at)}</span>
+        container.innerHTML = data.history.map((h, i) => {
+            const statusIcon = h.status === 'used' ? 'fa-circle-check' : h.status === 'expired' ? 'fa-circle-xmark' : 'fa-clock';
+            const adminInitial = (h.admin_email || 'S').charAt(0).toUpperCase();
+            const dt = formatDateTime(h.created_at);
+            const [datePart, timePart] = dt.includes(' ') ? dt.split(' ') : [dt, ''];
+            return `
+            <div class="hist-entry ${h.status}" style="animation-delay:${i * 0.06}s">
+                <div class="hist-timeline">
+                    <div class="hist-ts">
+                        <span class="hist-ts-date">${datePart}</span>
+                        <span class="hist-ts-time">${timePart}</span>
                     </div>
-                </td>
-                <td>
-                    <div class="history-merchant">
-                        <span class="history-merchant-name">${h.merchant_name || 'N/A'}</span>
-                        <span class="history-merchant-phone"><i class="fas fa-phone-alt"></i> ${formatPhone(h.merchant_phone)}</span>
+                    <div class="hist-dot ${h.status}"></div>
+                </div>
+                <div class="hist-body">
+                    <div class="hist-body-top">
+                        <span class="hist-name">${h.merchant_name || 'N/A'}</span>
+                        <span class="hist-badge ${h.status}"><i class="fas ${statusIcon}"></i>${getStatusLabel(h.status)}</span>
                     </div>
-                </td>
-                <td><span class="history-code"><i class="fas fa-key"></i>${h.code}</span></td>
-                <td><span class="badge-status ${h.status}"><i class="fas ${h.status === 'used' ? 'fa-circle-check' : h.status === 'expired' ? 'fa-circle-xmark' : 'fa-clock'}"></i> ${getStatusLabel(h.status)}</span></td>
-                <td>
-                    <div class="history-admin">
-                        <i class="fas fa-user-shield"></i>
-                        <span>${h.admin_email || 'Système'}</span>
+                    <div class="hist-body-bottom">
+                        <span class="hist-code">${h.code}</span>
+                        <span class="hist-phone"><i class="fas fa-phone-alt"></i>${formatPhone(h.merchant_phone)}</span>
+                        <span class="hist-sep">·</span>
+                        <span class="hist-admin-chip">
+                            <span class="hist-admin-init">${adminInitial}</span>
+                            <span class="hist-admin-label">${h.admin_email || 'Système'}</span>
+                        </span>
                     </div>
-                </td>
-            </tr>
-        `).join('');
+                </div>
+            </div>`;
+        }).join('');
 
     } catch (error) {
         console.error('Erreur chargement historique:', error);

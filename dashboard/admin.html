@@ -376,27 +376,18 @@
 
                 <div class="section-divider"></div>
 
-                <header class="section-header">
-                    <div class="section-header-left">
-                        <h2><i class="fas fa-history"></i> Historique des activations</h2>
+                <div class="hist-header">
+                    <div class="hist-header-left">
+                        <div class="hist-header-icon"><i class="fas fa-clock-rotate-left"></i></div>
+                        <div>
+                            <h3 class="hist-header-title">Historique des activations</h3>
+                            <p class="hist-header-sub">Codes générés · envoyés · consommés</p>
+                        </div>
                     </div>
-                </header>
+                </div>
 
-                <div class="panel">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th><i class="fas fa-calendar-alt"></i> Date</th>
-                                <th><i class="fas fa-store"></i> Marchand</th>
-                                <th><i class="fas fa-key"></i> Code</th>
-                                <th><i class="fas fa-circle"></i> Statut</th>
-                                <th><i class="fas fa-user-shield"></i> Admin</th>
-                            </tr>
-                        </thead>
-                        <tbody id="activation-history-list">
-                            <!-- Dynamically filled -->
-                        </tbody>
-                    </table>
+                <div class="hist-list" id="activation-history-list">
+                    <!-- Dynamically filled -->
                 </div>
             </section>
 
