@@ -31,7 +31,28 @@ document.addEventListener('DOMContentLoaded', () => {
     initFilterTabs();
     initNotificationSound();
     checkSavedSession();
+    loadMerchantsCount();
 });
+
+async function loadMerchantsCount() {
+    const el = document.getElementById('stat-merchants');
+    if (!el) return;
+    try {
+        const res = await fetch(`${CONFIG.KALGA_API}/api/merchants/?limit=1`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const count = data.total ?? 0;
+        if (count === 0) {
+            el.textContent = '0';
+        } else if (count >= 1000) {
+            el.textContent = Math.floor(count / 1000) + 'k+';
+        } else {
+            el.textContent = count + '+';
+        }
+    } catch {
+        el.textContent = '—';
+    }
+}
 
 
 // Initialiser le son de notification
