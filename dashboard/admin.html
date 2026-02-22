@@ -398,37 +398,47 @@
             <!-- Merchants Section -->
             <section id="section-merchants" class="section">
                 <header class="section-header">
-                    <h2>Gestion des Marchands</h2>
+                    <div class="section-header-left">
+                        <h2><i class="fas fa-store"></i> Gestion des Marchands</h2>
+                        <p class="section-subtitle">Liste, détails, activation et abonnements</p>
+                    </div>
                     <div class="header-actions">
-                        <select id="merchant-filter" onchange="loadMerchants()">
-                            <option value="">Tous</option>
-                            <option value="active">Actifs</option>
-                            <option value="inactive">Inactifs</option>
-                            <option value="trial">En trial</option>
-                            <option value="expired">Expires</option>
-                        </select>
-                        <button onclick="loadMerchants()" class="btn btn-secondary">
-                            Actualiser
+                        <div class="search-bar">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="merchant-search" placeholder="Rechercher..." oninput="loadMerchants()">
+                        </div>
+                        <div class="filter-tabs" id="merchant-filter-tabs">
+                            <button class="filter-tab active" data-value="" onclick="setMerchantFilter(this, '')">Tous</button>
+                            <button class="filter-tab" data-value="active" onclick="setMerchantFilter(this, 'active')">Actifs</button>
+                            <button class="filter-tab" data-value="inactive" onclick="setMerchantFilter(this, 'inactive')">Inactifs</button>
+                            <button class="filter-tab" data-value="trial" onclick="setMerchantFilter(this, 'trial')">Trial</button>
+                            <button class="filter-tab" data-value="expired" onclick="setMerchantFilter(this, 'expired')">Expirés</button>
+                        </div>
+                        <select id="merchant-filter" onchange="loadMerchants()" style="display:none"></select>
+                        <button onclick="loadMerchants()" class="btn-refresh">
+                            <i class="fas fa-sync-alt"></i> Actualiser
                         </button>
                     </div>
                 </header>
 
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Marchand</th>
-                            <th>Telephone</th>
-                            <th>WhatsApp</th>
-                            <th>Plan</th>
-                            <th>Messages</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="merchants-list">
-                        <!-- Dynamically filled -->
-                    </tbody>
-                </table>
+                <div class="panel">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th><i class="fas fa-store"></i> Marchand</th>
+                                <th><i class="fas fa-phone"></i> Téléphone</th>
+                                <th><i class="fab fa-whatsapp"></i> WhatsApp</th>
+                                <th><i class="fas fa-tag"></i> Plan</th>
+                                <th><i class="fas fa-comment-dots"></i> Messages</th>
+                                <th><i class="fas fa-circle"></i> Statut</th>
+                                <th><i class="fas fa-ellipsis-h"></i> Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="merchants-list">
+                            <!-- Dynamically filled -->
+                        </tbody>
+                    </table>
+                </div>
 
                 <div class="pagination" id="merchants-pagination">
                     <!-- Dynamically filled -->
@@ -506,8 +516,14 @@
     <div id="merchant-modal" class="modal">
         <div class="modal-content modal-large">
             <div class="modal-header">
-                <h3 id="modal-merchant-name">Details Marchand</h3>
-                <button onclick="closeModal('merchant-modal')" class="modal-close">&times;</button>
+                <div class="modal-header-left">
+                    <div class="modal-icon"><i class="fas fa-store"></i></div>
+                    <div>
+                        <h3 id="modal-merchant-name">Détails Marchand</h3>
+                        <span class="modal-subtitle">Fiche complète du marchand</span>
+                    </div>
+                </div>
+                <button onclick="closeModal('merchant-modal')" class="modal-close"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-body" id="merchant-detail-content">
                 <!-- Dynamically filled -->
@@ -519,13 +535,19 @@
     <div id="subscription-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Modifier l'abonnement</h3>
-                <button onclick="closeModal('subscription-modal')" class="modal-close">&times;</button>
+                <div class="modal-header-left">
+                    <div class="modal-icon modal-icon--amber"><i class="fas fa-tag"></i></div>
+                    <div>
+                        <h3>Modifier l'abonnement</h3>
+                        <span class="modal-subtitle">Plan, durée et limites</span>
+                    </div>
+                </div>
+                <button onclick="closeModal('subscription-modal')" class="modal-close"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="sub-merchant-id">
                 <div class="form-group">
-                    <label for="sub-plan">Plan</label>
+                    <label for="sub-plan"><i class="fas fa-tag"></i> Plan</label>
                     <select id="sub-plan">
                         <option value="trial">Trial</option>
                         <option value="starter">Starter</option>
@@ -533,20 +555,22 @@
                         <option value="enterprise">Enterprise</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label for="sub-duration">Duree (mois)</label>
-                    <input type="number" id="sub-duration" value="1" min="1" max="12">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="sub-duration"><i class="fas fa-calendar-alt"></i> Durée (mois)</label>
+                        <input type="number" id="sub-duration" value="1" min="1" max="12">
+                    </div>
+                    <div class="form-group">
+                        <label for="sub-messages"><i class="fas fa-comment-dots"></i> Limite messages</label>
+                        <input type="number" id="sub-messages" value="5000" min="100">
+                    </div>
                 </div>
                 <div class="form-group">
-                    <label for="sub-messages">Limite messages</label>
-                    <input type="number" id="sub-messages" value="5000" min="100">
-                </div>
-                <div class="form-group">
-                    <label for="sub-products">Limite produits</label>
+                    <label for="sub-products"><i class="fas fa-box"></i> Limite produits</label>
                     <input type="number" id="sub-products" value="100" min="5">
                 </div>
-                <button onclick="saveSubscription()" class="btn btn-primary btn-full">
-                    Enregistrer
+                <button onclick="saveSubscription()" class="btn-save-sub">
+                    <i class="fas fa-check"></i> Enregistrer
                 </button>
             </div>
         </div>
