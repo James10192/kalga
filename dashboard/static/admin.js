@@ -872,46 +872,40 @@ async function loadPendingActivations() {
 
         emptyState.style.display = 'none';
 
-        container.innerHTML = data.merchants.map(m => {
+        container.innerHTML = data.merchants.map((m, i) => {
             const name = m.business_name || m.name || 'Nouveau marchand';
-            const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+            const initials = name.split(' ').filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'M';
             const isConnected = m.whatsapp_connected;
             const hasCode = !!m.pending_code;
             return `
-            <div class="activation-card ${isConnected ? 'ac--connected' : 'ac--disconnected'}" data-merchant-id="${m.id}">
-                <div class="ac-top-bar"></div>
-                <div class="ac-header">
-                    <div class="ac-avatar">${initials}</div>
-                    <div class="ac-identity">
-                        <h3 class="ac-name">${name}</h3>
-                        <div class="ac-phone">
-                            <i class="fas fa-phone-alt"></i>
-                            <span>${formatPhone(m.phone)}</span>
-                        </div>
-                    </div>
+            <div class="activation-card ${isConnected ? 'ac--connected' : 'ac--disconnected'}" data-merchant-id="${m.id}" style="animation-delay:${i*0.07}s">
+                <div class="ac-left">
+                    <div class="ac-avatar ${isConnected ? 'ac-avatar--on' : 'ac-avatar--off'}">${initials}</div>
                     <div class="ac-wa-badge ${isConnected ? 'ac-wa-badge--on' : 'ac-wa-badge--off'}">
                         <i class="fab fa-whatsapp"></i>
                         <span>${isConnected ? 'Connecté' : 'Déconnecté'}</span>
                     </div>
                 </div>
-                <div class="ac-divider"></div>
-                <div class="ac-meta">
-                    <div class="ac-meta-row">
-                        <i class="fas fa-calendar-plus"></i>
-                        <span>Inscrit le <strong>${formatDateTime(m.created_at)}</strong></span>
+                <div class="ac-right">
+                    <div class="ac-top-row">
+                        <div class="ac-identity">
+                            <h3 class="ac-name">${name}</h3>
+                            <div class="ac-phone"><i class="fas fa-phone-alt"></i><span>${formatPhone(m.phone)}</span></div>
+                        </div>
+                        <div class="ac-registered">
+                            <i class="fas fa-calendar-plus"></i>
+                            <span>${formatDateTime(m.created_at)}</span>
+                        </div>
                     </div>
                     ${hasCode ? `
                     <div class="ac-code-block">
-                        <div class="ac-code-label">
-                            <i class="fas fa-key"></i>
-                            <span>Code envoyé</span>
+                        <span class="ac-code-eyebrow"><i class="fas fa-key"></i>Code d'activation envoyé</span>
+                        <div class="ac-code-row">
+                            <span class="ac-code-value">${m.pending_code}</span>
+                            ${m.pending_code_sent_at ? `<span class="ac-code-time"><i class="fas fa-clock"></i>${formatDateTime(m.pending_code_sent_at)}</span>` : ''}
                         </div>
-                        <div class="ac-code-value">${m.pending_code}</div>
-                        ${m.pending_code_sent_at ? `<div class="ac-code-time"><i class="fas fa-clock"></i> ${formatDateTime(m.pending_code_sent_at)}</div>` : ''}
                     </div>
-                    ` : ''}
-                </div>
-                <div class="ac-footer">
+                    ` : '<div class="ac-no-code"><i class="fas fa-hourglass-half"></i> En attente d\'envoi</div>'}
                     <button class="btn-send-code" onclick="sendActivationCode(${m.id}, this, ${isConnected ? 'true' : 'false'})">
                         <i class="fas fa-paper-plane"></i>
                         <span>${hasCode ? 'Renvoyer le code' : 'Envoyer le code'}</span>
