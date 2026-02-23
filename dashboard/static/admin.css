@@ -1616,206 +1616,232 @@ body {
 }
 
 /* ── ACTIVATION CARD ─────────────────────────────────── */
+/* ── Activation card — horizontal layout ── */
+@keyframes ac-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
 .activation-card {
-    background: rgba(255,255,255,0.03);
+    background: var(--bg-card);
     border-radius: 16px;
-    border: 1px solid rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-left: 3px solid transparent;
     position: relative;
     overflow: hidden;
-    transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    gap: 0;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+    animation: ac-in 0.3s cubic-bezier(0.16,1,0.3,1) both;
 }
 
 .activation-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+    box-shadow: 0 8px 28px rgba(0,0,0,0.3);
+    transform: translateY(-2px);
 }
 
-.activation-card.ac--connected { border-color: rgba(72,187,120,0.2); }
-.activation-card.ac--connected:hover { border-color: rgba(72,187,120,0.45); }
-.activation-card.ac--disconnected { border-color: rgba(252,129,129,0.15); }
-.activation-card.ac--disconnected:hover { border-color: rgba(252,129,129,0.35); }
+.activation-card.ac--connected {
+    border-left-color: #34d399;
+    background: linear-gradient(135deg, rgba(52,211,153,0.03) 0%, transparent 40%);
+}
+.activation-card.ac--connected:hover { border-color: rgba(52,211,153,0.3); border-left-color: #34d399; }
 
-/* ── Top accent bar ── */
-.ac-top-bar {
-    height: 3px;
-    width: 100%;
-    flex-shrink: 0;
+.activation-card.ac--disconnected {
+    border-left-color: #f59e0b;
+    background: linear-gradient(135deg, rgba(245,158,11,0.03) 0%, transparent 40%);
 }
-.ac--connected .ac-top-bar {
-    background: linear-gradient(90deg, #48bb78, #38a169);
-}
-.ac--disconnected .ac-top-bar {
-    background: linear-gradient(90deg, #f59e0b, #d97706);
-}
+.activation-card.ac--disconnected:hover { border-color: rgba(245,158,11,0.25); border-left-color: #f59e0b; }
 
-/* ── Header ── */
-.ac-header {
+/* ── Left column: avatar + wa badge ── */
+.ac-left {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 0.875rem;
-    padding: 1.25rem 1.25rem 0;
+    justify-content: center;
+    gap: 0.65rem;
+    padding: 1.25rem 1rem 1.25rem 1.25rem;
+    flex-shrink: 0;
+    width: 88px;
+    border-right: 1px solid rgba(255,255,255,0.05);
 }
 
 .ac-avatar {
-    flex-shrink: 0;
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    background: linear-gradient(135deg, rgba(102,126,234,0.25), rgba(102,126,234,0.1));
-    border: 1px solid rgba(102,126,234,0.3);
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-family: 'Outfit', sans-serif;
-    font-weight: 700;
-    font-size: 0.85rem;
-    color: #a5b4fc;
-    letter-spacing: 0.05em;
+    font-weight: 800;
+    font-size: 1rem;
+    letter-spacing: 0.03em;
+    flex-shrink: 0;
 }
 
-.ac-identity {
+.ac-avatar--on {
+    background: linear-gradient(135deg, rgba(52,211,153,0.2), rgba(52,211,153,0.06));
+    border: 1px solid rgba(52,211,153,0.3);
+    color: #34d399;
+}
+
+.ac-avatar--off {
+    background: linear-gradient(135deg, rgba(245,158,11,0.2), rgba(245,158,11,0.06));
+    border: 1px solid rgba(245,158,11,0.3);
+    color: #f59e0b;
+}
+
+/* WhatsApp badge — compact version in left col */
+.ac-wa-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.ac-wa-badge i { font-size: 1rem; }
+
+.ac-wa-badge--on  { color: #34d399; }
+.ac-wa-badge--off { color: #f59e0b; }
+
+/* ── Right column: all content ── */
+.ac-right {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    padding: 1.1rem 1.25rem;
     min-width: 0;
 }
 
+/* Top row: identity + date */
+.ac-top-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.ac-identity { flex: 1; min-width: 0; }
+
 .ac-name {
     font-family: 'Outfit', sans-serif;
-    font-size: 0.95rem;
-    font-weight: 600;
+    font-size: 1rem;
+    font-weight: 700;
     color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    margin-bottom: 0.2rem;
 }
 
 .ac-phone {
     display: flex;
     align-items: center;
     gap: 0.35rem;
-    margin-top: 0.2rem;
     color: var(--text-muted);
-    font-size: 0.8rem;
+    font-size: 0.78rem;
 }
-.ac-phone i { font-size: 0.7rem; color: var(--text-muted); }
+.ac-phone i { font-size: 0.65rem; opacity: 0.6; }
 
-/* ── WhatsApp badge ── */
-.ac-wa-badge {
-    flex-shrink: 0;
+.ac-registered {
     display: flex;
     align-items: center;
     gap: 0.35rem;
-    padding: 0.3rem 0.65rem;
-    border-radius: 20px;
     font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.01em;
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
 }
-.ac-wa-badge i { font-size: 0.85rem; }
+.ac-registered i { font-size: 0.65rem; opacity: 0.5; }
 
-.ac-wa-badge--on {
-    color: #48bb78;
-    background: rgba(72,187,120,0.12);
-    border: 1px solid rgba(72,187,120,0.25);
-}
-.ac-wa-badge--off {
-    color: #fc8181;
-    background: rgba(252,129,129,0.1);
-    border: 1px solid rgba(252,129,129,0.2);
-}
-
-/* ── Divider ── */
-.ac-divider {
-    height: 1px;
-    background: rgba(255,255,255,0.06);
-    margin: 1rem 1.25rem 0;
-}
-
-/* ── Meta info ── */
-.ac-meta {
-    padding: 0.875rem 1.25rem;
-    flex: 1;
+/* ── Code block ── */
+.ac-code-block {
+    background: rgba(245,158,11,0.06);
+    border: 1px solid rgba(245,158,11,0.18);
+    border-radius: 10px;
+    padding: 0.65rem 0.9rem;
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
+    gap: 0.35rem;
 }
 
-.ac-meta-row {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.8rem;
-    color: var(--text-muted);
-}
-.ac-meta-row i { font-size: 0.72rem; width: 14px; text-align: center; }
-.ac-meta-row strong { color: var(--text-secondary); font-weight: 500; }
-
-/* ── Pending code block ── */
-.ac-code-block {
-    margin-top: 0.25rem;
-    background: rgba(245,158,11,0.07);
-    border: 1px solid rgba(245,158,11,0.2);
-    border-radius: 10px;
-    padding: 0.75rem 1rem;
-}
-
-.ac-code-label {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-size: 0.72rem;
+.ac-code-eyebrow {
+    font-size: 0.65rem;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: rgba(245,158,11,0.7);
-    font-weight: 600;
-    margin-bottom: 0.4rem;
+    letter-spacing: 0.08em;
+    color: rgba(245,158,11,0.6);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
 }
-.ac-code-label i { font-size: 0.7rem; }
+.ac-code-eyebrow i { font-size: 0.6rem; }
+
+.ac-code-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
 
 .ac-code-value {
     font-family: 'Courier New', monospace;
-    font-size: 1.15rem;
-    font-weight: 700;
+    font-size: 1.2rem;
+    font-weight: 800;
     color: #f59e0b;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.2em;
+    text-shadow: 0 0 16px rgba(245,158,11,0.35);
 }
 
 .ac-code-time {
-    margin-top: 0.35rem;
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     color: var(--text-muted);
     display: flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: 0.3rem;
+    white-space: nowrap;
 }
-.ac-code-time i { font-size: 0.65rem; }
+.ac-code-time i { font-size: 0.6rem; opacity: 0.5; }
 
-/* ── Footer / CTA ── */
-.ac-footer {
-    padding: 0 1.25rem 1.25rem;
+/* ── No code state ── */
+.ac-no-code {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    opacity: 0.6;
 }
 
+/* ── CTA button ── */
 .btn-send-code {
-    width: 100%;
     background: linear-gradient(135deg, #f59e0b, #d97706);
     color: #0f1117;
     border: none;
-    padding: 0.75rem 1rem;
-    border-radius: 10px;
+    padding: 0.65rem 1rem;
+    border-radius: 9px;
     font-weight: 700;
     font-family: 'Outfit', sans-serif;
     cursor: pointer;
-    transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s;
+    transition: background 0.18s, transform 0.15s, box-shadow 0.18s, opacity 0.18s;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    font-size: 0.88rem;
+    font-size: 0.85rem;
     letter-spacing: 0.02em;
+    align-self: flex-start;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
 }
 
-.btn-send-code i { font-size: 0.85rem; }
+.btn-send-code i { font-size: 0.82rem; }
 
 .btn-send-code:hover:not(:disabled) {
     background: linear-gradient(135deg, #fbbf24, #f59e0b);
@@ -1830,15 +1856,14 @@ body {
     box-shadow: none;
 }
 
-/* Button state variants */
 .btn-send-code.btn--loading {
     background: rgba(255,255,255,0.08);
     color: var(--text-secondary);
 }
 .btn-send-code.btn--success {
-    background: linear-gradient(135deg, #48bb78, #38a169);
+    background: linear-gradient(135deg, #34d399, #059669);
     color: #fff;
-    box-shadow: 0 4px 14px rgba(72,187,120,0.35);
+    box-shadow: 0 4px 14px rgba(52,211,153,0.35);
 }
 .btn-send-code.btn--warning {
     background: linear-gradient(135deg, #ed8936, #c05621);
