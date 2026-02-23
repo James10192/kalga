@@ -32,7 +32,7 @@ from .deepseek_client import DeepSeekClient, get_deepseek_client
 from .fallback_responses import FallbackResponses
 
 # Moteur de conversation principal
-from .conversation_ai import generate_response
+from .conversation_ai import generate_response, analyze_conversation_health
 
 # Nouveau moteur avancé
 from .conversation_engine import (
@@ -76,6 +76,7 @@ __all__ = [
 
     # === Main API ===
     "generate_response",
+    "analyze_conversation_health",
 
     # === Conversation Engine v2.0 ===
     "ConversationEngine",

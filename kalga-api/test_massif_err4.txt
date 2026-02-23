@@ -1,0 +1,65 @@
+
+[A] PREMIER CONTACT
+
+[B] FORMATS DE PRIX
+
+[C] LOCALISATION
+
+[D] ACCEPTATION
+
+[E] ANTI-ACCEPTATION (faux positifs)
+
+[F] FRUSTRATION / COLÈRE
+
+[G] HORAIRES
+
+[H] NOUCHI ÉTENDU
+
+[I] PIÈGES SUBSTRING
+
+[J] NÉGOCIATION COMPLÈTE
+
+[K] ÉTATS PENDING
+
+[L] TRANSITIONS FSM
+
+[M] MESSAGES EXTRÊMES
+
+[N] PRODUITS VARIÉS
+
+[O] SÉQUENCES MULTI-ÉTAPES
+
+======================================================================
+TEST MASSIF v1.0 — RAPPORT FINAL
+======================================================================
+Total: 1042 | OK: 1032 | FAIL: 10 | CRASH: 0
+Score: 1032/1042 = 99.0%
+
+PAR SECTION:
+  [OK  ] A (Premier contact): 81/81
+  [OK  ] B (Formats de prix): 85/85
+  [OK  ] C (Localisation): 75/75
+  [OK  ] D (Acceptation): 85/85
+  [OK  ] E (Anti-acceptation): 81/81
+  [FAIL] F (Frustration/Colère): 64/65
+  [OK  ] G (Horaires): 45/45
+  [OK  ] H (Nouchi étendu): 75/75
+  [FAIL] I (Pièges substring): 78/80
+  [OK  ] J (Négociation complète): 80/80
+  [OK  ] K (États pending): 55/55
+  [FAIL] L (Transitions FSM): 66/70
+  [OK  ] M (Messages extrêmes): 60/60
+  [FAIL] N (Produits variés): 53/55
+  [FAIL] O (Séquences multi-étapes): 49/50
+
+FAILLES DÉTECTÉES (10):
+  ✗ [F] Frustration forte "j'achète pas ça" → pas deal: deal_accepted=True ≠ False
+  ✗ [I] Piège OK 'ok ok ok' → pas deal: deal_accepted=True ≠ False
+  ✗ [I] Piège VENIR/PASSER 'je passe commande?' → pas deal: deal_accepted=True ≠ False
+  ✗ [L] Deal trigger après négo '14000 F ok' → deal ou état deal: deal_accepted=False ≠ True
+  ✗ [L] Deal trigger après négo 'ok 14000' → deal ou état deal: deal_accepted=False ≠ True
+  ✗ [L] Deal trigger après négo 'deal 14000' → deal ou état deal: deal_accepted=False ≠ True
+  ✗ [L] Deal trigger après négo "c'est bon 14000" → deal ou état deal: deal_accepted=False ≠ True
+  ✗ [N] Savon '2100 F?' → pas deal: deal_accepted=True ≠ False
+  ✗ [N] Moto '400000': deal_accepted=True ≠ False
+  ✗ [O] Flux8: abandon "c'est bon j'ai trouvé ailleurs" → pas deal, pas crash: deal_accepted=True ≠ False

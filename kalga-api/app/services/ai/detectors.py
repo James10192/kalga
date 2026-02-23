@@ -334,6 +334,29 @@ def is_product_related_message(message: str, product_name: str) -> bool:
     return True
 
 
+def detect_other_products_request(message: str) -> bool:
+    """
+    Détecte si le client demande à voir d'autres PRODUITS du marchand
+    (pas des variantes du même produit, mais de nouveaux articles).
+    """
+    msg = message.lower()
+
+    explicit = [
+        'quoi d\'autre', 'quoi d autre', 'tu as quoi', 'vous avez quoi',
+        'tu vends quoi', 'vous vendez quoi', 'c\'est quoi d\'autre',
+        'tu as autre chose', 'vous avez autre chose',
+        'autres articles', 'autres produits', 'autres choses',
+        'd\'autres articles', 'd\'autres produits',
+        'votre catalogue', 'ton catalogue', 'ta boutique vend',
+        'qu\'est ce que tu as', 'qu\'est ce que vous avez',
+        'qu est ce que tu as', 'qu est ce que vous avez',
+        'tu as quoi d\'autre', 'vous avez quoi d\'autre',
+        'tu as autre chose à vendre', 'tu vends quoi d\'autre',
+        'liste de produits', 'tous vos produits', 'tous tes produits',
+    ]
+    return any(p in msg for p in explicit)
+
+
 def count_low_offers(conversation_history: List[Dict], min_price: float) -> int:
     """Compte le nombre d'offres en dessous du prix minimum"""
     count = 0

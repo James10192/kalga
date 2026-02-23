@@ -3,8 +3,13 @@ Routes de chat pour KALGA
 Gère les conversations entre clients et marchands via WhatsApp
 """
 from fastapi import APIRouter, HTTPException, Query, Request, Depends
+from pydantic import BaseModel
+from typing import Optional, List
 
 from ..database import get_db
+from ..database.connection import get_connection
+from ..database.repositories.knowledge_repo import KnowledgeBaseRepository
+from ..database.repositories.merchant_repo import MerchantRepository
 from ..models.schemas import IncomingMessage, BotResponse
 from ..services.chat_service import ChatService, get_chat_service
 from ..rate_limiter import limiter
@@ -128,3 +133,272 @@ async def cleanup_old_conversations():
         "message": "Conversations expirées nettoyées",
         "cleaned": count
     }
+
+
+# =============================================================================
+# ENDPOINTS BASE DE CONNAISSANCES
+# =============================================================================
+
+class KnowledgeEntryCreate(BaseModel):
+    merchant_phone: str
+    question: str        # Question du client
+    answer: str          # Réponse donnée par le marchand
+    source: str = "human_reply"
+
+
+@router.post("/knowledge")
+async def add_knowledge_entry(entry: KnowledgeEntryCreate):
+    """
+    Ajoute une entrée dans la base de connaissances du marchand.
+
+    Appelé par le Dashboard quand le marchand répond manuellement
+    à un client. La réponse est mémorisée pour enrichir les futures
+    réponses automatiques sur des questions similaires.
+    """
+    merchant_repo = MerchantRepository()
+    merchant = await merchant_repo.get_by_phone(entry.merchant_phone)
+    if not merchant:
+        raise HTTPException(status_code=404, detail="Marchand non trouvé")
+
+    kb_repo = KnowledgeBaseRepository()
+    entry_id = await kb_repo.save_entry(
+        merchant_id=merchant['id'],
+        question=entry.question,
+        answer=entry.answer,
+        source=entry.source
+    )
+
+    logger.info(
+        f"KB: entrée #{entry_id} ajoutée pour marchand {entry.merchant_phone} "
+        f"— Q: {entry.question[:50]}"
+    )
+
+    return {
+        "success": True,
+        "entry_id": entry_id,
+        "message": "Réponse enregistrée dans la base de connaissances"
+    }
+
+
+@router.get("/knowledge/{merchant_phone}/insights")
+async def get_knowledge_insights(merchant_phone: str):
+    """
+    Statistiques de la boucle d'apprentissage pour le Dashboard marchand.
+
+    Retourne:
+    - Répartition des entrées KB par source (default_faq, auto_learned_deal, feedback_correction…)
+    - Top 5 entrées KB les plus utilisées
+    - Questions auto-flaggées (sans réponse bot adéquate), groupées par fréquence
+    - Compteurs agrégés (auto_learned_deals, feedback_corrections, gap_count)
+    """
+    merchant_repo = MerchantRepository()
+    merchant = await merchant_repo.get_by_phone(merchant_phone)
+    if not merchant:
+        raise HTTPException(status_code=404, detail="Marchand non trouvé")
+
+    kb_repo = KnowledgeBaseRepository()
+    insights = await kb_repo.get_insights(merchant['id'])
+    return {"merchant_phone": merchant_phone, **insights}
+
+
+@router.get("/knowledge/{merchant_phone}")
+async def get_knowledge_entries(
+    merchant_phone: str,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0)
+):
+    """
+    Récupère la base de connaissances d'un marchand (pour affichage Dashboard).
+    Triée par usage décroissant — les réponses les plus utilisées en premier.
+    """
+    merchant_repo = MerchantRepository()
+    merchant = await merchant_repo.get_by_phone(merchant_phone)
+    if not merchant:
+        raise HTTPException(status_code=404, detail="Marchand non trouvé")
+
+    kb_repo = KnowledgeBaseRepository()
+    entries = await kb_repo.get_all(
+        merchant_id=merchant['id'],
+        limit=limit,
+        offset=offset
+    )
+
+    return {
+        "merchant_phone": merchant_phone,
+        "entries": entries,
+        "count": len(entries)
+    }
+
+
+@router.delete("/knowledge/{entry_id}")
+async def delete_knowledge_entry(entry_id: int, merchant_phone: str = Query(...)):
+    """Supprime une entrée de la base de connaissances"""
+    merchant_repo = MerchantRepository()
+    merchant = await merchant_repo.get_by_phone(merchant_phone)
+    if not merchant:
+        raise HTTPException(status_code=404, detail="Marchand non trouvé")
+
+    kb_repo = KnowledgeBaseRepository()
+    deleted = await kb_repo.delete_entry(entry_id=entry_id, merchant_id=merchant['id'])
+
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Entrée non trouvée ou accès refusé")
+
+    return {"success": True, "message": "Entrée supprimée"}
+
+
+# =============================================================================
+# BULK FAQ IMPORT
+# =============================================================================
+
+class BulkKnowledgeEntry(BaseModel):
+    question: str
+    answer: str
+
+
+class BulkKnowledgeImport(BaseModel):
+    merchant_phone: str
+    entries: List[BulkKnowledgeEntry]
+
+
+@router.post("/knowledge/bulk")
+async def bulk_import_knowledge(bulk: BulkKnowledgeImport):
+    """
+    Importe une liste de paires Q/R dans la base de connaissances du marchand.
+
+    Permet aux marchands d'alimenter leur KB en une seule requête
+    (ex: importer leur FAQ existante, leurs réponses types, etc.)
+    """
+    merchant_repo = MerchantRepository()
+    merchant = await merchant_repo.get_by_phone(bulk.merchant_phone)
+    if not merchant:
+        raise HTTPException(status_code=404, detail="Marchand non trouvé")
+
+    if not bulk.entries:
+        raise HTTPException(status_code=400, detail="Aucune entrée à importer")
+
+    if len(bulk.entries) > 100:
+        raise HTTPException(status_code=400, detail="Maximum 100 entrées par import")
+
+    kb_repo = KnowledgeBaseRepository()
+    created_ids = []
+    errors = []
+
+    for i, entry in enumerate(bulk.entries):
+        if not entry.question.strip() or not entry.answer.strip():
+            errors.append(f"Entrée #{i+1}: question ou réponse vide ignorée")
+            continue
+        try:
+            entry_id = await kb_repo.save_entry(
+                merchant_id=merchant['id'],
+                question=entry.question.strip(),
+                answer=entry.answer.strip(),
+                source="bulk_import"
+            )
+            created_ids.append(entry_id)
+        except Exception as e:
+            errors.append(f"Entrée #{i+1}: erreur ({str(e)[:50]})")
+
+    logger.info(
+        f"KB bulk import: {len(created_ids)} entrées créées pour {bulk.merchant_phone}"
+    )
+
+    return {
+        "success": True,
+        "created": len(created_ids),
+        "errors": len(errors),
+        "error_details": errors if errors else None,
+        "message": f"{len(created_ids)} entrées importées dans la base de connaissances"
+    }
+
+
+# =============================================================================
+# BOUCLE D'APPRENTISSAGE TERRAIN — Feedback marchand
+# =============================================================================
+
+class ConversationFeedback(BaseModel):
+    merchant_phone: str
+    client_phone: str
+    client_message: str
+    bot_response: str
+    feedback_type: str = "bad_response"   # "bad_response" | "good_response"
+    notes: Optional[str] = None
+    corrected_answer: Optional[str] = None  # Bonne réponse (auto-sauvée en KB si fournie)
+
+
+@router.post("/conversations/{conv_id}/feedback")
+async def add_conversation_feedback(conv_id: int, feedback: ConversationFeedback):
+    """
+    Enregistre un feedback du marchand sur une réponse du bot.
+
+    Workflow:
+    1. Le marchand voit une mauvaise réponse dans le Dashboard
+    2. Il clique "Mauvaise réponse" et saisit la bonne réponse
+    3. Le feedback est enregistré + la bonne réponse est sauvée en KB automatiquement
+
+    Si corrected_answer fournie → la paire (client_message → corrected_answer)
+    est automatiquement sauvegardée dans la base de connaissances du marchand.
+    """
+    if feedback.feedback_type not in ("bad_response", "good_response"):
+        raise HTTPException(
+            status_code=400,
+            detail="feedback_type doit être 'bad_response' ou 'good_response'"
+        )
+
+    merchant_repo = MerchantRepository()
+    merchant = await merchant_repo.get_by_phone(feedback.merchant_phone)
+    if not merchant:
+        raise HTTPException(status_code=404, detail="Marchand non trouvé")
+
+    merchant_id = merchant['id']
+    kb_entry_id = None
+
+    # Auto-sauvegarde en KB si corrected_answer fourni pour une bad_response
+    if feedback.feedback_type == "bad_response" and feedback.corrected_answer:
+        corrected = feedback.corrected_answer.strip()
+        if corrected:
+            kb_repo = KnowledgeBaseRepository()
+            kb_entry_id = await kb_repo.save_entry(
+                merchant_id=merchant_id,
+                question=feedback.client_message,
+                answer=corrected,
+                source="feedback_correction"
+            )
+            logger.info(
+                f"Feedback→KB: entrée #{kb_entry_id} créée "
+                f"pour marchand {feedback.merchant_phone}"
+            )
+
+    # Enregistrer le feedback dans la table dédiée
+    async with get_connection() as db:
+        cursor = await db.execute(
+            """
+            INSERT INTO conversation_feedback
+            (conversation_id, merchant_id, client_phone, client_message,
+             bot_response, feedback_type, notes, kb_entry_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                conv_id,
+                merchant_id,
+                feedback.client_phone,
+                feedback.client_message,
+                feedback.bot_response,
+                feedback.feedback_type,
+                feedback.notes,
+                kb_entry_id
+            )
+        )
+        await db.commit()
+        feedback_id = cursor.lastrowid
+
+    result = {
+        "success": True,
+        "feedback_id": feedback_id,
+        "message": "Feedback enregistré"
+    }
+    if kb_entry_id:
+        result["kb_entry_id"] = kb_entry_id
+        result["message"] += " et réponse corrigée ajoutée à la base de connaissances"
+
+    return result

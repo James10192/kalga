@@ -1,0 +1,56 @@
+FSM: No transition from PRICE_PRESENTED with event FIRST_MESSAGE
+
+[A] PREMIER CONTACT
+
+[B] FORMATS DE PRIX
+
+[C] LOCALISATION
+
+[D] ACCEPTATION
+
+[E] ANTI-ACCEPTATION (faux positifs)
+
+[F] FRUSTRATION / COLÈRE
+
+[G] HORAIRES
+
+[H] NOUCHI ÉTENDU
+
+[I] PIÈGES SUBSTRING
+
+[J] NÉGOCIATION COMPLÈTE
+
+[K] ÉTATS PENDING
+
+[L] TRANSITIONS FSM
+
+[M] MESSAGES EXTRÊMES
+
+[N] PRODUITS VARIÉS
+
+[O] SÉQUENCES MULTI-ÉTAPES
+
+======================================================================
+TEST MASSIF v1.0 — RAPPORT FINAL
+======================================================================
+Total: 1042 | OK: 1042 | FAIL: 0 | CRASH: 0
+Score: 1042/1042 = 100.0%
+
+PAR SECTION:
+  [OK  ] A (Premier contact): 81/81
+  [OK  ] B (Formats de prix): 85/85
+  [OK  ] C (Localisation): 75/75
+  [OK  ] D (Acceptation): 85/85
+  [OK  ] E (Anti-acceptation): 81/81
+  [OK  ] F (Frustration/Colère): 65/65
+  [OK  ] G (Horaires): 45/45
+  [OK  ] H (Nouchi étendu): 75/75
+  [OK  ] I (Pièges substring): 80/80
+  [OK  ] J (Négociation complète): 80/80
+  [OK  ] K (États pending): 55/55
+  [OK  ] L (Transitions FSM): 70/70
+  [OK  ] M (Messages extrêmes): 60/60
+  [OK  ] N (Produits variés): 55/55
+  [OK  ] O (Séquences multi-étapes): 50/50
+
+AUCUNE FAILLE DÉTECTÉE — Bot robuste sur 1000+ scénarios!

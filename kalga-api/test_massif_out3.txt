@@ -1,0 +1,106 @@
+
+[A] PREMIER CONTACT
+
+[B] FORMATS DE PRIX
+
+[C] LOCALISATION
+
+[D] ACCEPTATION
+
+[E] ANTI-ACCEPTATION (faux positifs)
+
+[F] FRUSTRATION / COLÈRE
+
+[G] HORAIRES
+
+[H] NOUCHI ÉTENDU
+
+[I] PIÈGES SUBSTRING
+
+[J] NÉGOCIATION COMPLÈTE
+
+[K] ÉTATS PENDING
+
+[L] TRANSITIONS FSM
+
+[M] MESSAGES EXTRÊMES
+
+[N] PRODUITS VARIÉS
+
+[O] SÉQUENCES MULTI-ÉTAPES
+
+======================================================================
+TEST MASSIF v1.0 — RAPPORT FINAL
+======================================================================
+Total: 1042 | OK: 986 | FAIL: 56 | CRASH: 0
+Score: 986/1042 = 94.6%
+
+PAR SECTION:
+  [OK  ] A (Premier contact): 81/81
+  [OK  ] B (Formats de prix): 85/85
+  [FAIL] C (Localisation): 72/75
+  [OK  ] D (Acceptation): 85/85
+  [OK  ] E (Anti-acceptation): 81/81
+  [OK  ] F (Frustration/Colère): 65/65
+  [FAIL] G (Horaires): 40/45
+  [FAIL] H (Nouchi étendu): 73/75
+  [FAIL] I (Pièges substring): 55/80
+  [FAIL] J (Négociation complète): 75/80
+  [OK  ] K (États pending): 55/55
+  [FAIL] L (Transitions FSM): 69/70
+  [OK  ] M (Messages extrêmes): 60/60
+  [FAIL] N (Produits variés): 47/55
+  [FAIL] O (Séquences multi-étapes): 43/50
+
+FAILLES DÉTECTÉES (56):
+  ✗ [C] Localisation attendue: 'où se trouve la boutique?': send_location=False ≠ True
+  ✗ [C] Localisation nouchi: 'vous faites ça à quel endroit?': send_location=False ≠ True
+  ✗ [C] Localisation nouchi: 'je peux venir quand?': send_location=False ≠ True
+  ✗ [G] Question horaires "c'est ouvert maintenant?" → pas deal, pas location: send_location=True ≠ False
+  ✗ [G] Question horaires 'vous êtes ouverts?' → pas deal, pas location: send_location=True ≠ False
+  ✗ [G] Question horaires "jusqu'à quelle heure vous êtes ouverts?" → pas deal, pas location: send_location=True ≠ False
+  ✗ [G] Question horaires "c'est ouvert le weekend?" → pas deal, pas location: send_location=True ≠ False
+  ✗ [G] Question horaires 'vous êtes ouverts le lundi?' → pas deal, pas location: send_location=True ≠ False
+  ✗ [H] Acceptation nouchi avancée 'je viens avec les sous' → deal: deal_accepted=False ≠ True
+  ✗ [H] Acceptation nouchi avancée 'je viens avec la monnaie' → deal: deal_accepted=False ≠ True
+  ✗ [I] Piège OK 'ok je vais réfléchir' → pas deal: deal_accepted=True ≠ False
+  ✗ [I] Piège OK 'ok ok ok' → pas deal: deal_accepted=True ≠ False
+  ✗ [I] Piège OK 'ok je reviens' → pas deal: deal_accepted=True ≠ False
+  ✗ [I] Piège OK 'ok à demain' → pas deal: deal_accepted=True ≠ False
+  ✗ [I] Piège OK 'ok plus tard' → pas deal: deal_accepted=True ≠ False
+  ✗ [I] Piège OK 'ok bonne journée' → pas deal: deal_accepted=True ≠ False
+  ✗ [I] Piège OK 'ok on verra' → pas deal: deal_accepted=True ≠ False
+  ✗ [I] Piège OK "ok j'attends" → pas deal: deal_accepted=True ≠ False
+  ✗ [I] Piège DEAL 'no deal' → pas deal: deal_accepted=True ≠ False
+  ✗ [I] Piège DEAL "c'est quoi ce deal?" → pas deal: deal_accepted=True ≠ False
+  ✗ [I] Piège DEAL "c'est quoi le deal?" → pas deal: deal_accepted=True ≠ False
+  ✗ [I] Piège DEAL 'deal deal deal (non)' → pas deal: deal_accepted=True ≠ False
+  ✗ [I] Piège DEAL "c'est quoi votre meilleur deal?" → pas deal: deal_accepted=True ≠ False
+  ✗ [I] Piège DEAL 'possible un deal?' → pas deal: deal_accepted=True ≠ False
+  ✗ [I] Piège ADRESSE "c'est quoi votre adresse mail?" → pas location: send_location=True ≠ False
+  ✗ [I] Piège ADRESSE "vous avez un site? l'adresse?" → pas location: send_location=True ≠ False
+  ✗ [I] Piège ADRESSE "c'est quoi votre adresse commerciale?" → pas location: send_location=True ≠ False
+  ✗ [I] Piège ADRESSE "je vais noter l'adresse" → pas location: send_location=True ≠ False
+  ✗ [I] Piège ADRESSE "l'adresse c'est pour après" → pas location: send_location=True ≠ False
+  ✗ [I] Piège ADRESSE "pas l'adresse maintenant" → pas location: send_location=True ≠ False
+  ✗ [I] Piège ADRESSE "l'adresse ça m'intéresse pas" → pas location: send_location=True ≠ False
+  ✗ [I] Piège ADRESSE 'votre adresse de facturation?' → pas location: send_location=True ≠ False
+  ✗ [I] Piège ADRESSE "l'adresse du fabricant?" → pas location: send_location=True ≠ False
+  ✗ [I] Piège ADRESSE "c'est l'adresse sur la boite?" → pas location: send_location=True ≠ False
+  ✗ [I] Piège VENIR/PASSER 'je vais passer commande' → pas deal: deal_accepted=True ≠ False
+  ✗ [J] Pression sociale 'allez fais un geste' → pas de deal sous le min: deal_accepted=True ≠ False
+  ✗ [J] Comparaison concurrence 'votre concurrent vend à 28000' → pas deal immédiat: deal_accepted=True ≠ False
+  ✗ [J] Comparaison concurrence "j'ai une offre à 26000" → pas deal immédiat: deal_accepted=True ≠ False
+  ✗ [J] Comparaison concurrence 'on me propose 25000' → pas deal immédiat: deal_accepted=True ≠ False
+  ✗ [J] Comparaison concurrence 'votre voisin vend à 25000' → pas deal immédiat: deal_accepted=True ≠ False
+  ✗ [L] Deal trigger après négo "c'est fait" → deal ou état deal: deal_accepted=False ≠ True
+  ✗ [N] iPhone '750000 F' → pas deal: deal_accepted=True ≠ False
+  ✗ [N] Savon '2000 F' → pas deal: deal_accepted=True ≠ False
+  ✗ [N] Savon 'je prends 5 paquets' → pas deal: deal_accepted=True ≠ False
+  ✗ [N] Savon 'ok deal 2000' → pas deal: deal_accepted=True ≠ False
+  ✗ [N] Savon '2100 F?' → pas deal: deal_accepted=True ≠ False
+  ✗ [N] Moto '380000': deal_accepted=True ≠ False
+  ✗ [N] Moto '400000': deal_accepted=True ≠ False
+  ✗ [N] Moto "380000 c'est bon?": deal_accepted=True ≠ False
+  ✗ [O] Flux7: décision finale "j'ai pris ma décision" → deal: deal_accepted=False ≠ True
+  ... et 6 autres. Voir détails ci-dessus.

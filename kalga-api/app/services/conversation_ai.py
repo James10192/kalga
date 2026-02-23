@@ -7,6 +7,7 @@ Pour le nouveau code, importez directement depuis app.services.ai
 """
 from .ai import (
     generate_response,
+    analyze_conversation_health,
     extract_product_code,
     extract_price_offer,
     detect_delivery_request,
@@ -21,6 +22,7 @@ from .ai import (
 
 __all__ = [
     "generate_response",
+    "analyze_conversation_health",
     "extract_product_code",
     "extract_price_offer",
     "detect_delivery_request",

@@ -8,10 +8,12 @@ from typing import Optional, List, Dict, Any, Tuple
 from ..database.repositories import MerchantRepository, ProductRepository, ConversationRepository
 from ..database.repositories.stats_repo import get_stats_repository
 from ..database.repositories.client_history_repo import get_client_history_repository
+from ..database.repositories.knowledge_repo import KnowledgeBaseRepository
 from ..models.schemas import IncomingMessage, BotResponse
 from .notification_service import NotificationService
 from .followup_service import get_followup_service
-from .conversation_ai import generate_response, extract_product_code, detect_variant_request, detect_photo_request
+from .conversation_ai import generate_response, extract_product_code, detect_variant_request, detect_photo_request, analyze_conversation_health
+from .ai.detectors import detect_other_products_request
 
 logger = logging.getLogger("kalga.chat")
 
@@ -153,7 +155,8 @@ class ChatService:
             conversation_history=history,
             current_offer=conversation.get('current_offer'),
             conversation_status=current_status,
-            negotiation_context=negotiation_context
+            negotiation_context=negotiation_context,
+            merchant_data=merchant
         )
 
         logger.info(f"Réponse IA: {bot_response[:50] if bot_response else 'NONE'}... | Status: {new_status} | Location: {send_location}")
@@ -179,6 +182,18 @@ class ChatService:
             content=bot_response,
             is_from_client=False
         )
+
+        # 6.5 Boucle d'apprentissage — auto-flag des questions sans réponse
+        if not is_first_message:
+            await self._auto_flag_unanswered(
+                conversation_id=conversation['id'],
+                merchant_id=merchant['id'],
+                client_phone=message.client_phone,
+                client_message=message.message,
+                bot_response=bot_response,
+                history=history,
+                product=product
+            )
 
         # 7. Gérer les notifications au marchand
         should_notify, notification = await self._handle_notifications(
@@ -238,6 +253,13 @@ class ChatService:
                 )
             except Exception as e:
                 logger.warning(f"Erreur envoi lien vitrine: {e}")
+
+            # Boucle d'apprentissage — auto-sauvegarder l'échange final en KB
+            await self._auto_learn_from_deal(
+                merchant_id=merchant['id'],
+                client_message=message.message,
+                bot_response=bot_response
+            )
 
         # 8. Gérer les relances automatiques
         await self._handle_follow_ups(
@@ -335,10 +357,38 @@ class ChatService:
         Retourne une BotResponse si traité, None sinon.
 
         IMPORTANT: L'ordre de vérification est crucial!
-        1. Variantes EN PREMIER (car "autre photo" = demande de variante, pas de photo du même produit)
+        0. Demande d'autres produits (catalogue) EN PREMIER
+        1. Variantes (car "autre photo" = demande de variante, pas de photo du même produit)
         2. Photos du produit principal ensuite
         """
         history = await self.conversations.get_messages(conversation['id'])
+
+        # === 0. AUTRES PRODUITS DU MARCHAND (catalogue multi-produits) ===
+        if detect_other_products_request(message.message):
+            merchant_obj = await self.merchants.get_by_phone(message.merchant_phone)
+            if merchant_obj:
+                all_products = await self.products.get_by_merchant(merchant_obj['id'])
+                # Exclure le produit en cours de conversation
+                other_products = [p for p in all_products if p['id'] != product['id']]
+
+                if other_products:
+                    # Lister les autres produits disponibles
+                    product_lines = []
+                    for p in other_products[:5]:  # Max 5 produits pour ne pas surcharger
+                        price_str = f"{p['price']:,.0f}".replace(",", " ")
+                        product_lines.append(f"• {p['name']} — {price_str} F ({p['code']})")
+
+                    products_text = "\n".join(product_lines)
+                    bot_message = f"Oui, on a aussi d'autres articles:\n\n{products_text}\n\nLequel t'intéresse?"
+                else:
+                    bot_message = f"Pour l'instant c'est surtout le {product['name']} qu'on a en stock. Si tu veux je te le réserve?"
+
+                await self.conversations.add_message(conversation['id'], bot_message, False)
+                return BotResponse(
+                    message=bot_message,
+                    conversation_id=conversation['id'],
+                    should_notify_merchant=False
+                )
 
         # === 1. VARIANTES EN PREMIER ===
         # Doit être vérifié AVANT les photos car "autre photo" = demande de variante
@@ -389,7 +439,16 @@ class ChatService:
                 for msg in history if not msg.get('is_from_client')
             )
 
-            if photo_sent:
+            # Détecter si le client dit avoir supprimé/effacé la photo → renvoyer quand même
+            msg_lower = message.message.lower()
+            client_deleted_photo = any(p in msg_lower for p in [
+                'supprim', 'effac', 'delete', 'par erreur', 'accidentell',
+                'j ai supprime', 'j ai efface', 'j ai delete',
+                "j'ai supprime", "j'ai efface", "perdu la photo",
+                'la photo est partie', 'photo partie', 'plus la photo',
+            ])
+
+            if photo_sent and not client_deleted_photo:
                 bot_message = "Je t'ai déjà envoyé la photo plus haut! Tu peux la regarder. Tu veux autre chose?"
                 await self.conversations.add_message(conversation['id'], bot_message, False)
                 return BotResponse(
@@ -399,7 +458,11 @@ class ChatService:
                 )
 
             if product.get('image_path'):
-                bot_message = f"Voici le {product['name']}!"
+                # Si le client a supprimé la photo par erreur, adapter le message
+                if client_deleted_photo:
+                    bot_message = f"Pas de problème, je te renvoie!"
+                else:
+                    bot_message = f"Voici le {product['name']}!"
                 await self.conversations.add_message(conversation['id'], bot_message, False)
                 return BotResponse(
                     message=bot_message,
@@ -610,6 +673,81 @@ class ChatService:
             logger.info(f"Achat enregistré pour {client_phone}: {final_price} F")
         except Exception as e:
             logger.warning(f"Erreur enregistrement achat: {e}")
+
+    async def _auto_learn_from_deal(
+        self,
+        merchant_id: int,
+        client_message: str,
+        bot_response: str
+    ) -> None:
+        """
+        Boucle d'apprentissage — Sauvegarde automatiquement en KB l'échange final
+        qui a mené à un accord (deal closé). Non bloquant.
+
+        Chaque vente réussie enrichit la KB avec le message client déclencheur
+        et la réponse bot qui a confirmé le deal (source='auto_learned_deal').
+        """
+        try:
+            kb_repo = KnowledgeBaseRepository()
+            await kb_repo.save_entry(
+                merchant_id=merchant_id,
+                question=client_message,
+                answer=bot_response,
+                source="auto_learned_deal"
+            )
+            logger.info(f"Auto-apprentissage: deal closé → KB enrichie (merchant {merchant_id})")
+        except Exception as e:
+            logger.debug(f"Auto-learn deal (non bloquant): {e}")
+
+    async def _auto_flag_unanswered(
+        self,
+        conversation_id: int,
+        merchant_id: int,
+        client_phone: str,
+        client_message: str,
+        bot_response: str,
+        history: List[Dict],
+        product: Dict
+    ) -> None:
+        """
+        Boucle d'apprentissage — Détecte et flag automatiquement les questions
+        que le bot n'a pas traitées correctement. Non bloquant.
+
+        Crée une entrée 'auto_flagged' dans conversation_feedback si la santé
+        conversationnelle détecte unanswered_question=True.
+        Anti-spam : une seule entrée auto_flagged par conversation.
+        """
+        try:
+            health = analyze_conversation_health(history, client_message, product)
+            if not health['unanswered_question']:
+                return
+
+            from ..database.connection import get_connection
+            async with get_connection() as db:
+                # Anti-spam : une seule entrée par conversation
+                cur = await db.execute(
+                    """SELECT COUNT(*) as cnt FROM conversation_feedback
+                       WHERE merchant_id = ? AND conversation_id = ?
+                         AND feedback_type = 'auto_flagged'""",
+                    (merchant_id, conversation_id)
+                )
+                row = await cur.fetchone()
+                if row['cnt'] > 0:
+                    return
+
+                await db.execute(
+                    """INSERT INTO conversation_feedback
+                       (conversation_id, merchant_id, client_phone, client_message,
+                        bot_response, feedback_type, notes, kb_entry_id)
+                       VALUES (?, ?, ?, ?, ?, 'auto_flagged',
+                               'Auto-détecté: question sans réponse adéquate', NULL)""",
+                    (conversation_id, merchant_id, client_phone,
+                     client_message, bot_response)
+                )
+                await db.commit()
+            logger.debug(f"Auto-flag: question sans réponse enregistrée (merchant {merchant_id})")
+        except Exception as e:
+            logger.debug(f"Auto-flag (non bloquant): {e}")
 
     async def get_conversations(
         self,

@@ -84,6 +84,20 @@ async def init_database():
         except:
             pass
 
+        # Migration: persona du bot (ton, style, phrase signature)
+        try:
+            await db.execute("ALTER TABLE merchants ADD COLUMN bot_tone TEXT DEFAULT 'casual'")
+        except:
+            pass
+        try:
+            await db.execute("ALTER TABLE merchants ADD COLUMN bot_style TEXT DEFAULT 'flexible'")
+        except:
+            pass
+        try:
+            await db.execute("ALTER TABLE merchants ADD COLUMN bot_catchphrase TEXT")
+        except:
+            pass
+
         # Table des produits
         await db.execute("""
             CREATE TABLE IF NOT EXISTS products (
@@ -343,6 +357,39 @@ async def init_database():
         except:
             pass
 
+        # Table de base de connaissances dynamique (réponses marchands)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS knowledge_base (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                merchant_id INTEGER NOT NULL,
+                question TEXT NOT NULL,
+                answer TEXT NOT NULL,
+                keywords TEXT,
+                source TEXT DEFAULT 'human_reply',
+                usage_count INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (merchant_id) REFERENCES merchants(id)
+            )
+        """)
+
+        # Table des feedbacks de conversation (boucle d'apprentissage terrain)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS conversation_feedback (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                conversation_id INTEGER NOT NULL,
+                merchant_id INTEGER NOT NULL,
+                client_phone TEXT NOT NULL,
+                client_message TEXT NOT NULL,
+                bot_response TEXT NOT NULL,
+                feedback_type TEXT DEFAULT 'bad_response',
+                notes TEXT,
+                kb_entry_id INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (conversation_id) REFERENCES conversations(id),
+                FOREIGN KEY (merchant_id) REFERENCES merchants(id)
+            )
+        """)
+
         # Index pour les performances
         await db.execute("CREATE INDEX IF NOT EXISTS idx_merchants_phone ON merchants(phone)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_products_merchant ON products(merchant_id)")
@@ -376,6 +423,10 @@ async def init_database():
         await db.execute("CREATE INDEX IF NOT EXISTS idx_activation_codes_status ON activation_codes(status)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_storefront_orders_merchant ON storefront_orders(merchant_id)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_storefront_orders_status ON storefront_orders(status)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_knowledge_base_merchant ON knowledge_base(merchant_id)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_knowledge_base_created ON knowledge_base(merchant_id, created_at)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_feedback_merchant ON conversation_feedback(merchant_id)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_feedback_conversation ON conversation_feedback(conversation_id)")
 
         await db.commit()
         print("[DB] Base de données initialisée avec succès")

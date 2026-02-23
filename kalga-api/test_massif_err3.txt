@@ -1,0 +1,1 @@
+FSM: No transition from PRICE_PRESENTED with event FIRST_MESSAGE

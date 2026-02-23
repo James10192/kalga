@@ -1,0 +1,106 @@
+
+[A] PREMIER CONTACT
+
+[B] FORMATS DE PRIX
+
+[C] LOCALISATION
+
+[D] ACCEPTATION
+
+[E] ANTI-ACCEPTATION (faux positifs)
+
+[F] FRUSTRATION / COLÈRE
+
+[G] HORAIRES
+
+[H] NOUCHI ÉTENDU
+
+[I] PIÈGES SUBSTRING
+
+[J] NÉGOCIATION COMPLÈTE
+
+[K] ÉTATS PENDING
+
+[L] TRANSITIONS FSM
+
+[M] MESSAGES EXTRÊMES
+
+[N] PRODUITS VARIÉS
+
+[O] SÉQUENCES MULTI-ÉTAPES
+
+======================================================================
+TEST MASSIF v1.0 — RAPPORT FINAL
+======================================================================
+Total: 1042 | OK: 946 | FAIL: 96 | CRASH: 0
+Score: 946/1042 = 90.8%
+
+PAR SECTION:
+  [OK  ] A (Premier contact): 81/81
+  [OK  ] B (Formats de prix): 85/85
+  [FAIL] C (Localisation): 66/75
+  [FAIL] D (Acceptation): 73/85
+  [FAIL] E (Anti-acceptation): 73/81
+  [FAIL] F (Frustration/Colère): 63/65
+  [FAIL] G (Horaires): 37/45
+  [FAIL] H (Nouchi étendu): 67/75
+  [FAIL] I (Pièges substring): 52/80
+  [FAIL] J (Négociation complète): 76/80
+  [OK  ] K (États pending): 55/55
+  [FAIL] L (Transitions FSM): 68/70
+  [OK  ] M (Messages extrêmes): 60/60
+  [FAIL] N (Produits variés): 47/55
+  [FAIL] O (Séquences multi-étapes): 43/50
+
+FAILLES DÉTECTÉES (96):
+  ✗ [C] Localisation attendue: 'comment je viens?': send_location=False ≠ True
+  ✗ [C] Localisation attendue: 'je veux passer': send_location=False ≠ True
+  ✗ [C] Localisation attendue: 'je veux venir': send_location=False ≠ True
+  ✗ [C] Localisation attendue: 'je passerai vous voir': send_location=False ≠ True
+  ✗ [C] Localisation attendue: 'adresse svp': send_location=False ≠ True
+  ✗ [C] Localisation nouchi: 'vous faites ça à quel endroit?': send_location=False ≠ True
+  ✗ [C] Localisation nouchi: 'je veux passer prendre': send_location=False ≠ True
+  ✗ [C] Localisation nouchi: 'je passerai demain': send_location=False ≠ True
+  ✗ [C] Localisation nouchi: 'je viens demain': send_location=False ≠ True
+  ✗ [D] Acceptation standard "c'est pris" → deal: deal_accepted=False ≠ True
+  ✗ [D] Acceptation nouchi 'solder ça' → deal: deal_accepted=False ≠ True
+  ✗ [D] Acceptation après négo 'va pour ça' → deal: deal_accepted=False ≠ True
+  ✗ [D] Acceptation après négo 'ça ira' → deal: deal_accepted=False ≠ True
+  ✗ [D] Acceptation après négo 'on y va' → deal: deal_accepted=False ≠ True
+  ✗ [D] Acceptation après négo 'allez' → deal: deal_accepted=False ≠ True
+  ✗ [D] Acceptation après négo 'ça roule' → deal: deal_accepted=False ≠ True
+  ✗ [D] Acceptation après négo "c'est validé" → deal: deal_accepted=False ≠ True
+  ✗ [D] Acceptation anglaise "let's do it" → deal: deal_accepted=False ≠ True
+  ✗ [D] Acceptation anglaise "I'll take it" → deal: deal_accepted=False ≠ True
+  ✗ [D] Acceptation anglaise 'sold' → deal: deal_accepted=False ≠ True
+  ✗ [D] Acceptation anglaise 'confirmed' → deal: deal_accepted=False ≠ True
+  ✗ [E] OK conditionnel "ok mais d'abord montrez la photo" → pas deal: deal_accepted=True ≠ False
+  ✗ [E] OK conditionnel "d'accord mais d'abord la photo" → pas deal: deal_accepted=True ≠ False
+  ✗ [E] OK conditionnel "c'est bon mais faut voir d'abord" → pas deal: deal_accepted=True ≠ False
+  ✗ [E] OK conditionnel "ça marche mais je veux voir d'abord" → pas deal: deal_accepted=True ≠ False
+  ✗ [E] OK conditionnel 'ok maistttttt' → pas deal: deal_accepted=True ≠ False
+  ✗ [E] OK conditionnel 'ok, mais on revient là-dessus' → pas deal: deal_accepted=True ≠ False
+  ✗ [E] Compliment 'top produit' → pas deal: deal_accepted=True ≠ False
+  ✗ [E] Compliment 'parfait comme produit' → pas deal: deal_accepted=True ≠ False
+  ✗ [F] Menace départ "c'est bon j'abandonne" → pas deal: deal_accepted=True ≠ False
+  ✗ [F] Menace départ 'je veux plus ça' → pas deal: deal_accepted=True ≠ False
+  ✗ [G] Question horaires "c'est ouvert maintenant?" → pas deal, pas location: send_location=True ≠ False
+  ✗ [G] Question horaires 'vous êtes ouverts?' → pas deal, pas location: send_location=True ≠ False
+  ✗ [G] Question horaires "jusqu'à quelle heure vous êtes ouverts?" → pas deal, pas location: send_location=True ≠ False
+  ✗ [G] Question horaires "c'est ouvert le weekend?" → pas deal, pas location: send_location=True ≠ False
+  ✗ [G] Question horaires 'vous êtes ouverts le lundi?' → pas deal, pas location: send_location=True ≠ False
+  ✗ [G] Question horaires 'la boutique ouvre quand?' → pas deal, pas location: send_location=True ≠ False
+  ✗ [G] FAUX horaires 'quand je peux venir?' → pas terminal: deal_accepted=True ≠ False
+  ✗ [G] FAUX horaires "je peux venir dans l'après-midi?" → pas terminal: deal_accepted=True ≠ False
+  ✗ [H] Acceptation nouchi avancée 'réglé' → deal: deal_accepted=False ≠ True
+  ✗ [H] Acceptation nouchi avancée "c'est pour moi" → deal: deal_accepted=False ≠ True
+  ✗ [H] Acceptation nouchi avancée 'je ramène les sous' → deal: deal_accepted=False ≠ True
+  ✗ [H] Acceptation nouchi avancée 'je viens avec les sous' → deal: deal_accepted=False ≠ True
+  ✗ [H] Acceptation nouchi avancée 'je viens avec la monnaie' → deal: deal_accepted=False ≠ True
+  ✗ [H] Localisation nouchi 'tu fais ton business où?' → location: send_location=False ≠ True
+  ✗ [H] Localisation nouchi 'tu es au marché?' → location: send_location=False ≠ True
+  ✗ [H] Refus nouchi "c'est bon là bye" → pas deal: deal_accepted=True ≠ False
+  ✗ [I] Piège OK 'ok je vois' → pas deal: deal_accepted=True ≠ False
+  ✗ [I] Piège OK 'ok merci' → pas deal: deal_accepted=True ≠ False
+  ✗ [I] Piège OK 'ok je vais réfléchir' → pas deal: deal_accepted=True ≠ False
+  ... et 46 autres. Voir détails ci-dessus.

@@ -11,6 +11,7 @@ from .subscription_repo import SubscriptionRepository, get_subscription_reposito
 from .client_history_repo import ClientHistoryRepository, get_client_history_repository
 from .activation_repo import ActivationRepository, get_activation_repository
 from .storefront_order_repo import StorefrontOrderRepository, get_storefront_order_repository
+from .knowledge_repo import KnowledgeBaseRepository, extract_keywords
 
 __all__ = [
     "MerchantRepository",
@@ -30,4 +31,6 @@ __all__ = [
     "get_activation_repository",
     "StorefrontOrderRepository",
     "get_storefront_order_repository",
+    "KnowledgeBaseRepository",
+    "extract_keywords",
 ]

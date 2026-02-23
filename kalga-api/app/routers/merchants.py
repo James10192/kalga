@@ -36,6 +36,13 @@ class PhoneUpdate(BaseModel):
     """Correction du numéro de téléphone après détection du vrai numéro WhatsApp"""
     phone: str
 
+
+class PersonaUpdate(BaseModel):
+    """Personnalité du bot marchand"""
+    bot_tone: Optional[str] = None        # casual | formal | friendly | professional
+    bot_style: Optional[str] = None       # flexible | firm | playful
+    bot_catchphrase: Optional[str] = None  # Phrase signature du marchand
+
 # Constantes de pagination
 DEFAULT_PAGE_SIZE = 20
 MAX_PAGE_SIZE = 100
@@ -214,6 +221,63 @@ async def update_merchant(merchant_id: int, update: MerchantUpdate):
     return {
         "success": True,
         "message": "Marchand mis à jour"
+    }
+
+
+@router.post("/{merchant_id}/seed-kb")
+async def seed_merchant_kb(merchant_id: int):
+    """
+    Initialise la base de connaissances du marchand avec des FAQ types si elle est vide.
+
+    Idempotent : sans effet si la KB contient déjà des entrées.
+    Appelé à l'onboarding ou manuellement depuis le Dashboard.
+    """
+    from ..database.repositories.knowledge_repo import KnowledgeBaseRepository
+    kb_repo = KnowledgeBaseRepository()
+    created = await kb_repo.seed_defaults(merchant_id)
+    if created == 0:
+        return {
+            "success": True,
+            "created": 0,
+            "message": "Base de connaissances déjà alimentée — aucune entrée ajoutée"
+        }
+    return {
+        "success": True,
+        "created": created,
+        "message": f"{created} entrées FAQ par défaut ajoutées à la base de connaissances"
+    }
+
+
+@router.put("/{merchant_id}/persona")
+async def update_merchant_persona(merchant_id: int, persona: PersonaUpdate):
+    """
+    Configure la personnalité du bot pour ce marchand.
+
+    - **bot_tone**: casual | formal | friendly | professional
+    - **bot_style**: flexible | firm | playful
+    - **bot_catchphrase**: phrase signature injectée dans les réponses (ex: "On est là pour toi!")
+    """
+    db = await get_db()
+
+    update_data = {k: v for k, v in persona.dict().items() if v is not None}
+    if not update_data:
+        raise HTTPException(status_code=400, detail="Aucune donnée à mettre à jour")
+
+    valid_tones = {'casual', 'formal', 'friendly', 'professional'}
+    valid_styles = {'flexible', 'firm', 'playful'}
+    if 'bot_tone' in update_data and update_data['bot_tone'] not in valid_tones:
+        raise HTTPException(status_code=400, detail=f"bot_tone invalide. Valeurs: {valid_tones}")
+    if 'bot_style' in update_data and update_data['bot_style'] not in valid_styles:
+        raise HTTPException(status_code=400, detail=f"bot_style invalide. Valeurs: {valid_styles}")
+
+    success = await db.update_merchant(merchant_id, **update_data)
+    if not success:
+        raise HTTPException(status_code=404, detail="Marchand non trouvé")
+
+    return {
+        "success": True,
+        "message": "Personnalité du bot mise à jour",
+        "persona": update_data
     }
 
 
