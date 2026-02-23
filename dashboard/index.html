@@ -165,20 +165,56 @@
 
                 <div id="qr-container" class="qr-container" style="display: none;">
                     <div class="qr-header">
-                        <div class="qr-step-badge">Étape 2 / 2</div>
+                        <div class="qr-step-badge">
+                            <i class="fas fa-qrcode"></i>
+                            Étape 2 / 2
+                        </div>
                         <h3>Scannez le QR Code</h3>
-                        <p>Ouvrez WhatsApp → Menu → Appareils connectés → Connecter un appareil</p>
+                        <p class="qr-subtitle">Utilisez WhatsApp sur votre téléphone pour scanner</p>
                     </div>
-                    <div class="qr-frame-wrapper">
-                        <div id="qr-frame-container"></div>
+
+                    <div class="qr-spinner" id="qr-loading">
+                        <div class="qr-pulse-rings">
+                            <div class="qr-pulse-dot"></div>
+                        </div>
+                        <span>Génération du QR code...</span>
+                    </div>
+
+                    <div class="qr-frame-wrapper" id="qr-frame-wrapper" style="display:none;">
+                        <div class="qr-iframe-clip">
+                            <div id="qr-frame-container"></div>
+                            <div class="qr-scan-line"></div>
+                        </div>
                         <div class="qr-corner qr-corner-tl"></div>
                         <div class="qr-corner qr-corner-tr"></div>
                         <div class="qr-corner qr-corner-bl"></div>
                         <div class="qr-corner qr-corner-br"></div>
                     </div>
-                    <div class="qr-spinner" id="qr-loading">
-                        <div class="qr-spinner-ring"></div>
-                        <span>Génération du QR code...</span>
+
+                    <!-- Auto-refresh countdown -->
+                    <div class="qr-refresh-bar" id="qr-refresh-bar" style="display:none;">
+                        <div class="qr-refresh-progress-track">
+                            <div class="qr-refresh-progress" id="qr-refresh-progress"></div>
+                        </div>
+                        <span class="qr-refresh-label">
+                            <i class="fas fa-rotate"></i>
+                            Actualisation dans <strong id="qr-refresh-count">10</strong>s
+                        </span>
+                    </div>
+
+                    <div class="qr-steps">
+                        <div class="qr-step">
+                            <div class="qr-step-num">1</div>
+                            <span>Ouvrez WhatsApp sur votre téléphone</span>
+                        </div>
+                        <div class="qr-step">
+                            <div class="qr-step-num">2</div>
+                            <span>Menu → Appareils connectés → Connecter</span>
+                        </div>
+                        <div class="qr-step">
+                            <div class="qr-step-num">3</div>
+                            <span>Pointez la caméra vers ce QR code</span>
+                        </div>
                     </div>
                 </div>
 
