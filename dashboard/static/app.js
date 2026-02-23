@@ -312,7 +312,7 @@ function startQRCountdown(phone, container, loadingEl, wrapperEl) {
 
 async function renderQRCanvas(phone, container, loadingEl, wrapperEl) {
     try {
-        const res = await fetch(`${CONFIG.WHATSAPP_BRIDGE}/qr/${phone}`);
+        const res = await fetch(`${CONFIG.WHATSAPP_BRIDGE}/qr/${phone}`, { cache: 'no-store' });
         const html = await res.text();
 
         // Already connected
@@ -320,7 +320,12 @@ async function renderQRCanvas(phone, container, loadingEl, wrapperEl) {
 
         // Extract the <pre> ASCII QR
         const match = html.match(/<pre[^>]*>([\s\S]*?)<\/pre>/);
-        if (!match) return;
+
+        // QR not ready yet — bridge still generating, retry in 2s
+        if (!match) {
+            setTimeout(() => renderQRCanvas(phone, container, loadingEl, wrapperEl), 2000);
+            return;
+        }
 
         const lines = match[1].split('\n').filter(l => l.length > 0);
         const cols = lines.reduce((max, l) => Math.max(max, [...l].length), 0);
