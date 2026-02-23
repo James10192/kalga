@@ -262,15 +262,18 @@ function showQRCode(phone) {
     const qrContainer = document.getElementById('qr-container');
     const qrFrameContainer = document.getElementById('qr-frame-container');
     const qrLoading = document.getElementById('qr-loading');
+    const qrFrameWrapper = document.getElementById('qr-frame-wrapper');
 
     qrContainer.style.display = 'block';
     qrLoading.style.display = 'flex';
+    qrFrameWrapper.style.display = 'none';
     qrFrameContainer.innerHTML = '';
 
     const iframe = document.createElement('iframe');
     iframe.src = `${CONFIG.WHATSAPP_BRIDGE}/qr/${phone}`;
     iframe.onload = () => {
         qrLoading.style.display = 'none';
+        qrFrameWrapper.style.display = 'inline-block';
     };
     qrFrameContainer.appendChild(iframe);
 
