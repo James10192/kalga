@@ -170,7 +170,7 @@
                             Étape 2 / 2
                         </div>
                         <h3>Scannez le QR Code</h3>
-                        <p>Utilisez WhatsApp sur votre téléphone pour scanner</p>
+                        <p class="qr-subtitle">Utilisez WhatsApp sur votre téléphone pour scanner</p>
                     </div>
 
                     <div class="qr-spinner" id="qr-loading">
@@ -189,6 +189,17 @@
                         <div class="qr-corner qr-corner-tr"></div>
                         <div class="qr-corner qr-corner-bl"></div>
                         <div class="qr-corner qr-corner-br"></div>
+                    </div>
+
+                    <!-- Auto-refresh countdown -->
+                    <div class="qr-refresh-bar" id="qr-refresh-bar" style="display:none;">
+                        <div class="qr-refresh-progress-track">
+                            <div class="qr-refresh-progress" id="qr-refresh-progress"></div>
+                        </div>
+                        <span class="qr-refresh-label">
+                            <i class="fas fa-rotate"></i>
+                            Actualisation dans <strong id="qr-refresh-count">10</strong>s
+                        </span>
                     </div>
 
                     <div class="qr-steps">
