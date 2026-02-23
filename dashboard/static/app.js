@@ -25,8 +25,23 @@ const state = {
     pendingLocation: { lat: null, lng: null }
 };
 
+// === THEME TOGGLE (dark / light) ===
+function initTheme() {
+    const saved = localStorage.getItem('kalga_theme') || 'light';
+    document.documentElement.setAttribute('data-theme', saved);
+}
+
+function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'light';
+    const next = current === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('kalga_theme', next);
+}
+
 // === INITIALIZATION ===
 document.addEventListener('DOMContentLoaded', () => {
+    initTheme();
+    initSidebarCollapse();
     initNavigation();
     initFilterTabs();
     initNotificationSound();
@@ -782,6 +797,21 @@ function showSection(sectionName) {
 
 function toggleSidebar() {
     document.querySelector('.sidebar').classList.toggle('open');
+}
+
+function toggleSidebarCollapse() {
+    const sidebar = document.querySelector('.sidebar');
+    const dashboard = document.querySelector('.dashboard');
+    const isCollapsed = sidebar.classList.toggle('collapsed');
+    dashboard.classList.toggle('sidebar-collapsed', isCollapsed);
+    localStorage.setItem('kalga_sidebar_collapsed', isCollapsed ? '1' : '0');
+}
+
+function initSidebarCollapse() {
+    if (localStorage.getItem('kalga_sidebar_collapsed') === '1') {
+        document.querySelector('.sidebar')?.classList.add('collapsed');
+        document.querySelector('.dashboard')?.classList.add('sidebar-collapsed');
+    }
 }
 
 // === PRODUCTS ===
