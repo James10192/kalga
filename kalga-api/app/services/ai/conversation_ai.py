@@ -30,6 +30,7 @@ from .detectors import (
     is_product_related_message,
     count_low_offers
 )
+from .memory import stm as stm_module
 
 logger = logging.getLogger("kalga.ai")
 
@@ -40,7 +41,8 @@ async def generate_response(
     conversation_history: List[Dict],
     current_offer: Optional[float] = None,
     conversation_status: str = "active",
-    negotiation_context: Optional[Dict] = None
+    negotiation_context: Optional[Dict] = None,
+    episodic_context: Optional[str] = None
 ) -> Tuple[Optional[str], Optional[float], bool, str, bool]:
     """
     Génère une réponse intelligente pour la conversation.
@@ -161,7 +163,8 @@ async def generate_response(
                 conversation_history=conversation_history,
                 is_first_message=is_first_message,
                 debug_info=debug_info,
-                negotiation_context=negotiation_context
+                negotiation_context=negotiation_context,
+                episodic_context=episodic_context
             )
 
             if ai_response:
@@ -188,11 +191,12 @@ async def _try_deepseek_response(
     conversation_history: List[Dict],
     is_first_message: bool,
     debug_info: Dict,
-    negotiation_context: Optional[Dict] = None
+    negotiation_context: Optional[Dict] = None,
+    episodic_context: Optional[str] = None
 ) -> Optional[str]:
     """
     Tente de générer une réponse via DeepSeek.
-    Enrichit le prompt avec les informations du moteur et l'historique client.
+    Enrichit le prompt avec STM (compression), episodic context et profil client.
     """
     try:
         deepseek = get_deepseek_client()
@@ -200,16 +204,19 @@ async def _try_deepseek_response(
         if not deepseek.api_key:
             return None
 
-        # Construire l'historique formaté
-        history_text = "\n".join([
-            f"{'Client' if m['is_from_client'] else 'Vendeur'}: {m['content']}"
-            for m in conversation_history[-10:]
-        ])
+        # STM : compression de contexte si historique long
+        context_summary, recent_msgs = await stm_module.build_context(
+            history=conversation_history,
+            deepseek_client=deepseek
+        )
+
+        # Construire l'historique formaté (via STM)
+        history_text = stm_module.format_for_prompt(context_summary, recent_msgs)
 
         # Utiliser le min_price effectif si disponible (ajusté pour fidélité)
         effective_min = product.get('effective_min_price', product['min_price'])
 
-        # Construire le prompt système enrichi
+        # Construire le prompt système enrichi (avec résumé STM si disponible)
         system_prompt = deepseek.build_negotiation_prompt(
             product_name=product['name'],
             price=product['price'],
@@ -219,11 +226,16 @@ async def _try_deepseek_response(
             final_price_mode=debug_info.get('is_final_price_mode', False),
             conversation_status=debug_info.get('fsm_state', 'NEGOTIATING'),
             is_first_message=is_first_message,
-            product_description=product.get('description')
+            product_description=product.get('description'),
+            context_summary=context_summary
         )
 
         # Enrichir le prompt utilisateur avec le contexte détecté
         user_prompt = f'Le client dit: "{client_message}"'
+
+        # Injecter la mémoire épisodique (contexte inter-sessions)
+        if episodic_context:
+            user_prompt += f"\n\n{episodic_context}"
 
         # Ajouter le contexte de l'historique client
         if negotiation_context and negotiation_context.get('is_returning'):
