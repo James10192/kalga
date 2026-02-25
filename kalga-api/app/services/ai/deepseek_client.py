@@ -7,6 +7,7 @@ import httpx
 import logging
 from typing import Optional, Dict, Any, List
 from ...config import settings
+from .tools import TOOL_DECISION_GUIDE
 
 logger = logging.getLogger("kalga.deepseek")
 
@@ -106,7 +107,7 @@ class DeepSeekClient:
         user_message: str,
         tools: List[Dict],
         temperature: float = 0.7,
-        max_tokens: int = 300
+        max_tokens: int = 500
     ) -> Optional[Dict]:
         """
         Appel DeepSeek avec function calling (mode agentique).
@@ -190,7 +191,9 @@ class DeepSeekClient:
         conversation_status: str,
         is_first_message: bool = False,
         product_description: str = None,
-        context_summary: str = None
+        context_summary: str = None,
+        last_bot_offer: float = None,
+        counter_count: int = 0
     ) -> str:
         """
         Construit le prompt système pour la négociation.
@@ -274,6 +277,13 @@ NÉGOCIATION:
 - Client propose < {min_price:,.0f} F → Négocier poliment, proposer un prix entre son offre et {price:,.0f} F
 - Client dit "ok/deal/je prends" → "Parfait! Tu préfères livraison ou tu passes chercher?"
 
+RÈGLE #6 - MESSAGES HORS SUJET:
+Si le client envoie un message sans rapport avec le produit ou la vente
+(météo, actualités, blagues, sujets personnels, etc.) :
+- Ne réponds PAS au sujet hors-contexte
+- Redirige doucement vers le produit : "Haha ! Mais dis-moi, tu te décides pour le {product_name} ?"
+- Reste sympa mais focalisé sur la vente
+
 RÈGLE ABSOLUE - PAS DE TEXTE FICTIF:
 - N'invente JAMAIS d'adresse, d'horaires, de localisation ou d'informations que tu ne connais pas!
 - NE METS JAMAIS de placeholders comme "[Insérer l'adresse ici]", "[horaires]", "[adresse]", etc.
@@ -284,6 +294,14 @@ RÈGLE ABSOLUE - PAS DE TEXTE FICTIF:
 ÉTAT ACTUEL:
 - Offres basses reçues: {low_offers_count}
 """
+
+        # Contexte de négociation (contre-offres)
+        if last_bot_offer:
+            prompt += f"- Dernière contre-offre envoyée : {last_bot_offer:,.0f} F (tentative {counter_count}/3)\n"
+            if counter_count >= 3:
+                prompt += f"- LIMITE ATTEINTE : ne propose plus de counter_offer — soit accept_deal si le client est proche, soit end_conversation\n"
+            else:
+                prompt += f"- Ne répète pas le même prix que la dernière contre-offre\n"
 
         if final_price_mode:
             # En mode dernier prix, on propose un petit rabais sur le min_price pour conclure
@@ -299,7 +317,7 @@ STYLE:
 - Naturel et fluide, comme une vraie conversation
 - PAS de formules répétitives
 - Varie tes réponses
-
+{TOOL_DECISION_GUIDE}
 HISTORIQUE DE LA CONVERSATION:
 {history_text}
 
