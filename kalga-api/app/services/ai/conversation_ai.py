@@ -190,6 +190,31 @@ async def generate_response(
         )
 
 
+def _extract_negotiation_state(history: List[Dict], min_price: float) -> tuple:
+    """
+    Extrait last_bot_offer et counter_count depuis l'historique.
+    Retourne (last_bot_offer, counter_count).
+    """
+    import re as _re
+    last_bot_offer = None
+    counter_count = 0
+    for msg in history:
+        if not msg.get("is_from_client"):
+            content = msg.get("content", "")
+            # Détecter les messages de contre-offre bot (contenant un prix en FCFA)
+            m = _re.search(r"(\d[\d\s]*(?:000|k))\s*(?:F|FCFA|francs)?", content, _re.IGNORECASE)
+            if m:
+                raw = m.group(1).replace(" ", "").lower().replace("k", "000")
+                try:
+                    val = float(raw)
+                    if min_price * 0.8 <= val <= 999_999:
+                        last_bot_offer = val
+                        counter_count += 1
+                except ValueError:
+                    pass
+    return last_bot_offer, counter_count
+
+
 async def _try_deepseek_response(
     client_message: str,
     product: Dict,
@@ -226,6 +251,11 @@ async def _try_deepseek_response(
         # Utiliser le min_price effectif si disponible (ajusté pour fidélité)
         effective_min = product.get('effective_min_price', product['min_price'])
 
+        # Extraire les infos de négociation pour éviter les répétitions de prix
+        last_bot_offer, counter_count = _extract_negotiation_state(
+            conversation_history, effective_min
+        )
+
         # Construire le prompt système enrichi (avec résumé STM si disponible)
         system_prompt = deepseek.build_negotiation_prompt(
             product_name=product['name'],
@@ -237,7 +267,9 @@ async def _try_deepseek_response(
             conversation_status=debug_info.get('fsm_state', 'NEGOTIATING'),
             is_first_message=is_first_message,
             product_description=product.get('description'),
-            context_summary=context_summary
+            context_summary=context_summary,
+            last_bot_offer=last_bot_offer,
+            counter_count=counter_count
         )
 
         # Enrichir le prompt utilisateur avec le contexte détecté

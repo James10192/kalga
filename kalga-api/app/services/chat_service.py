@@ -730,7 +730,15 @@ class ChatService:
 
         # ── send_location ───────────────────────────────────────────────
         if name == "send_location":
-            await self.conversations.update(conversation["id"], status="pending_pickup")
+            # A1: ne passer en pending_pickup QUE si le deal est déjà accepté
+            deal_context = conversation.get("status", "active")
+            if deal_context in ("pending_delivery", "pending_pickup"):
+                loc_status = deal_context  # ne pas écraser un statut de vente confirmée
+            elif current_status == "pending_pickup":
+                loc_status = "pending_pickup"  # déjà en attente, garder
+            else:
+                loc_status = current_status  # pas encore de deal — ne pas changer le statut
+            await self.conversations.update(conversation["id"], status=loc_status)
             await self.conversations.add_message(conversation["id"], text, False)
             # Envoyer la localisation GPS
             try:
@@ -751,6 +759,16 @@ class ChatService:
         if name == "counter_offer":
             counter_price = args.get("price")
             if counter_price:
+                # A2: clamper le prix entre min_price et price affiché
+                min_p = product.get("min_price", 0)
+                max_p = product.get("price", float("inf"))
+                clamped = max(min_p, min(float(counter_price), max_p))
+                if clamped != counter_price:
+                    logger.warning(
+                        f"[TOOL counter_offer] Prix {counter_price} hors bornes "
+                        f"[{min_p}, {max_p}] → clamped à {clamped}"
+                    )
+                counter_price = clamped
                 await self.conversations.update(
                     conversation["id"],
                     status=new_status,
@@ -792,6 +810,76 @@ class ChatService:
                 conversation_id=conversation["id"],
                 should_notify_merchant=False,
                 no_response=not bool(text)
+            )
+
+        # ── request_human_takeover ──────────────────────────────────────
+        if name == "request_human_takeover":
+            reason = args.get("reason", "demande client")
+            await self.conversations.update(conversation["id"], status="human_requested")
+            await self.conversations.add_message(conversation["id"], text, False)
+            # Notifier le marchand
+            try:
+                notif_msg = (
+                    f"🚨 *Transfert humain demandé!*\n"
+                    f"Client: {message.client_phone}\n"
+                    f"Produit: {product['name']}\n"
+                    f"Raison: {reason}\n"
+                    f"→ Réponds directement au client!"
+                )
+                await self.notifications.send_message(
+                    message.merchant_phone, message.merchant_phone, notif_msg
+                )
+            except Exception as e:
+                logger.warning(f"[TOOL request_human_takeover] Erreur notification: {e}")
+            return BotResponse(
+                message=text,
+                conversation_id=conversation["id"],
+                should_notify_merchant=True,
+                notification_reason=f"Transfert humain: {reason}"
+            )
+
+        # ── send_payment_info ───────────────────────────────────────────
+        if name == "send_payment_info":
+            payment_methods = merchant.get("payment_methods", "")
+            if payment_methods:
+                full_message = f"{text}\n\n{payment_methods}"
+            else:
+                full_message = text + "\n\n" + (
+                    "💳 Moyens de paiement acceptés :\n"
+                    "• Orange Money\n"
+                    "• Wave\n"
+                    "• Espèces (sur place)"
+                )
+            await self.conversations.add_message(conversation["id"], full_message, False)
+            return BotResponse(
+                message=full_message,
+                conversation_id=conversation["id"],
+                should_notify_merchant=False
+            )
+
+        # ── collect_delivery_address ────────────────────────────────────
+        if name == "collect_delivery_address":
+            address = args.get("address", "").strip()
+            await self.conversations.add_message(conversation["id"], text, False)
+            if address:
+                # Enregistrer l'adresse et notifier le marchand
+                try:
+                    notif_msg = (
+                        f"📦 *Adresse de livraison reçue!*\n"
+                        f"Client: {message.client_phone}\n"
+                        f"Produit: {product['name']}\n"
+                        f"📍 Adresse: {address}"
+                    )
+                    await self.notifications.send_message(
+                        message.merchant_phone, message.merchant_phone, notif_msg
+                    )
+                except Exception as e:
+                    logger.warning(f"[TOOL collect_delivery_address] Erreur notification: {e}")
+            return BotResponse(
+                message=text,
+                conversation_id=conversation["id"],
+                should_notify_merchant=bool(address),
+                notification_reason=f"Adresse livraison: {address}" if address else None
             )
 
         # Tool inconnu — laisser le fallback texte prendre le relai

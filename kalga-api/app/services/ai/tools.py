@@ -8,15 +8,24 @@ L'IA décide ELLE-MÊME quel tool appeler selon le contexte.
 Le bot exécute ensuite le tool localement.
 
 Tools disponibles :
-- send_photo         : envoyer la photo du produit actuel (1ère demande ou re-demande)
-- send_variants      : envoyer d'AUTRES modèles/couleurs/tailles (≠ photo du même produit)
-- send_location      : envoyer la localisation GPS du marchand
-- counter_offer      : proposer un contre-prix pendant la négociation
-- accept_deal        : confirmer la vente et demander livraison ou retrait
-- end_conversation   : terminer la conversation poliment
+- send_photo              : envoyer la photo du produit actuel (1ère demande ou re-demande)
+- send_variants           : envoyer d'AUTRES modèles/couleurs/tailles (≠ photo du même produit)
+- send_location           : envoyer la localisation GPS du marchand
+- counter_offer           : proposer un contre-prix pendant la négociation
+- accept_deal             : confirmer la vente et demander livraison ou retrait
+- end_conversation        : terminer la conversation poliment
+- request_human_takeover  : passer la main à un humain (litige, réclamation)
+- send_payment_info       : envoyer les infos de paiement du marchand
+- collect_delivery_address: demander et enregistrer l'adresse de livraison
+"""
 
+# ─────────────────────────────────────────────
+# Guide de décision injecté dans le system prompt
+# ─────────────────────────────────────────────
+
+TOOL_DECISION_GUIDE = """
 ═══════════════════════════════════════════════════════════════
-GUIDE DE DÉCISION POUR L'IA — QUAND APPELER QUEL TOOL
+GUIDE DE DÉCISION — QUAND APPELER QUEL TOOL
 ═══════════════════════════════════════════════════════════════
 
 Le client dit "tu as une photo ?" ou "montre-moi" ou "envoie l'image"
@@ -32,6 +41,7 @@ ou "autre modèle ?" ou "autre taille ?"
 Le client dit "adresse ?" ou "où vous êtes ?" ou "je viens chercher"
 ou "comment venir ?" ou "localisation ?"
 → send_location  (même s'il a déjà demandé — renvoie la GPS)
+→ NE PAS utiliser accept_deal en même temps si le deal n'est pas encore conclu
 
 Le client dit "ok", "deal", "je prends", "vendu", "c'est bon",
 ou fait une offre >= prix minimum
@@ -41,8 +51,20 @@ Le client fait une offre < prix minimum ou dit "c'est trop cher, fais un effort"
 → counter_offer  avec un prix entre son offre et le prix affiché
 
 Le client dit "merci bye", "je reviendrai", "pas pour l'instant",
-"laisse tomber", "au revoir"
+"au revoir", "c'est bon j'ai trouvé ailleurs"
 → end_conversation
+
+Le client dit "je veux parler à quelqu'un", "passez-moi un responsable",
+"j'ai un problème", "litige", "réclamation"
+→ request_human_takeover
+
+Le client demande "comment payer ?", "Orange Money ?", "Wave ?",
+"numéro de paiement", "compte"
+→ send_payment_info
+
+Après accept_deal avec delivery_type="delivery", si le client donne ou confirme
+une adresse de livraison
+→ collect_delivery_address
 
 Tout autre message (négociation, question sur le produit, objection, etc.)
 → NE PAS appeler de tool — répondre en texte libre
@@ -213,6 +235,82 @@ TOOLS = [
                     "message": {
                         "type": "string",
                         "description": "Message d'au revoir naturel et chaleureux, ex: 'Pas de souci, reviens quand tu veux !'"
+                    }
+                },
+                "required": ["message"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "request_human_takeover",
+            "description": (
+                "Passe la conversation à un humain (le marchand) quand la situation dépasse le bot. "
+                "Utilise ce tool quand le client a un litige, une réclamation, un problème technique, "
+                "ou demande explicitement à parler à une personne réelle. "
+                "Exemples : 'je veux parler à quelqu\\'un', 'passez-moi un responsable', "
+                "'j\\'ai un problème', 'litige', 'réclamation', 'c\\'est pas normal'."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "reason": {
+                        "type": "string",
+                        "description": "Raison du transfert, ex: 'réclamation client', 'question technique', 'litige'"
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "Message rassurant au client, ex: 'Je transmets ton message au vendeur, il te répond très vite !'"
+                    }
+                },
+                "required": ["reason", "message"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "send_payment_info",
+            "description": (
+                "Envoie les informations de paiement du marchand (Orange Money, Wave, espèces, etc.). "
+                "Utilise ce tool quand le client demande comment payer, le numéro de paiement, "
+                "ou les moyens de paiement acceptés. "
+                "Exemples : 'comment payer ?', 'Orange Money ?', 'Wave ?', "
+                "'numéro de paiement', 'compte', 'je paye comment ?'."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "description": "Courte intro naturelle, ex: 'Voici comment payer !' ou 'On accepte ces moyens de paiement :'"
+                    }
+                },
+                "required": ["message"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "collect_delivery_address",
+            "description": (
+                "Demande ou enregistre l\\'adresse de livraison du client après confirmation de la vente. "
+                "Utilise ce tool UNIQUEMENT après accept_deal avec delivery_type='delivery', "
+                "quand le client donne une adresse ou quand le bot doit la demander. "
+                "NE PAS utiliser si le client n\\'a pas encore accepté le prix."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "address": {
+                        "type": "string",
+                        "description": "Adresse fournie par le client. Vide si on est en train de la demander."
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "Message naturel, ex: 'Parfait ! Donne-moi ton adresse de livraison ?' ou 'Noté, on livrera à cette adresse !'"
                     }
                 },
                 "required": ["message"]

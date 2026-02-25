@@ -362,6 +362,12 @@ async def init_database():
         await db.execute("CREATE INDEX IF NOT EXISTS idx_client_history_client ON client_history(client_phone)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_client_history_merchant_client ON client_history(merchant_id, client_phone)")
 
+        # Migration: infos de paiement marchand (C2 — send_payment_info)
+        try:
+            await db.execute("ALTER TABLE merchants ADD COLUMN payment_methods TEXT")
+        except:
+            pass
+
         # Migration: mémoire sémantique client (LTM — système mémoire 3 couches)
         try:
             await db.execute("ALTER TABLE client_history ADD COLUMN memory_facts TEXT")

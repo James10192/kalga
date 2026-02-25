@@ -7,9 +7,14 @@ from typing import Optional, List, Dict
 
 
 def extract_product_code(message: str) -> Optional[str]:
-    """Extrait le code produit (#K001) d'un message"""
-    match = re.search(r'#K\d{3}', message.upper())
-    return match.group(0) if match else None
+    """
+    Extrait le code produit d'un message.
+    Accepte : #K001, K001, k001, K-001, #k001, K0001 (3-4 chiffres)
+    """
+    match = re.search(r'#?K[-]?(\d{3,4})', message, re.IGNORECASE)
+    if match:
+        return f"#K{match.group(1)}"
+    return None
 
 
 def extract_price_offer(message: str) -> Optional[float]:
@@ -114,9 +119,27 @@ def detect_end_conversation(message: str) -> bool:
 
     # Messages EXACTS de fin SEULEMENT (très restrictif)
     exact_end = [
-        'bye', 'ciao', 'au revoir', 'non merci', 'pas intéressé', 'pas interesse'
+        'bye', 'ciao', 'au revoir', 'non merci', 'pas intéressé', 'pas interesse',
+        # Expressions ouest-africaines de fin
+        'na laisse', 'laisse tomber', 'laisse béton', 'laisse beton',
+        'j\'ai trouvé ailleurs', 'jai trouve ailleurs',
+        'je reviendrai', 'je reviens plus tard',
+        'pas pour l\'instant', 'pas maintenant merci',
+        'a une prochaine', 'à une prochaine',
+        'dieu merci', 'en tout cas merci',
     ]
-    return msg in exact_end
+    if msg in exact_end:
+        return True
+
+    # Expressions partielles de fin claire (seulement si seules dans le message)
+    partial_end = [
+        'laisse tomber', 'laisse béton', 'laisse beton',
+        'j\'ai trouvé ailleurs', 'jai trouve ailleurs',
+    ]
+    if any(msg == p or msg.startswith(p) for p in partial_end):
+        return True
+
+    return False
 
 
 def detect_agreement(message: str) -> bool:
