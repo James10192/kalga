@@ -109,7 +109,8 @@ class DeepSeekClient:
         final_price_mode: bool,
         conversation_status: str,
         is_first_message: bool = False,
-        product_description: str = None
+        product_description: str = None,
+        context_summary: str = None
     ) -> str:
         """
         Construit le prompt système pour la négociation.
@@ -223,6 +224,13 @@ HISTORIQUE DE LA CONVERSATION:
 {history_text}
 
 IMPORTANT: Réponds DIRECTEMENT au dernier message du client, sans salutation inutile!"""
+
+        # Injecter le résumé STM si disponible (contexte compressé des anciens messages)
+        if context_summary:
+            prompt = prompt.replace(
+                "HISTORIQUE DE LA CONVERSATION:",
+                f"CONTEXTE RÉSUMÉ (échanges précédents):\n{context_summary}\n\nDERNIERS MESSAGES:"
+            )
 
         return prompt
 

@@ -311,6 +311,124 @@ class ClientHistoryRepository(BaseRepository):
             rows = await cursor.fetchall()
             return [dict(row) for row in rows]
 
+    # =========================================================================
+    # Méthodes LTM — mémoire sémantique (faits, résumés, préférences)
+    # =========================================================================
+
+    async def get_memory_facts(
+        self,
+        merchant_id: int,
+        client_phone: str
+    ) -> List[Dict[str, Any]]:
+        """Récupère les faits mémorisés pour un client."""
+        history = await self.get_client_history(merchant_id, client_phone)
+        if not history or not history.get('memory_facts'):
+            return []
+        try:
+            return json.loads(history['memory_facts'])
+        except json.JSONDecodeError:
+            return []
+
+    async def save_memory_facts(
+        self,
+        merchant_id: int,
+        client_phone: str,
+        facts: List[Dict[str, Any]]
+    ) -> None:
+        """Sauvegarde la liste de faits mémorisés pour un client."""
+        await self.create_or_update(
+            merchant_id,
+            client_phone,
+            memory_facts=json.dumps(facts, ensure_ascii=False)
+        )
+
+    async def save_session_summary(
+        self,
+        merchant_id: int,
+        client_phone: str,
+        summary: str,
+        conv_entry: Dict[str, Any]
+    ) -> None:
+        """
+        Sauvegarde le résumé de la dernière session et l'ajoute
+        à l'historique des résumés de conversations.
+        """
+        history = await self.get_client_history(merchant_id, client_phone)
+        summaries = []
+        if history and history.get('conversation_summaries'):
+            try:
+                summaries = json.loads(history['conversation_summaries'])
+            except json.JSONDecodeError:
+                summaries = []
+
+        # Ajouter le nouveau résumé en tête, garder max 10
+        summaries.insert(0, conv_entry)
+        summaries = summaries[:10]
+
+        await self.create_or_update(
+            merchant_id,
+            client_phone,
+            last_session_summary=summary,
+            conversation_summaries=json.dumps(summaries, ensure_ascii=False)
+        )
+
+    async def get_conversation_summaries(
+        self,
+        merchant_id: int,
+        client_phone: str
+    ) -> List[Dict[str, Any]]:
+        """Récupère l'historique des résumés de conversations."""
+        history = await self.get_client_history(merchant_id, client_phone)
+        if not history or not history.get('conversation_summaries'):
+            return []
+        try:
+            return json.loads(history['conversation_summaries'])
+        except json.JSONDecodeError:
+            return []
+
+    async def save_preferences(
+        self,
+        merchant_id: int,
+        client_phone: str,
+        preferences: Dict[str, Any]
+    ) -> None:
+        """
+        Fusionne et sauvegarde les préférences détectées d'un client.
+        Les valeurs 'null' / 'unknown' n'écrasent pas les valeurs existantes.
+        """
+        history = await self.get_client_history(merchant_id, client_phone)
+        existing_prefs = {}
+        if history and history.get('preferences'):
+            try:
+                existing_prefs = json.loads(history['preferences'])
+            except json.JSONDecodeError:
+                existing_prefs = {}
+
+        # Fusionner : on ne met à jour que les clés non-nulles / non-unknown
+        for key, value in preferences.items():
+            if value and value not in ('null', 'unknown', None):
+                existing_prefs[key] = value
+
+        await self.create_or_update(
+            merchant_id,
+            client_phone,
+            preferences=json.dumps(existing_prefs, ensure_ascii=False)
+        )
+
+    async def get_preferences(
+        self,
+        merchant_id: int,
+        client_phone: str
+    ) -> Dict[str, Any]:
+        """Récupère les préférences mémorisées d'un client."""
+        history = await self.get_client_history(merchant_id, client_phone)
+        if not history or not history.get('preferences'):
+            return {}
+        try:
+            return json.loads(history['preferences'])
+        except json.JSONDecodeError:
+            return {}
+
 
 # Instance globale
 _client_history_repo: Optional[ClientHistoryRepository] = None

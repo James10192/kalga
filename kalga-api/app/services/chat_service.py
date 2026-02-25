@@ -2,6 +2,7 @@
 Service de chat
 Orchestre le flux de conversation entre clients et marchands
 """
+import asyncio
 import logging
 from typing import Optional, List, Dict, Any, Tuple
 
@@ -12,6 +13,9 @@ from ..models.schemas import IncomingMessage, BotResponse
 from .notification_service import NotificationService
 from .followup_service import get_followup_service
 from .conversation_ai import generate_response, extract_product_code, detect_variant_request, detect_photo_request
+from .ai.memory import ltm as ltm_module
+from .ai.memory import episodic as episodic_module
+from .ai.deepseek_client import get_deepseek_client
 
 logger = logging.getLogger("kalga.chat")
 
@@ -147,13 +151,22 @@ class ChatService:
             product=product
         )
 
+        # Récupérer le contexte épisodique (mémoire inter-sessions)
+        episodic_context = await episodic_module.get_episodic_context(
+            repo=self.client_history,
+            merchant_id=merchant['id'],
+            client_phone=message.client_phone,
+            product_name=product['name']
+        )
+
         bot_response, price_offer, deal_accepted, new_status, send_location = await generate_response(
             client_message=message.message,
             product=product,
             conversation_history=history,
             current_offer=conversation.get('current_offer'),
             conversation_status=current_status,
-            negotiation_context=negotiation_context
+            negotiation_context=negotiation_context,
+            episodic_context=episodic_context
         )
 
         logger.info(f"Réponse IA: {bot_response[:50] if bot_response else 'NONE'}... | Status: {new_status} | Location: {send_location}")
@@ -166,6 +179,18 @@ class ChatService:
 
         # Si pas de réponse (conversation terminée)
         if bot_response is None:
+            # LTM: extraire les faits si la conversation se termine sans vente
+            if new_status in ("ended", "abandoned"):
+                conv_history = await self.conversations.get_messages(conversation['id'])
+                asyncio.create_task(ltm_module.extract_and_save(
+                    repo=self.client_history,
+                    merchant_id=merchant['id'],
+                    client_phone=message.client_phone,
+                    history=conv_history,
+                    product={"name": product['name'], "price": product['price']},
+                    outcome="ended",
+                    deepseek_client=get_deepseek_client()
+                ))
             return BotResponse(
                 message="",
                 conversation_id=conversation['id'],
@@ -468,6 +493,18 @@ class ChatService:
                         product=product,
                         final_price=final_price
                     )
+
+                    # LTM: extraire les faits de la conversation (non-bloquant)
+                    conv_history = await self.conversations.get_messages(conversation['id'])
+                    asyncio.create_task(ltm_module.extract_and_save(
+                        repo=self.client_history,
+                        merchant_id=merchant_obj['id'],
+                        client_phone=message.client_phone,
+                        history=conv_history,
+                        product={"name": product['name'], "price": product['price']},
+                        outcome="sale",
+                        deepseek_client=get_deepseek_client()
+                    ))
             except Exception as e:
                 logger.warning(f"Erreur stats vente: {e}")
 
