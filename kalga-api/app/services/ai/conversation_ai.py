@@ -12,6 +12,7 @@ Architecture:
 3. Sinon → utilise les réponses du moteur local (fallback intelligent)
 """
 
+import json
 import logging
 from typing import Optional, List, Dict, Tuple
 
@@ -31,6 +32,10 @@ from .detectors import (
     count_low_offers
 )
 from .memory import stm as stm_module
+from .tools import TOOLS, TOOL_NAMES
+
+# Préfixe interne pour transporter un tool_call dans le tuple de retour
+_TOOL_PREFIX = "__tool__:"
 
 logger = logging.getLogger("kalga.ai")
 
@@ -195,8 +200,13 @@ async def _try_deepseek_response(
     episodic_context: Optional[str] = None
 ) -> Optional[str]:
     """
-    Tente de générer une réponse via DeepSeek.
-    Enrichit le prompt avec STM (compression), episodic context et profil client.
+    Tente de générer une réponse via DeepSeek (mode agentique).
+    L'IA choisit elle-même le tool à appeler ou génère un texte libre.
+
+    Retourne :
+    - Une chaîne texte normale (réponse free-text)
+    - Un marqueur "__tool__:<name>:<json_args>" si l'IA a choisi un tool
+    - None en cas d'erreur ou d'indisponibilité
     """
     try:
         deepseek = get_deepseek_client()
@@ -265,18 +275,53 @@ async def _try_deepseek_response(
         if sentiment == 'doubtful':
             user_prompt += "\n\n📌 Le client a des doutes. Rassure-le sur la qualité et le sérieux."
 
-        # Appeler DeepSeek
-        response = await deepseek.chat_completion(system_prompt, user_prompt)
+        # Appel agentique — DeepSeek décide texte ou tool
+        result = await deepseek.agentic_completion(system_prompt, user_prompt, TOOLS)
 
-        # Rejeter les réponses avec des placeholders/texte fictif
-        if response and _has_placeholder_text(response):
-            logger.warning(f"DeepSeek response rejetée (placeholder détecté): {response[:80]}")
+        if not result:
             return None
 
-        return response
+        if result["type"] == "tool_call":
+            name = result["name"]
+            args = result["args"]
+            # Valider que le tool est connu
+            if name not in TOOL_NAMES:
+                logger.warning(f"Tool inconnu retourné par DeepSeek: {name}")
+                return None
+            # Encoder le tool_call comme marqueur dans la string de retour
+            return f"{_TOOL_PREFIX}{name}:{json.dumps(args, ensure_ascii=False)}"
+
+        # Réponse texte libre
+        content = result.get("content", "")
+        if content and _has_placeholder_text(content):
+            logger.warning(f"DeepSeek text rejeté (placeholder): {content[:80]}")
+            return None
+
+        return content or None
 
     except Exception as e:
         logger.warning(f"DeepSeek non disponible: {e}")
+        return None
+
+
+def is_tool_call(response: str) -> bool:
+    """Vérifie si une réponse encode un tool_call."""
+    return bool(response and response.startswith(_TOOL_PREFIX))
+
+
+def parse_tool_call(response: str) -> Optional[Dict]:
+    """
+    Parse un marqueur tool_call encodé.
+    Retourne {"name": str, "args": dict} ou None.
+    """
+    if not is_tool_call(response):
+        return None
+    try:
+        payload = response[len(_TOOL_PREFIX):]
+        name, _, args_json = payload.partition(":")
+        args = json.loads(args_json) if args_json else {}
+        return {"name": name, "args": args}
+    except Exception:
         return None
 
 

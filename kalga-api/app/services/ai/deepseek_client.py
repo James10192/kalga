@@ -2,9 +2,10 @@
 Client DeepSeek API
 Gère les appels à l'API DeepSeek avec retry et gestion d'erreurs
 """
+import json
 import httpx
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from ...config import settings
 
 logger = logging.getLogger("kalga.deepseek")
@@ -93,6 +94,85 @@ class DeepSeekClient:
 
             except Exception as e:
                 logger.error(f"Exception DeepSeek: {type(e).__name__}: {e}")
+                if attempt < self.max_retries:
+                    continue
+                return None
+
+        return None
+
+    async def agentic_completion(
+        self,
+        system_prompt: str,
+        user_message: str,
+        tools: List[Dict],
+        temperature: float = 0.7,
+        max_tokens: int = 300
+    ) -> Optional[Dict]:
+        """
+        Appel DeepSeek avec function calling (mode agentique).
+
+        Retourne un dict :
+            {"type": "text",      "content": "..."}
+            {"type": "tool_call", "name": "...", "args": {...}}
+        Retourne None en cas d'erreur.
+        """
+        if not self.api_key:
+            return None
+
+        for attempt in range(self.max_retries + 1):
+            try:
+                async with httpx.AsyncClient(timeout=self.timeout) as client:
+                    response = await client.post(
+                        f"{self.base_url}/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {self.api_key}",
+                            "Content-Type": "application/json"
+                        },
+                        json={
+                            "model": "deepseek-chat",
+                            "messages": [
+                                {"role": "system", "content": system_prompt},
+                                {"role": "user",   "content": user_message}
+                            ],
+                            "tools": tools,
+                            "tool_choice": "auto",
+                            "temperature": temperature,
+                            "max_tokens": max_tokens
+                        }
+                    )
+
+                    if response.status_code != 200:
+                        logger.warning(f"DeepSeek agentic [{response.status_code}]: {response.text[:100]}")
+                        if attempt < self.max_retries:
+                            continue
+                        return None
+
+                    data = response.json()
+                    choice = data["choices"][0]["message"]
+
+                    # L'IA a choisi un tool
+                    if choice.get("tool_calls"):
+                        tc = choice["tool_calls"][0]
+                        name = tc["function"]["name"]
+                        try:
+                            args = json.loads(tc["function"]["arguments"])
+                        except json.JSONDecodeError:
+                            args = {}
+                        logger.info(f"DeepSeek tool_call: {name}({args})")
+                        return {"type": "tool_call", "name": name, "args": args}
+
+                    # L'IA a répondu en texte
+                    content = choice.get("content", "")
+                    logger.debug(f"DeepSeek agentic text: {content[:60]}")
+                    return {"type": "text", "content": content}
+
+            except httpx.TimeoutException:
+                logger.warning(f"Timeout DeepSeek agentic (tentative {attempt + 1})")
+                if attempt < self.max_retries:
+                    continue
+                return None
+            except Exception as e:
+                logger.error(f"Exception DeepSeek agentic: {type(e).__name__}: {e}")
                 if attempt < self.max_retries:
                     continue
                 return None

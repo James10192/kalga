@@ -12,7 +12,7 @@ from ..database.repositories.client_history_repo import get_client_history_repos
 from ..models.schemas import IncomingMessage, BotResponse
 from .notification_service import NotificationService
 from .followup_service import get_followup_service
-from .conversation_ai import generate_response, extract_product_code, detect_variant_request, detect_photo_request
+from .conversation_ai import generate_response, extract_product_code, detect_variant_request, detect_photo_request, is_tool_call, parse_tool_call
 from .ai.memory import ltm as ltm_module
 from .ai.memory import episodic as episodic_module
 from .ai.deepseek_client import get_deepseek_client
@@ -128,18 +128,6 @@ class ChatService:
                     notification_reason=f"Client intéressé par {product['code']} (RUPTURE)"
                 )
 
-        # 5. Vérifier les cas spéciaux (photos, variantes)
-        # Ne pas intercepter en pending_pickup/pending_delivery (le client parle au bot de suivi)
-        current_conv_status = conversation.get('status', 'active')
-        if current_conv_status not in ('pending_pickup', 'pending_delivery'):
-            special_response = await self._handle_special_requests(
-                message=message,
-                conversation=conversation,
-                product=product
-            )
-            if special_response:
-                return special_response
-
         # 6. Générer la réponse IA (avec contexte de négociation)
         history = await self.conversations.get_messages(conversation['id'])
         current_status = conversation.get('status', 'active')
@@ -170,6 +158,21 @@ class ChatService:
         )
 
         logger.info(f"Réponse IA: {bot_response[:50] if bot_response else 'NONE'}... | Status: {new_status} | Location: {send_location}")
+
+        # 6.5 Dispatcher les tool_calls agentiques
+        if bot_response and is_tool_call(bot_response):
+            tool_result = await self._dispatch_tool_call(
+                response=bot_response,
+                message=message,
+                merchant=merchant,
+                product=product,
+                conversation=conversation,
+                current_status=current_status,
+                new_status=new_status,
+                price_offer=price_offer
+            )
+            if tool_result:
+                return tool_result
 
         # 6. Mettre à jour la conversation
         update_data = {"status": new_status}
@@ -251,8 +254,12 @@ class ChatService:
                 logger.error(f"[LOCATION] Exception lors de l'envoi: {e}", exc_info=True)
 
         # 7.6 Envoyer le lien vitrine en fin de conversation réussie
+        # deal_accepted doit être True : exclut le cas où le bot envoie juste la localisation
+        # sans que le client ait explicitement accepté le prix (send_location tool)
         is_transaction_end = (
-            (new_status in ("pending_delivery", "pending_pickup") and current_status not in ("pending_delivery", "pending_pickup"))
+            deal_accepted and
+            new_status in ("pending_delivery", "pending_pickup") and
+            current_status not in ("pending_delivery", "pending_pickup")
         )
         if is_transaction_end:
             try:
@@ -647,6 +654,149 @@ class ChatService:
             logger.info(f"Achat enregistré pour {client_phone}: {final_price} F")
         except Exception as e:
             logger.warning(f"Erreur enregistrement achat: {e}")
+
+    async def _dispatch_tool_call(
+        self,
+        response: str,
+        message: IncomingMessage,
+        merchant: Dict,
+        product: Dict,
+        conversation: Dict,
+        current_status: str,
+        new_status: str,
+        price_offer: Optional[float]
+    ) -> Optional[BotResponse]:
+        """
+        Exécute le tool choisi par DeepSeek et retourne un BotResponse.
+        Retourne None si le tool n'est pas reconnu (fallback vers réponse texte).
+        """
+        tc = parse_tool_call(response)
+        if not tc:
+            return None
+
+        name = tc["name"]
+        args = tc["args"]
+        text = args.get("message", "")
+
+        logger.info(f"[TOOL] Dispatching: {name} — {args}")
+
+        # ── send_photo ──────────────────────────────────────────────────
+        if name == "send_photo":
+            if not product.get("image_path"):
+                # Pas de photo disponible — on répond en texte
+                fallback = "Désolé, je n'ai pas de photo pour ce produit en ce moment."
+                await self.conversations.add_message(conversation["id"], fallback, False)
+                return BotResponse(
+                    message=fallback,
+                    conversation_id=conversation["id"],
+                    should_notify_merchant=False
+                )
+            await self.conversations.update(conversation["id"], status=new_status)
+            await self.conversations.add_message(conversation["id"], text, False)
+            return BotResponse(
+                message=text,
+                conversation_id=conversation["id"],
+                should_notify_merchant=False,
+                images_to_send=[{
+                    "image_path": product["image_path"],
+                    "caption": f"{product['name']} — {product['price']:,.0f} F"
+                }]
+            )
+
+        # ── send_variants ───────────────────────────────────────────────
+        if name == "send_variants":
+            group_id = product.get("group_id")
+            if not group_id:
+                fallback = "Ce produit n'est disponible que dans ce modèle pour l'instant."
+                await self.conversations.add_message(conversation["id"], fallback, False)
+                return BotResponse(
+                    message=fallback,
+                    conversation_id=conversation["id"],
+                    should_notify_merchant=False
+                )
+            variants = await self.products.get_other_variants(product["id"], group_id)
+            images = [
+                {"image_path": v["image_path"], "caption": f"Modèle {v.get('variant_name') or v['name']}"}
+                for v in variants if v.get("image_path")
+            ]
+            await self.conversations.update(conversation["id"], status=new_status)
+            await self.conversations.add_message(conversation["id"], text, False)
+            return BotResponse(
+                message=text,
+                conversation_id=conversation["id"],
+                should_notify_merchant=False,
+                images_to_send=images or None
+            )
+
+        # ── send_location ───────────────────────────────────────────────
+        if name == "send_location":
+            await self.conversations.update(conversation["id"], status="pending_pickup")
+            await self.conversations.add_message(conversation["id"], text, False)
+            # Envoyer la localisation GPS
+            try:
+                await self.notifications.send_merchant_location_to_client(
+                    merchant_phone=message.merchant_phone,
+                    client_phone=message.client_phone,
+                    merchant_data=merchant
+                )
+            except Exception as e:
+                logger.warning(f"[TOOL send_location] Erreur envoi GPS: {e}")
+            return BotResponse(
+                message=text,
+                conversation_id=conversation["id"],
+                should_notify_merchant=False
+            )
+
+        # ── counter_offer ───────────────────────────────────────────────
+        if name == "counter_offer":
+            counter_price = args.get("price")
+            if counter_price:
+                await self.conversations.update(
+                    conversation["id"],
+                    status=new_status,
+                    current_offer=counter_price
+                )
+            await self.conversations.add_message(conversation["id"], text, False)
+            return BotResponse(
+                message=text,
+                conversation_id=conversation["id"],
+                should_notify_merchant=False
+            )
+
+        # ── accept_deal ─────────────────────────────────────────────────
+        if name == "accept_deal":
+            delivery_type = args.get("delivery_type", "ask")
+            if delivery_type == "delivery":
+                deal_status = "pending_delivery"
+            elif delivery_type == "pickup":
+                deal_status = "pending_pickup"
+            else:
+                # On demande au client — pas encore de changement de statut
+                deal_status = new_status
+
+            await self.conversations.update(conversation["id"], status=deal_status)
+            await self.conversations.add_message(conversation["id"], text, False)
+            return BotResponse(
+                message=text,
+                conversation_id=conversation["id"],
+                should_notify_merchant=False
+            )
+
+        # ── end_conversation ────────────────────────────────────────────
+        if name == "end_conversation":
+            await self.conversations.update(conversation["id"], status="ended")
+            if text:
+                await self.conversations.add_message(conversation["id"], text, False)
+            return BotResponse(
+                message=text or "",
+                conversation_id=conversation["id"],
+                should_notify_merchant=False,
+                no_response=not bool(text)
+            )
+
+        # Tool inconnu — laisser le fallback texte prendre le relai
+        logger.warning(f"[TOOL] Tool non géré dans dispatcher: {name}")
+        return None
 
     async def get_conversations(
         self,
