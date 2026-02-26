@@ -116,7 +116,7 @@ class MessageService {
                 () => whatsappService.isClientReady(merchantPhone)
             );
 
-            // Envoyer la réponse
+            // Envoyer le texte EN PREMIER
             const sent = await whatsappService.sendMessage(merchantPhone, senderJid, botResponse);
             if (sent) {
                 logger.info('RÉPONSE ENVOYÉE', { to: senderJid });
@@ -125,6 +125,33 @@ class MessageService {
             // Envoyer les images si présentes (variantes)
             if (response.images_to_send && response.images_to_send.length > 0) {
                 await this._sendImages(merchantPhone, senderJid, response.images_to_send);
+            }
+
+            // Envoyer la localisation APRÈS le texte
+            if (response.send_location && response.merchant_location) {
+                const loc = response.merchant_location;
+                if (loc.latitude && loc.longitude) {
+                    await whatsappService.sendLocation(merchantPhone, senderJid, {
+                        latitude: loc.latitude,
+                        longitude: loc.longitude,
+                        name: loc.name || 'Ma boutique',
+                        address: loc.address || '',
+                    });
+                    logger.info('LOCALISATION ENVOYÉE', { to: senderJid });
+                } else if (loc.address) {
+                    await whatsappService.sendMessage(
+                        merchantPhone, senderJid,
+                        `📍 Voici l'adresse de la boutique:\n\n${loc.address}`
+                    );
+                    logger.info('ADRESSE ENVOYÉE (texte)', { to: senderJid });
+                }
+            }
+
+            // Envoyer le message de fin EN DERNIER (après texte + images + localisation)
+            if (response.goodbye_message) {
+                await new Promise(resolve => setTimeout(resolve, 800));
+                await whatsappService.sendMessage(merchantPhone, senderJid, response.goodbye_message);
+                logger.info('GOODBYE ENVOYÉ', { to: senderJid });
             }
 
         } catch (error) {
@@ -207,11 +234,51 @@ class MessageService {
     }
 
     /**
-     * Extrait le texte d'un message
+     * Extrait le texte d'un message et l'enrichit avec le contexte de citation
      */
     _extractMessageText(message) {
-        return message.message?.conversation ||
+        const text = message.message?.conversation ||
             message.message?.extendedTextMessage?.text || '';
+        return this._enrichWithQuotedContext(message, text);
+    }
+
+    /**
+     * Enrichit le texte avec le contexte du message cité (reply WhatsApp)
+     * Permet au bot de savoir à quelle photo/variante le client répond
+     */
+    _enrichWithQuotedContext(message, messageText) {
+        const msgContent = message.message;
+        if (!msgContent) return messageText;
+
+        // Chercher contextInfo dans tous les types de messages
+        let contextInfo = null;
+        for (const key of Object.keys(msgContent)) {
+            if (msgContent[key]?.contextInfo) {
+                contextInfo = msgContent[key].contextInfo;
+                break;
+            }
+        }
+
+        if (!contextInfo?.quotedMessage) return messageText;
+
+        const quoted = contextInfo.quotedMessage;
+
+        // Priorité : caption d'image/vidéo > texte conversation > texte étendu
+        const quotedImageCaption = quoted.imageMessage?.caption ||
+            quoted.videoMessage?.caption;
+        const quotedText = quoted.conversation ||
+            quoted.extendedTextMessage?.text;
+
+        if (quotedImageCaption) {
+            logger.debug('Citation image détectée', { caption: quotedImageCaption });
+            return `[Répond à la photo: "${quotedImageCaption}"] ${messageText}`;
+        } else if (quotedText) {
+            const preview = quotedText.substring(0, 100);
+            logger.debug('Citation texte détectée', { preview });
+            return `[Répond à: "${preview}"] ${messageText}`;
+        }
+
+        return messageText;
     }
 
     /**

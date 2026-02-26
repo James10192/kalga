@@ -7,6 +7,8 @@ const {
     useMultiFileAuthState,
     DisconnectReason,
     makeCacheableSignalKeyStore,
+    Browsers,
+    fetchLatestWaWebVersion,
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const path = require('path');
@@ -137,14 +139,18 @@ class WhatsAppService {
     async _startSocket(merchantPhone, authPath) {
         const { state, saveCreds } = await useMultiFileAuthState(authPath);
 
+        const { version } = await fetchLatestWaWebVersion();
+        logger.info('Version WA Web', { merchantPhone, version });
+
         const sock = makeWASocket({
+            version,
             auth: {
                 creds: state.creds,
                 keys: makeCacheableSignalKeyStore(state.keys, pinoLogger),
             },
             printQRInTerminal: false,
             logger: pinoLogger,
-            browser: ['KALGA', 'Chrome', '120.0.0'],
+            browser: Browsers.ubuntu('Chrome'),
         });
 
         // Sauvegarde des credentials

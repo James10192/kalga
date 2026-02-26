@@ -3,6 +3,7 @@
  */
 const express = require('express');
 const qrcode = require('qrcode-terminal');
+const QRCode = require('qrcode');
 const { whatsappService } = require('../../services/whatsapp.service');
 const { logger } = require('../../utils/logger');
 
@@ -94,6 +95,32 @@ router.get('/qr/:merchant_phone', (req, res) => {
             </body>
             </html>
         `);
+    }
+});
+
+/**
+ * GET /qr-image/:merchant_phone - QR Code en PNG (scannable)
+ */
+router.get('/qr-image/:merchant_phone', async (req, res) => {
+    const { merchant_phone } = req.params;
+    const status = whatsappService.getClientStatus(merchant_phone);
+
+    if (!status || !status.qrCode) {
+        return res.status(404).json({ error: 'QR Code non disponible' });
+    }
+
+    try {
+        const png = await QRCode.toBuffer(status.qrCode, {
+            width: 500,
+            margin: 4,
+            color: { dark: '#000000', light: '#ffffff' },
+        });
+        res.set('Content-Type', 'image/png');
+        res.set('Cache-Control', 'no-store');
+        res.send(png);
+    } catch (err) {
+        logger.error('Erreur génération QR PNG', { error: err.message });
+        res.status(500).json({ error: err.message });
     }
 });
 
