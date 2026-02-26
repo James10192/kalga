@@ -79,7 +79,17 @@
       "Bash(powershell.exe -Command:*)",
       "Bash(cmd.exe /c \"where python\")",
       "Bash(cmd.exe /c \"where python 2>&1 & where py 2>&1 & where python3 2>&1\")",
-      "Bash(\"C:/Users/USER PC/AppData/Local/Programs/Python/Python312/python.exe\" \"C:/Users/USER PC/AppData/Local/Temp/parse_jsonl.py\")"
+      "Bash(\"C:/Users/USER PC/AppData/Local/Programs/Python/Python312/python.exe\" \"C:/Users/USER PC/AppData/Local/Temp/parse_jsonl.py\")",
+      "Bash(node -e \"require\\(''./src/config''\\)\")",
+      "Bash(node --input-type=module --eval \"import ''./src/index.js''\")",
+      "Bash(node:*)",
+      "Bash(npm show:*)",
+      "Bash(cmd //c:*)",
+      "Bash(cmd /c \"cd \"\"C:\\\\Users\\\\USER PC\\\\Documents\\\\propre à moi\\\\KALGA\\\\kalga-whatsapp\"\" && npm install qrcode 2>&1\")",
+      "Bash(cmd /c \"pushd \"\"C:\\\\Users\\\\USER PC\\\\Documents\\\\propre à moi\\\\KALGA\\\\kalga-whatsapp\"\" && npm install qrcode && popd\")",
+      "Bash(cmd /c \"cd /d \"\"C:\\\\Users\\\\USER PC\\\\Documents\\\\propre à moi\\\\KALGA\\\\kalga-whatsapp\"\" && echo %CD%\")",
+      "Bash(npm --prefix \"C:/Users/USER PC/Documents/propre à moi/KALGA/kalga-whatsapp\" install qrcode)",
+      "Bash(npm --prefix \"C:/Users/USER PC/Documents/propre à moi/KALGA/kalga-whatsapp\" list qrcode)"
     ]
   }
 }

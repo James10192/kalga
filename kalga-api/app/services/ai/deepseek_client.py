@@ -1,12 +1,13 @@
 """
-Client DeepSeek API v2.0
+Client DeepSeek API v3.0
 ========================
-Architecture en sous-prompts:
-  - IDENTITÉ    : Qui est le bot (permanent, ~80 tokens)
-  - BRIEF PRODUIT : Ce qu'il vend (par produit, ~150 tokens)
-  - SITUATION    : État en cours (par message, ~150 tokens)
-  - FORMAT COMPRIS/RÉPONSE : Raisonnement guidé avant réponse
+Architecture simplifiée — DeepSeek décide ET rédige:
+  - IDENTITÉ    : Qui est le bot (permanent)
+  - BRIEF PRODUIT : Produit + règles business + localisation complète
+  - HISTORIQUE  : 45 derniers messages de la conversation
+  - DÉCISION    : DeepSeek retourne un JSON à 4 champs
 """
+import json
 import httpx
 import logging
 from typing import Optional, Dict, Any, List
@@ -16,7 +17,7 @@ logger = logging.getLogger("kalga.deepseek")
 
 
 # =============================================================================
-# SOUS-PROMPT 1 — IDENTITÉ (permanent, ne change jamais)
+# IDENTITÉ (permanent, ne change jamais)
 # =============================================================================
 
 IDENTITY_PROMPT = """Tu es un vendeur WhatsApp humain, intelligent et honnête.
@@ -30,13 +31,35 @@ RÈGLE ABSOLUE SUR LE PRIX: Quand un accord est confirmé, TOUJOURS mentionner l
 Exemple JUSTE: "Parfait pour 20 000 F! Livraison ou tu passes?"
 Exemple FAUX: "Parfait! Livraison ou tu passes?" ← prix absent = confusion client
 
-Tu ne connais QUE ce qui t'est communiqué sur le produit. Rien de plus."""
+Tu ne connais QUE ce qui t'est communiqué sur le produit. Rien de plus.
+
+Tu réponds TOUJOURS en JSON valide avec exactement ces 4 champs:
+{
+  "is_deal": true ou false,
+  "price_mentioned": nombre ou null,
+  "send_location": true ou false,
+  "response": "ton message WhatsApp ici"
+}"""
+
+CORRECTION_SYSTEM_PROMPT = """Tu es un assistant de commerce WhatsApp en mode correction.
+Un client signale que tu n'as pas répondu à sa vraie question.
+Analyse l'historique de conversation et identifie la vraie demande ignorée.
+
+Tu réponds TOUJOURS en JSON valide avec exactement ces 6 champs:
+{
+  "original_question": "la vraie question du client que tu avais ignorée",
+  "corrected_answer": "la bonne réponse factuelle à cette vraie question",
+  "is_deal": false,
+  "price_mentioned": null,
+  "send_location": false,
+  "response": "Pardon pour la confusion! [vraie réponse ici, brève et directe]"
+}"""
 
 
 class DeepSeekClient:
     """
-    Client pour l'API DeepSeek v2.0.
-    Architecture multi-messages pour un contexte structuré et puissant.
+    Client pour l'API DeepSeek v3.0.
+    DeepSeek décide ET rédige — retourne un JSON structuré à 4 champs.
     """
 
     def __init__(
@@ -58,26 +81,27 @@ class DeepSeekClient:
         self,
         messages: List[Dict],
         temperature: float = 0.7,
-        max_tokens: int = 300
+        max_tokens: int = 400,
+        system_prompt: str = None
     ) -> Optional[str]:
         """
         Envoie une requête multi-messages à DeepSeek.
 
         Args:
             messages: Liste de messages [{role, content}, ...]
-                      Le system prompt IDENTITY est automatiquement ajouté.
             temperature: Créativité (0-1). 0.7 = bon équilibre
-            max_tokens: Inclut le raisonnement COMPRIS + la RÉPONSE
+            max_tokens: Taille max de la réponse JSON
+            system_prompt: Si fourni, remplace IDENTITY_PROMPT (ex: mode correction)
 
         Returns:
-            La réponse générée ou None en cas d'erreur
+            La réponse brute (JSON string) ou None en cas d'erreur
         """
         if not self.api_key:
             logger.error("Clé API DeepSeek manquante!")
             return None
 
         full_messages = [
-            {"role": "system", "content": IDENTITY_PROMPT},
+            {"role": "system", "content": system_prompt if system_prompt is not None else IDENTITY_PROMPT},
             *messages
         ]
 
@@ -101,7 +125,7 @@ class DeepSeekClient:
                     if response.status_code == 200:
                         data = response.json()
                         content = data['choices'][0]['message']['content']
-                        logger.debug(f"Réponse DeepSeek brute: {content[:80]}...")
+                        logger.debug(f"Réponse DeepSeek brute: {content[:120]}...")
                         return content
                     else:
                         logger.warning(
@@ -128,7 +152,7 @@ class DeepSeekClient:
         return None
 
     # =========================================================================
-    # SOUS-PROMPT 2 — BRIEF PRODUIT
+    # BRIEF PRODUIT — avec localisation complète
     # =========================================================================
 
     def build_product_brief(
@@ -139,12 +163,14 @@ class DeepSeekClient:
         product_description: str = None,
         variants: List[str] = None,
         merchant_address: str = None,
+        merchant_city: str = None,
+        merchant_commune: str = None,
+        merchant_quarter: str = None,
         merchant_persona: Dict = None
     ) -> str:
         """
-        Brief factuel sur le produit. Injecté une fois, stable pendant la conversation.
-        Contient uniquement des faits vérifiables — aucune règle de comportement.
-        Inclut optionnellement la persona du marchand (ton, style, phrase signature).
+        Brief factuel sur le produit et les règles business.
+        Inclut la localisation complète : lieu textuel + adresse GPS.
         """
         price_f = f"{int(price):,}".replace(",", " ")
         min_f = f"{int(min_price):,}".replace(",", " ")
@@ -162,9 +188,9 @@ class DeepSeekClient:
                 'professional': 'sérieux et efficace, tu vas droit au but',
             }.get(tone, tone)
             style_desc = {
-                'flexible': 'tu t\'adaptes facilement, bonne marge de négociation',
+                'flexible': "tu t'adaptes facilement, bonne marge de négociation",
                 'firm': 'tu es ferme sur les prix, peu de concessions',
-                'playful': 'tu gardes une touche d\'humour dans les échanges',
+                'playful': "tu gardes une touche d'humour dans les échanges",
             }.get(style, style)
             persona_lines = [
                 "STYLE DE COMMUNICATION (respecte ce style dans toutes tes réponses):",
@@ -181,17 +207,42 @@ class DeepSeekClient:
             if variants else "- Variantes: aucune variante pour ce produit"
         )
 
-        if merchant_address:
-            location_line = f"- Localisation du magasin: {merchant_address}"
-            location_rule = (
+        # Localisation complète
+        location_parts = []
+        if merchant_quarter:
+            location_parts.append(merchant_quarter)
+        if merchant_commune:
+            location_parts.append(merchant_commune)
+        if merchant_city:
+            location_parts.append(merchant_city)
+        lieu_text = ", ".join(location_parts) if location_parts else None
+
+        if lieu_text and merchant_address:
+            location_section = (
+                f"- Lieu: {lieu_text}\n"
+                f"- Adresse GPS: disponible — envoyée automatiquement si le client demande\n"
                 f"  → Si on te demande où se trouve le magasin: "
-                f"\"On est à {merchant_address}! Je t'envoie la position.\""
+                f"\"On est à {lieu_text}! Je t'envoie la position exacte.\"\n"
+                f"  → Dans ce cas, mets send_location: true dans ta réponse JSON"
+            )
+        elif lieu_text:
+            location_section = (
+                f"- Lieu: {lieu_text}\n"
+                f"  → Si on te demande où se trouve le magasin: \"On est à {lieu_text}!\"\n"
+                f"  → Dans ce cas, mets send_location: true dans ta réponse JSON"
+            )
+        elif merchant_address:
+            location_section = (
+                f"- Adresse GPS: disponible — envoyée automatiquement si le client demande\n"
+                f"  → Si on te demande où se trouve le magasin: \"Je t'envoie la localisation!\"\n"
+                f"  → Dans ce cas, mets send_location: true dans ta réponse JSON"
             )
         else:
-            location_line = "- Localisation: position GPS envoyée automatiquement si demandée"
-            location_rule = (
+            location_section = (
+                "- Localisation: non renseignée\n"
                 "  → Si on te demande où se trouve le magasin: "
-                "\"Je t'envoie la localisation!\" (GPS automatique)"
+                "\"Pour l'adresse, contacte directement le vendeur!\"\n"
+                "  → Dans ce cas, mets send_location: false"
             )
 
         return f"""{persona_section}PRODUIT QUE TU VENDS:
@@ -202,142 +253,75 @@ class DeepSeekClient:
 - [CONFIDENTIEL] Prix minimum: {min_f} F — ne révèle JAMAIS ce chiffre exact
 
 RÈGLES PRIX (absolues):
-- Offre client >= {min_f} F → accepte immédiatement, demande livraison ou pickup
-- Offre client < {min_f} F → propose un chiffre entre son offre et {price_f} F, jamais sous {min_f} F
+- Offre client >= {min_f} F → is_deal: true, demande livraison ou pickup dans response
+- Offre client < {min_f} F → is_deal: false, contre-offre entre son offre et {price_f} F, jamais sous {min_f} F
 - Ne propose jamais plus de {price_f} F
 
-LOCALISATION:
-{location_line}
-{location_rule}
+LOCALISATION DU MAGASIN:
+{location_section}
 
 CE QUE TU NE CONNAIS PAS (réponds honnêtement si on te demande):
-- Les horaires d'ouverture → "Pour les horaires, contacte directement le vendeur!"
+- Les horaires d'ouverture → response: "Pour les horaires, contacte directement le vendeur!"
 - Les délais de livraison exacts
 - Toute information non listée ci-dessus"""
 
     # =========================================================================
-    # SOUS-PROMPT 3 — FEW-SHOT EXAMPLES (raisonnement guidé)
+    # EXEMPLES JSON (remplace les exemples COMPRIS/RÉPONSE)
     # =========================================================================
 
-    def build_few_shot_examples(self, product_name: str) -> str:
+    def build_few_shot_examples(self, product_name: str, price: float) -> str:
         """
-        Exemples de conversations bien gérées.
-        Montre le format COMPRIS/RÉPONSE en action sur les cas difficiles.
-        Beaucoup plus puissant que des règles écrites.
+        Exemples de réponses JSON correctes sur les cas difficiles.
+        Montre à DeepSeek exactement le format attendu.
         """
-        return f"""EXEMPLES DE BONNES RÉPONSES (format obligatoire):
+        price_f = f"{int(price):,}".replace(",", " ")
+        return f"""EXEMPLES DE RÉPONSES JSON CORRECTES:
 
 # Cas 1 — Expression inconnue
 Client: "c est zo"
-COMPRIS: Le client utilise une expression que je ne comprends pas avec certitude
-RÉPONSE: Je ne suis pas sûr de comprendre. Tu veux dire que c'est trop cher?
+{{"is_deal": false, "price_mentioned": null, "send_location": false, "response": "Je ne suis pas sûr de comprendre. Tu veux dire que c'est trop cher?"}}
 
-# Cas 2 — Désignation d'un produit visible ("celui-là")
+# Cas 2 — Client désigne le produit ("celui-là", "lui la")
 Client: "je veux lui la"
-COMPRIS: Le client désigne le produit visible et l'accepte au prix affiché — je dois confirmer le prix EXPLICITEMENT
-RÉPONSE: Parfait pour [PRIX ICI] F! Livraison ou tu passes chercher?
+{{"is_deal": true, "price_mentioned": {int(price)}, "send_location": false, "response": "Parfait pour {price_f} F! Livraison ou tu passes chercher?"}}
 
-# Cas 3 — Question sur les horaires
+# Cas 3 — Question horaires
 Client: "vous ouvrez a quelle heure"
-COMPRIS: Le client demande les horaires que je ne connais pas
-RÉPONSE: Pour les horaires, contacte directement le vendeur!
+{{"is_deal": false, "price_mentioned": null, "send_location": false, "response": "Pour les horaires, contacte directement le vendeur!"}}
 
-# Cas 4 — Vente conclue prématurément par erreur
+# Cas 4 — Vente déclarée par erreur
 Client: "mais j ai rien acheté"
-COMPRIS: Le bot a déclaré une vente qui n'a pas eu lieu — le client corrige
-RÉPONSE: Pardon pour la confusion! On n'a pas encore finalisé. Tu es intéressé par le {product_name}?
+{{"is_deal": false, "price_mentioned": null, "send_location": false, "response": "Pardon pour la confusion! On n'a pas encore finalisé. Tu es intéressé par le {product_name}?"}}
 
-# Cas 5 — Le bot a répété le même prix plusieurs fois
-Client: "pourquoi je vais discuter"
-COMPRIS: Le client remet en question la proposition de discuter — le bot a été trop répétitif
-RÉPONSE: Bonne question! Tu proposes combien et on s'arrange.
-
-# Cas 6 — Offre trop basse
+# Cas 5 — Offre trop basse
 Client: "5000"
-COMPRIS: Le client propose un prix sous le minimum acceptable
-RÉPONSE: 5 000 F c'est un peu bas! Fais-moi une offre plus proche et on se comprend.
+{{"is_deal": false, "price_mentioned": 5000, "send_location": false, "response": "5 000 F c'est un peu bas! Fais-moi une offre plus proche et on se comprend."}}
 
-# Cas 7 — Client frustré après incompréhension
+# Cas 6 — Client demande la localisation
+Client: "vous etes ou"
+{{"is_deal": false, "price_mentioned": null, "send_location": true, "response": "Je t'envoie la position!"}}
+
+# Cas 7 — "Oui" en réponse à une question d'information (PAS un deal)
+Historique: Toi: "Tu veux plus de détails?" → Client: "Oui oui"
+{{"is_deal": false, "price_mentioned": null, "send_location": false, "response": "Bien sûr! {product_name} en très bonne qualité. Tu veux voir une photo?"}}
+
+# Cas 8 — Client frustré
 Client: "repond a ma question"
-COMPRIS: Le bot n'a pas répondu à ce que le client demandait et le client est frustré
-RÉPONSE: Pardon! Tu demandais quoi exactement? Je t'écoute.
+{{"is_deal": false, "price_mentioned": null, "send_location": false, "response": "Pardon! Tu demandais quoi exactement? Je t'écoute."}}
 
-# Cas 8 — Client dit avoir supprimé une photo
-Client: "non j ai supprime la photo par erreur"
-COMPRIS: Le client a effacé la photo accidentellement et en a besoin — je dois la renvoyer, pas répéter "tu peux la regarder plus haut"
-RÉPONSE: Pas de problème, je te renvoie!
+# Cas 9 — Reply WhatsApp sur une photo (préfixe [Répond à la photo: "X"])
+# Ce préfixe est un signal technique: le client a appuyé sur cette photo précise pour répondre.
+# Son message s'interprète DANS LE CONTEXTE de cette photo, quelle que soit sa formulation.
+Client: "[Répond à la photo: \"Modèle Fleur rouge\"] non c'est lui la que j'ai choisi"
+{{"is_deal": true, "price_mentioned": {int(price)}, "send_location": false, "response": "Super choix, le Modèle Fleur rouge! {price_f} F et c'est à toi. Livraison ou tu passes?"}}
 
-# Cas 9 — Client demande le prix après désignation d'un article
-Client: "il fait combien"
-COMPRIS: Le client veut confirmer le prix avant de finaliser — je dois donner le prix clairement sans relancer la négociation
-RÉPONSE: C'est [PRIX] F. Ça te va?"""
-
-    # =========================================================================
-    # SOUS-PROMPT 4 — SITUATION EN COURS (par message)
-    # =========================================================================
-
-    def build_situation_prompt(
-        self,
-        negotiation_stage: str,
-        history_text: str,
-        key_facts: List[str] = None,
-        health_alerts: List[str] = None,
-        is_first_message: bool = False,
-        final_price_mode: bool = False,
-        min_price: float = None,
-        client_profile: str = None,
-        knowledge_context: List[str] = None
-    ) -> str:
-        """
-        Snapshot de la situation actuelle de la conversation.
-        Contient: stade, faits clés, alertes, base de connaissances, historique.
-        """
-        lines = ["SITUATION EN COURS:"]
-
-        # Stade
-        lines.append(f"- Stade: {negotiation_stage}")
-
-        # Premier message
-        if is_first_message:
-            lines.append("- C'est le PREMIER message du client → commence par \"Salut!\" et donne le prix")
-
-        # Mode dernier prix
-        if final_price_mode and min_price:
-            min_f = f"{int(min_price):,}".replace(",", " ")
-            lines.append(
-                f"- MODE DERNIER PRIX: propose {min_f} F comme prix final absolu, sois ferme mais respectueux"
-            )
-
-        # Profil client (fidélité)
-        if client_profile:
-            lines.append(f"- Profil client: {client_profile}")
-
-        # Faits clés extraits de la conversation
-        if key_facts:
-            lines.append("\nFAITS CLÉS:")
-            for fact in key_facts:
-                lines.append(f"  → {fact}")
-
-        # Alertes santé conversationnelle
-        if health_alerts:
-            lines.append("\nALERTES CONTEXTE:")
-            for alert in health_alerts:
-                lines.append(f"  ⚡ {alert}")
-
-        # Base de connaissances (réponses types du marchand)
-        if knowledge_context:
-            lines.append("\nINFORMATIONS UTILES (réponses déjà données par ce marchand):")
-            for kb_entry in knowledge_context:
-                lines.append(f"  • {kb_entry}")
-
-        # Historique
-        if history_text:
-            lines.append(f"\nCONVERSATION EN COURS:\n{history_text}")
-
-        return "\n".join(lines)
+# Cas 10 — Reply WhatsApp sur un message texte (préfixe [Répond à: "X"])
+# Même logique: le client répond à un message précis du bot. Interprète dans ce contexte.
+Client: "[Répond à: \"Livraison ou tu passes chercher?\"] je vais passer"
+{{"is_deal": false, "price_mentioned": null, "send_location": true, "response": "Parfait! Je t'envoie la localisation du magasin."}}"""
 
     # =========================================================================
-    # ASSEMBLAGE FINAL — build_messages()
+    # ASSEMBLAGE — build_messages()
     # =========================================================================
 
     def build_messages(
@@ -345,29 +329,29 @@ RÉPONSE: C'est [PRIX] F. Ça te va?"""
         product_name: str,
         price: float,
         min_price: float,
-        history_text: str,
+        conversation_history: List[Dict],
         client_message: str,
         is_first_message: bool = False,
         product_description: str = None,
         variants: List[str] = None,
         merchant_address: str = None,
-        key_facts: List[str] = None,
-        negotiation_stage: str = None,
-        health_alerts: List[str] = None,
-        final_price_mode: bool = False,
-        client_profile: str = None,
+        merchant_city: str = None,
+        merchant_commune: str = None,
+        merchant_quarter: str = None,
+        merchant_persona: Dict = None,
         knowledge_context: List[str] = None,
-        merchant_persona: Dict = None
+        conversation_status: str = "active",
+        current_offer: Optional[float] = None
     ) -> List[Dict]:
         """
-        Assemble les 4 sous-prompts en un tableau de messages structuré.
+        Assemble le prompt complet pour DeepSeek.
 
         Structure:
-          user  → Brief produit + few-shot examples
-          assistant → "Compris."  (ancrage cognitif)
-          user  → Situation en cours + message client + format attendu
+          user      → Brief produit + exemples JSON
+          assistant → "Compris." (ancrage cognitif)
+          user      → 10 derniers messages + message client + instruction JSON
         """
-        # --- Sous-prompt 2: Brief produit + exemples ---
+        # --- Brief produit + exemples ---
         brief = self.build_product_brief(
             product_name=product_name,
             price=price,
@@ -375,33 +359,68 @@ RÉPONSE: C'est [PRIX] F. Ça te va?"""
             product_description=product_description,
             variants=variants,
             merchant_address=merchant_address,
+            merchant_city=merchant_city,
+            merchant_commune=merchant_commune,
+            merchant_quarter=merchant_quarter,
             merchant_persona=merchant_persona
         )
-        examples = self.build_few_shot_examples(product_name)
+        examples = self.build_few_shot_examples(product_name, price)
         knowledge_message = f"{brief}\n\n{examples}"
 
-        # --- Sous-prompt 3: Situation en cours ---
-        situation = self.build_situation_prompt(
-            negotiation_stage=negotiation_stage or "CONVERSATION EN COURS",
-            history_text=history_text,
-            key_facts=key_facts,
-            health_alerts=health_alerts,
-            is_first_message=is_first_message,
-            final_price_mode=final_price_mode,
-            min_price=min_price,
-            client_profile=client_profile,
-            knowledge_context=knowledge_context
+        # --- Base de connaissances du marchand (optionnel) ---
+        if knowledge_context:
+            kb_lines = "\n".join(f"  • {kb}" for kb in knowledge_context)
+            knowledge_message += f"\n\nINFORMATIONS UTILES (réponses habituelles de ce marchand):\n{kb_lines}"
+
+        # --- 45 derniers messages de la conversation ---
+        recent_history = conversation_history[-45:] if len(conversation_history) > 45 else conversation_history
+        history_lines = []
+        for msg in recent_history:
+            role = "Client" if msg.get('is_from_client') else "Toi"
+            content = msg.get('content', '')
+            history_lines.append(f"{role}: {content}")
+
+        history_text = "\n".join(history_lines) if history_lines else ""
+
+        # --- Message final ---
+        context_lines = []
+
+        if is_first_message:
+            context_lines.append("C'est le PREMIER message de ce client. Commence par saluer et présente le prix.")
+
+        if history_text:
+            context_lines.append(f"CONVERSATION EN COURS (45 derniers messages):\n{history_text}")
+
+        context_lines.append(f'\nLe client dit maintenant: "{client_message}"')
+
+        # Contexte de négociation — empêche les faux deals
+        if not is_first_message:
+            status_labels = {
+                "active": "début de conversation, rien n'a encore été discuté",
+                "negotiating": "négociation en cours, aucun accord confirmé sur le prix",
+                "agreed": "accord sur le prix, client doit choisir livraison ou pickup",
+                "pending_pickup": "deal conclu, client vient chercher",
+                "pending_delivery": "deal conclu, livraison en cours",
+                "ended": "conversation terminée",
+            }
+            status_label = status_labels.get(conversation_status, conversation_status)
+            offer_info = (
+                f"{int(current_offer):,} F".replace(",", " ")
+                if current_offer else "aucune offre confirmée"
+            )
+            context_lines.append(
+                f"\nÉTAT DE LA NÉGOCIATION: {status_label} | Offre actuelle: {offer_info}"
+                "\n⚠️ RÈGLE CRITIQUE is_deal: Mets is_deal: true UNIQUEMENT si le client"
+                " dit CLAIREMENT qu'il achète (ex: 'je prends', 'deal', 'c'est bon', 'ok')."
+                " Demander l'adresse ou dire 'finalisons' SANS avoir accepté un prix n'est PAS un accord."
+            )
+
+        context_lines.append(
+            "\nRéponds en JSON valide uniquement, sans texte avant ou après:\n"
+            '{"is_deal": true/false, "price_mentioned": nombre/null, "send_location": true/false, "response": "..."}'
         )
 
-        # --- Message final: le client + format de réponse ---
-        request = (
-            f'Le client dit maintenant: "{client_message}"\n\n'
-            f"Réponds en format EXACT:\n"
-            f"COMPRIS: [une phrase — ce que le client veut vraiment]\n"
-            f"RÉPONSE: [ton message WhatsApp, 1-2 phrases max, naturel et direct]"
-        )
-
-        final_user_message = f"{situation}\n\n{request}"
+        final_user_message = "\n".join(context_lines)
 
         return [
             {"role": "user", "content": knowledge_message},
@@ -409,27 +428,110 @@ RÉPONSE: C'est [PRIX] F. Ça te va?"""
             {"role": "user", "content": final_user_message},
         ]
 
-    def parse_response(self, raw_response: str) -> str:
+    def build_correction_messages(
+        self,
+        conversation_history: List[Dict],
+        client_correction: str,
+        product_name: str,
+        price: float
+    ) -> List[Dict]:
         """
-        Extrait uniquement la partie RÉPONSE du format COMPRIS/RÉPONSE.
-        Si le format n'est pas respecté, retourne la réponse brute.
+        Prompt spécial "mode correction".
+        Déclenché quand le client signale que le bot a répondu à côté.
+
+        DeepSeek doit:
+        1. Analyser l'historique pour identifier la VRAIE question ignorée
+        2. Générer la bonne réponse
+        3. Retourner un JSON avec la correction ET la réponse au client
+        """
+        price_f = f"{int(price):,}".replace(",", " ")
+
+        recent = conversation_history[-10:] if len(conversation_history) > 10 else conversation_history
+        history_lines = []
+        for msg in recent:
+            role = "Client" if msg.get('is_from_client') else "Toi"
+            history_lines.append(f"{role}: {msg.get('content', '')}")
+        history_text = "\n".join(history_lines)
+
+        correction_prompt = f"""Tu es un vendeur WhatsApp pour {product_name} à {price_f} F.
+
+SITUATION: Le client vient de dire que tu n'as PAS répondu à sa vraie question.
+
+HISTORIQUE RÉCENT:
+{history_text}
+
+Le client dit maintenant: "{client_correction}"
+
+TON TRAVAIL:
+1. Identifie la question ou demande RÉELLE que le client avait posée et à laquelle tu as mal répondu
+2. Génère la bonne réponse à cette vraie question
+3. Réponds au client en reconnaissant l'erreur BRIÈVEMENT puis donne la vraie réponse
+
+Réponds en JSON valide uniquement:
+{{"original_question": "la vraie question du client", "corrected_answer": "la bonne réponse", "is_deal": false, "price_mentioned": null, "send_location": false, "response": "Pardon pour la confusion! [vraie réponse ici]"}}"""
+
+        return [
+            {"role": "user", "content": correction_prompt},
+        ]
+
+    def parse_json_response(self, raw_response: str) -> Optional[Dict]:
+        """
+        Parse la réponse JSON de DeepSeek.
+        Retourne un dict avec les 4 champs ou None si le parsing échoue.
+
+        Champs attendus:
+          - is_deal: bool
+          - price_mentioned: float ou null
+          - send_location: bool
+          - response: str
         """
         if not raw_response:
-            return raw_response
+            return None
 
-        # Chercher "RÉPONSE:" ou "REPONSE:" (avec ou sans accent)
-        for marker in ["RÉPONSE:", "REPONSE:", "Réponse:", "Reponse:"]:
-            if marker in raw_response:
-                response_part = raw_response.split(marker, 1)[1].strip()
-                # Nettoyer les éventuelles lignes supplémentaires
-                response_part = response_part.split("\n")[0].strip()
-                if response_part:
-                    logger.debug(f"COMPRIS extrait: {raw_response.split(marker)[0][:80]}")
-                    return response_part
+        # Nettoyer les balises markdown si présentes
+        cleaned = raw_response.strip()
+        if cleaned.startswith("```"):
+            lines = cleaned.split("\n")
+            lines = [l for l in lines if not l.startswith("```")]
+            cleaned = "\n".join(lines).strip()
 
-        # Format non respecté — retourner la réponse brute nettoyée
-        logger.warning("Format COMPRIS/RÉPONSE non respecté — réponse brute utilisée")
-        return raw_response.strip()
+        try:
+            data = json.loads(cleaned)
+
+            # Valider et normaliser les champs
+            result = {
+                "is_deal": bool(data.get("is_deal", False)),
+                "price_mentioned": float(data["price_mentioned"]) if data.get("price_mentioned") else None,
+                "send_location": bool(data.get("send_location", False)),
+                "response": str(data.get("response", "")).strip()
+            }
+            # Champs optionnels présents uniquement en mode correction
+            if data.get("original_question"):
+                result["original_question"] = str(data["original_question"]).strip()
+            if data.get("corrected_answer"):
+                result["corrected_answer"] = str(data["corrected_answer"]).strip()
+
+            if not result["response"]:
+                logger.warning("DeepSeek JSON: champ 'response' vide")
+                return None
+
+            logger.debug(
+                f"DeepSeek JSON parsé: deal={result['is_deal']}, "
+                f"price={result['price_mentioned']}, location={result['send_location']}"
+            )
+            return result
+
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
+            logger.warning(f"Échec parsing JSON DeepSeek: {e} | Brut: {raw_response[:100]}")
+            return None
+
+    # Alias pour compatibilité avec l'ancien code
+    def parse_response(self, raw_response: str) -> str:
+        """Compatibilité ascendante — extrait uniquement le texte 'response'."""
+        result = self.parse_json_response(raw_response)
+        if result:
+            return result["response"]
+        return raw_response.strip() if raw_response else ""
 
 
 # Instance globale

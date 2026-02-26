@@ -153,6 +153,9 @@ class BotResponse(BaseModel):
     no_response: bool = False  # Si True, ne pas envoyer de message
     images_to_send: Optional[List[dict]] = None  # Images à envoyer (variantes)
     away_mode: bool = False  # Si True, message d'absence automatique
+    send_location: bool = False  # Si True, le bridge envoie la localisation APRÈS le texte
+    merchant_location: Optional[dict] = None  # Données localisation {latitude, longitude, name, address}
+    goodbye_message: Optional[str] = None  # Message de fin envoyé APRÈS tout le reste (deal conclu)
 
 
 # === VITRINE PUBLIQUE ===

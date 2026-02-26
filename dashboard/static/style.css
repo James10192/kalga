@@ -622,8 +622,8 @@ body {
 
 /* White bg clipper */
 .qr-iframe-clip {
-    width: 210px;
-    height: 210px;
+    width: 300px;
+    height: 300px;
     border-radius: 16px;
     overflow: hidden;
     background: #fff;

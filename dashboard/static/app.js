@@ -312,61 +312,38 @@ function startQRCountdown(phone, container, loadingEl, wrapperEl) {
 
 async function renderQRCanvas(phone, container, loadingEl, wrapperEl) {
     try {
-        const res = await fetch(`${CONFIG.WHATSAPP_BRIDGE}/qr/${phone}`, { cache: 'no-store' });
-        const html = await res.text();
-
-        // Already connected
-        if (html.includes('Déjà connecté') || html.includes('connected')) return;
-
-        // Extract the <pre> ASCII QR
-        const match = html.match(/<pre[^>]*>([\s\S]*?)<\/pre>/);
-
-        // QR not ready yet — bridge still generating, retry in 2s
-        if (!match) {
+        const res = await fetch(`${CONFIG.WHATSAPP_BRIDGE}/status/${phone}`, { cache: 'no-store' });
+        if (!res.ok) {
             setTimeout(() => renderQRCanvas(phone, container, loadingEl, wrapperEl), 2000);
             return;
         }
 
-        const lines = match[1].split('\n').filter(l => l.length > 0);
-        const cols = lines.reduce((max, l) => Math.max(max, [...l].length), 0);
-        const rows = lines.length;
+        const status = await res.json();
 
-        // Each char = half-block: ▄ = bottom dark, ▀ = top dark, █ = full dark, space = full light
-        const CELL = 6; // pixels per half-cell
-        const canvas = document.createElement('canvas');
-        canvas.width = cols * CELL;
-        canvas.height = rows * CELL * 2;
-        canvas.style.cssText = `width:${Math.min(cols * CELL, 220)}px; height:${Math.min(rows * CELL * 2, 220)}px; display:block; border-radius:10px;`;
+        // Already connected
+        if (status.ready) return;
 
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#000';
+        // QR not ready yet — bridge still generating, retry in 2s
+        if (!status.qrCode) {
+            setTimeout(() => renderQRCanvas(phone, container, loadingEl, wrapperEl), 2000);
+            return;
+        }
 
-        lines.forEach((line, row) => {
-            const chars = [...line];
-            chars.forEach((ch, col) => {
-                const x = col * CELL;
-                const y = row * CELL * 2;
-                if (ch === '█') {
-                    ctx.fillRect(x, y, CELL, CELL * 2);
-                } else if (ch === '▄') {
-                    ctx.fillRect(x, y + CELL, CELL, CELL);
-                } else if (ch === '▀') {
-                    ctx.fillRect(x, y, CELL, CELL);
-                }
-            });
-        });
+        // Render QR code as <img> depuis l'endpoint PNG du bridge (pas de CDN)
+        const img = document.createElement('img');
+        img.src = `${CONFIG.WHATSAPP_BRIDGE}/qr-image/${phone}?t=${Date.now()}`;
+        img.style.cssText = 'width:300px; height:300px; display:block; border-radius:10px;';
+        img.alt = 'QR Code WhatsApp';
 
         container.innerHTML = '';
-        container.appendChild(canvas);
+        container.appendChild(img);
         loadingEl.style.display = 'none';
         wrapperEl.style.display = 'inline-block';
 
-        // Start countdown refresh (replaces plain setInterval)
         startQRCountdown(phone, container, loadingEl, wrapperEl);
     } catch (e) {
         console.error('QR render error:', e);
+        setTimeout(() => renderQRCanvas(phone, container, loadingEl, wrapperEl), 3000);
     }
 }
 
@@ -374,6 +351,8 @@ function startStatusCheck(phone) {
     if (state.statusCheckInterval) {
         clearInterval(state.statusCheckInterval);
     }
+
+    let lastQrCode = null;
 
     state.statusCheckInterval = setInterval(async () => {
         try {
@@ -391,6 +370,17 @@ function startStatusCheck(phone) {
 
                     // Vérifier l'abonnement avant d'afficher le dashboard
                     setTimeout(() => checkSubscriptionAndProceed(), 1000);
+                } else if (status.qrCode && status.qrCode !== lastQrCode) {
+                    // Nouveau QR détecté (après reconnexion) — rafraîchir immédiatement
+                    lastQrCode = status.qrCode;
+                    const container = document.getElementById('qr-frame-container');
+                    const loadingEl = document.getElementById('qr-loading');
+                    const wrapperEl = document.getElementById('qr-frame-wrapper');
+                    if (container && loadingEl && wrapperEl) {
+                        if (window._qrRefreshTimer) { clearInterval(window._qrRefreshTimer); window._qrRefreshTimer = null; }
+                        if (window._qrCountdownTimer) { clearInterval(window._qrCountdownTimer); window._qrCountdownTimer = null; }
+                        await renderQRCanvas(phone, container, loadingEl, wrapperEl);
+                    }
                 }
             }
         } catch (e) {

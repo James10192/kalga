@@ -85,7 +85,9 @@ def detect_pickup_request(message: str) -> bool:
     msg = message.lower()
     pickup_keywords = [
         'viens chercher', 'je viens', 'passe chercher', 'récupérer',
-        'magasin', 'boutique', 'sur place', 'en personne', 'moi-même', 'moi même'
+        'passe au magasin', 'viens au magasin', 'je vais au magasin', 'venir au magasin',
+        'passe à la boutique', 'viens à la boutique', 'je vais à la boutique',
+        'sur place', 'en personne', 'moi-même', 'moi même'
     ]
     return any(kw in msg for kw in pickup_keywords)
 
@@ -142,7 +144,8 @@ def detect_agreement(message: str) -> bool:
 
     # Vérifier "je prends" mais pas "je prends soin", "je prends note", etc.
     if 'je prends' in msg:
-        exclusions = ['soin', 'note', 'en compte', 'le temps', 'mon temps', 'connaissance']
+        exclusions = ['soin', 'note', 'en compte', 'le temps', 'mon temps', 'connaissance',
+                      'rendez-vous', 'en charge', 'en main', 'en photo']
         if not any(excl in msg for excl in exclusions):
             return True
 
@@ -150,7 +153,7 @@ def detect_agreement(message: str) -> bool:
     if len(msg) < 25:
         short_agreements = [
             'ça marche', 'ca marche', 'c\'est bon', 'ça me va',
-            'ca me va', 'je suis d\'accord', 'marché'
+            'ca me va', 'je suis d\'accord'
         ]
         if any(kw in msg for kw in short_agreements):
             return True
@@ -167,6 +170,8 @@ def detect_variant_request(message: str) -> bool:
     - Questions implicites
     """
     msg = message.lower()
+    # Normaliser les apostrophes mobiles (iOS/Android génèrent \u2019 au lieu de ')
+    msg = msg.replace('\u2019', "'").replace('\u2018', "'")
 
     # === PATTERNS EXACTS ===
     variant_keywords = [
@@ -179,7 +184,9 @@ def detect_variant_request(message: str) -> bool:
 
         # Tailles
         'autre taille', 'autres tailles', 'taille différente',
-        'en xl', 'en l', 'en m', 'en s', 'en xxl', 'en xs',
+        'taille xl', 'taille xxl', 'taille xs', 'taille l', 'taille m', 'taille s',
+        'en taille xl', 'en taille l', 'en taille m', 'en taille s',
+        'je veux du xl', 'je veux du l', 'je veux du m', 'je veux du s',
         'plus grand', 'plus petit', 'taille au dessus', 'taille en dessous',
 
         # Modèles/variantes
@@ -187,13 +194,18 @@ def detect_variant_request(message: str) -> bool:
         'autre model', 'autres models',  # sans accent
         'variante', 'variantes', 'vatiante', 'vatiantes',  # fautes courantes
         'variente', 'varientes', 'variant',
-        'version', 'versions', 'autre version',
+        'autre version',
 
         # Photos d'autres
         'photo d\'une autre', 'image d\'une autre', 'voir une autre',
         'photo d\'autre', 'image d\'autre', 'photos d\'autres',
         'autre photo', 'autres photos', 'd\'autres photos',
         'autre image', 'autres images', 'd\'autres images',
+
+        # Plusieurs
+        'plusieurs photos', 'plusieurs images',
+        'plusieurs modèles', 'plusieurs modeles',
+        'plusieurs variantes', 'plusieurs couleurs',
     ]
 
     if any(kw in msg for kw in variant_keywords):
@@ -249,6 +261,46 @@ def detect_variant_request(message: str) -> bool:
     return False
 
 
+def detect_same_variant_photo_request(message: str) -> bool:
+    """
+    Détecte si le client demande UNE AUTRE PHOTO de LA MÊME variante qu'il a déjà choisie.
+    DIFFÉRENT de detect_variant_request qui cherche D'AUTRES variantes/modèles.
+
+    Signaux clés: "photo de CE/MA/MON modèle / cette fleur / celui que j'ai choisi"
+    Ces messages contiennent un possessif ou démonstratif qui désigne UNE VARIANTE DÉJÀ CHOISIE.
+    """
+    msg = message.lower()
+    # Normaliser les apostrophes mobiles (iOS/Android génèrent \u2019 au lieu de ')
+    msg = msg.replace('\u2019', "'").replace('\u2018', "'")
+
+    # Patterns directs "d'autre(s) photo(s) de + possessif/démonstratif"
+    same_variant_patterns = [
+        "d'autre photo de ce", "d'autre photo de ma", "d'autre photo de mon",
+        "d'autres photos de ce", "d'autres photos de ma", "d'autres photos de mon",
+        "d'autre photo de celui", "d'autre photo de celle",
+        "d'autres photos de celui", "d'autres photos de celle",
+        "d'autre image de ce", "d'autre image de ma",
+        "photo de ce même", "photo de ce meme",
+        "photo du même", "photo du meme",
+        "plus de photo de ce", "plus de photos de ce",
+        "encore une photo de ce", "encore des photos de ce",
+        "photo de celui que", "photo de ce que",
+        "photo du modele que j'ai", "photo de ma fleur",
+        "photo de ce modele", "photo de mon modele",
+    ]
+    if any(p in msg for p in same_variant_patterns):
+        return True
+
+    # Regex: "d'autre(s) photo(s)/image(s) de + (ce/ma/mon/cette/celui/celle/même)"
+    import re
+    if re.search(r"d'autres?\s+photos?\s+de\s+(ce|ma|mon|cette|celui|celle|cet|même|meme)", msg):
+        return True
+    if re.search(r"d'autres?\s+images?\s+de\s+(ce|ma|mon|cette|celui|celle|cet|même|meme)", msg):
+        return True
+
+    return False
+
+
 def detect_photo_request(message: str) -> bool:
     """Détecte si le client demande une photo/image du produit"""
     msg = message.lower()
@@ -259,6 +311,16 @@ def detect_photo_request(message: str) -> bool:
         "pas d'image", "pas d'photo", 'pas besoin de photo', "pas besoin d'image",
     ]
     if any(neg in msg for neg in negation_patterns):
+        return False
+
+    # Exclusions : demandes de variantes (plusieurs/autre + photo/image)
+    # Ces cas sont gérés par detect_variant_request — ne pas intercepter ici
+    variant_photo_patterns = [
+        'plusieurs photo', 'plusieurs image',
+        'autre photo', "d'autre photo", 'autres photos', "d'autres photos",
+        'autre image', "d'autre image", 'autres images', "d'autres images",
+    ]
+    if any(p in msg for p in variant_photo_patterns):
         return False
 
     photo_keywords = [
@@ -281,7 +343,8 @@ def detect_location_request(message: str) -> bool:
     location_keywords = [
         'magasin', 'boutique', 'adresse', 'où', 'ou c\'est',
         'situé', 'situer', 'situe',
-        'localisation', 'position', 'lieu', 'emplacement', 'trouver',
+        'localisation', 'position', 'lieu', 'emplacement',
+        'comment trouver',
         'renvois', 'renvoie', 'renvoyer',
     ]
     return any(kw in msg for kw in location_keywords)
@@ -332,6 +395,57 @@ def is_product_related_message(message: str, product_name: str) -> bool:
 
     # Par défaut, considérer comme pertinent
     return True
+
+
+def detect_correction_signal(message: str) -> bool:
+    """
+    Détecte si le client signale que le bot a répondu à côté.
+    Signal d'apprentissage actif : le client devient le correcteur du bot.
+
+    IMPORTANT: Doit être TRÈS précis pour éviter les faux positifs.
+    "non" seul ne suffit pas — il faut une indication explicite de mauvaise réponse.
+    """
+    msg = message.lower().strip()
+    # Normaliser les apostrophes mobiles (iOS/Android génèrent \u2019 au lieu de ')
+    msg = msg.replace('\u2019', "'").replace('\u2018', "'")
+
+    # Ne pas déclencher sur les négociations prix ("non c'est trop cher") ou refus simples
+    price_negation_patterns = [
+        'trop cher', 'cher', 'diminuer', 'réduire', 'baisser', 'moins',
+        'fcfa', 'franc', '000', 'offre', 'prix'
+    ]
+    if any(p in msg for p in price_negation_patterns):
+        return False
+
+    # Signaux explicites de mauvaise réponse
+    correction_signals = [
+        "c'est pas ce que j'ai demandé",
+        "c'est pas ce que j ai demande",
+        "pas ce que j'ai demandé",
+        "pas ce que je t'ai demandé",
+        "tu n'as pas répondu",
+        "tu nas pas repondu",
+        "tu réponds pas à",
+        "tu reponds pas a",
+        "ma question c'était",
+        "ma question cetait",
+        "j'avais demandé",
+        "javais demande",
+        "ce n'est pas ma question",
+        "c'est pas ma question",
+        "tu comprends pas",
+        "tu comprend pas",
+        "je t'ai pas demandé ça",
+        "je t ai pas demande ca",
+        "j'ai pas demandé ça",
+        "jai pas demande ca",
+        "c'est pas ça que je voulais",
+        "c'est pas ce que je voulais",
+        "ce que je demandais c'était",
+        "ce que je demande c'est",
+        "non ce que je",
+    ]
+    return any(signal in msg for signal in correction_signals)
 
 
 def detect_other_products_request(message: str) -> bool:

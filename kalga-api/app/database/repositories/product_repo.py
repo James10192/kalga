@@ -120,6 +120,20 @@ class ProductRepository(BaseRepository):
             rows = await cursor.fetchall()
             return [dict(row) for row in rows]
 
+    async def get_all_in_group(self, group_id: str) -> List[Dict[str, Any]]:
+        """Récupère TOUTES les variantes d'un groupe, y compris le produit courant"""
+        async with get_connection() as db:
+            cursor = await db.execute(
+                """
+                SELECT * FROM products
+                WHERE group_id = ? AND is_available = 1
+                ORDER BY variant_name
+                """,
+                (group_id,)
+            )
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
     async def deactivate(self, product_id: int) -> bool:
         """Désactive un produit (soft delete)"""
         return await self.update(product_id, is_available=0)

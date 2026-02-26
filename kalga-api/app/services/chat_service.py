@@ -13,7 +13,7 @@ from ..models.schemas import IncomingMessage, BotResponse
 from .notification_service import NotificationService
 from .followup_service import get_followup_service
 from .conversation_ai import generate_response, extract_product_code, detect_variant_request, detect_photo_request, analyze_conversation_health
-from .ai.detectors import detect_other_products_request
+from .ai.detectors import detect_other_products_request, detect_same_variant_photo_request
 
 logger = logging.getLogger("kalga.chat")
 
@@ -126,9 +126,18 @@ class ChatService:
                     notification_reason=f"Client intéressé par {product['code']} (RUPTURE)"
                 )
 
+        # 4.5 Mémoriser la variante sélectionnée si le client répond à une photo de variante
+        # Doit être fait AVANT les cas spéciaux pour que selected_variant_id soit à jour
+        current_conv_status = conversation.get('status', 'active')
+        if current_conv_status not in ('pending_pickup', 'pending_delivery'):
+            await self._find_and_save_selected_variant(
+                conversation=conversation,
+                product=product,
+                message_text=message.message
+            )
+
         # 5. Vérifier les cas spéciaux (photos, variantes)
         # Ne pas intercepter en pending_pickup/pending_delivery (le client parle au bot de suivi)
-        current_conv_status = conversation.get('status', 'active')
         if current_conv_status not in ('pending_pickup', 'pending_delivery'):
             special_response = await self._handle_special_requests(
                 message=message,
@@ -206,7 +215,7 @@ class ChatService:
             price_offer=price_offer
         )
 
-        # 7.5 Envoyer la localisation si demandée (y compris re-demande en pending_pickup)
+        # 7.5 Préparer la localisation si demandée (envoi délégué au bridge, APRÈS le texte)
         # Double-check: si on est en pending_pickup et le message parle de localisation, forcer l'envoi
         if not send_location and new_status == "pending_pickup":
             from ..services.ai.detectors import detect_location_request
@@ -214,45 +223,48 @@ class ChatService:
                 send_location = True
                 logger.info(f"[LOCATION] Force send_location=True via double-check pour pending_pickup")
 
+        # Construire les données de localisation à passer au bridge
+        merchant_location = None
         if send_location:
-            logger.info(f"[LOCATION] Tentative envoi localisation: merchant={message.merchant_phone}, client={message.client_phone}")
-            logger.info(f"[LOCATION] Données marchand: lat={merchant.get('latitude')}, lng={merchant.get('longitude')}, addr={merchant.get('address')}")
-            try:
-                location_sent = await self.notifications.send_merchant_location_to_client(
-                    merchant_phone=message.merchant_phone,
-                    client_phone=message.client_phone,
-                    merchant_data=merchant
-                )
-                if location_sent:
-                    logger.info(f"[LOCATION] Localisation envoyée avec succès au client {message.client_phone}")
-                    await self.notifications.notify_location_sent(
-                        merchant_phone=message.merchant_phone,
-                        client_phone=message.client_phone,
-                        product_name=product['name']
-                    )
-                else:
-                    logger.warning(f"[LOCATION] Échec envoi - send_merchant_location_to_client retourné False pour {message.merchant_phone}")
-                    await self.notifications.notify_location_needed(
-                        merchant_phone=message.merchant_phone,
-                        client_phone=message.client_phone,
-                        product_name=product['name']
-                    )
-            except Exception as e:
-                logger.error(f"[LOCATION] Exception lors de l'envoi: {e}", exc_info=True)
+            latitude = merchant.get('latitude')
+            longitude = merchant.get('longitude')
+            address = merchant.get('address', '')
+            logger.info(f"[LOCATION] Données préparées pour le bridge: lat={latitude}, lng={longitude}, addr={address}")
+            if latitude and longitude:
+                name = merchant.get('business_name') or merchant.get('name') or 'Ma boutique'
+                merchant_location = {
+                    "latitude": latitude,
+                    "longitude": longitude,
+                    "name": name,
+                    "address": address
+                }
+            elif address:
+                merchant_location = {"address": address}
+            else:
+                logger.warning(f"[LOCATION] Aucune donnée de localisation disponible pour {message.merchant_phone}")
+                send_location = False
 
-        # 7.6 Envoyer le lien vitrine en fin de conversation réussie
+        # 7.6 Préparer le message de fin de transaction (sera envoyé par le bridge APRÈS la réponse principale)
         is_transaction_end = (
             (new_status in ("pending_delivery", "pending_pickup") and current_status not in ("pending_delivery", "pending_pickup"))
         )
+        goodbye_message = None
         if is_transaction_end:
-            try:
-                await self.notifications.send_storefront_goodbye(
-                    merchant_phone=message.merchant_phone,
-                    to=message.client_phone,
-                    merchant_data=merchant
+            # Construire le goodbye inline (le bridge l'envoie en dernier, après le texte + localisation)
+            from ..config import settings
+            store_name = merchant.get('business_name') or merchant.get('name') or 'notre boutique'
+            if 'localhost' in settings.storefront_base_url or '127.0.0.1' in settings.storefront_base_url:
+                goodbye_message = (
+                    f"\U0001f64f Merci pour ton achat chez {store_name} !\n"
+                    f"N'hesite pas a revenir \U0001f60a"
                 )
-            except Exception as e:
-                logger.warning(f"Erreur envoi lien vitrine: {e}")
+            else:
+                storefront_url = f"{settings.storefront_base_url}/boutique/boutique.html?m={message.merchant_phone}"
+                goodbye_message = (
+                    f"\U0001f64f Merci pour ton achat !\n"
+                    f"\U0001f6cd\ufe0f Decouvre tous les produits de {store_name} ici :\n"
+                    f"\U0001f449 {storefront_url}"
+                )
 
             # Boucle d'apprentissage — auto-sauvegarder l'échange final en KB
             await self._auto_learn_from_deal(
@@ -274,7 +286,10 @@ class ChatService:
             message=bot_response,
             conversation_id=conversation['id'],
             should_notify_merchant=should_notify,
-            notification_reason=notification
+            notification_reason=notification,
+            send_location=send_location,
+            merchant_location=merchant_location,
+            goodbye_message=goodbye_message
         )
 
     async def _get_or_create_conversation(
@@ -361,10 +376,16 @@ class ChatService:
         1. Variantes (car "autre photo" = demande de variante, pas de photo du même produit)
         2. Photos du produit principal ensuite
         """
+        import re
         history = await self.conversations.get_messages(conversation['id'])
 
+        # Extraire le vrai texte client sans le préfixe WhatsApp reply
+        # [Répond à la photo: "X"] ou [Répond à: "X"] sont des signaux techniques
+        # pour DeepSeek — les détecteurs ne doivent PAS réagir à ce préfixe
+        raw_text = re.sub(r'^\[Répond à[^\]]*\]\s*', '', message.message)
+
         # === 0. AUTRES PRODUITS DU MARCHAND (catalogue multi-produits) ===
-        if detect_other_products_request(message.message):
+        if detect_other_products_request(raw_text):
             merchant_obj = await self.merchants.get_by_phone(message.merchant_phone)
             if merchant_obj:
                 all_products = await self.products.get_by_merchant(merchant_obj['id'])
@@ -390,19 +411,109 @@ class ChatService:
                     should_notify_merchant=False
                 )
 
-        # === 1. VARIANTES EN PREMIER ===
-        # Doit être vérifié AVANT les photos car "autre photo" = demande de variante
-        if detect_variant_request(message.message):
+        # === 1. PHOTO DE LA MÊME VARIANTE (priorité absolue) ===
+        # "d'autre photo de MA fleur / CE modèle" → l'une photo de la variante déjà choisie
+        # Doit être AVANT detect_variant_request car les deux détecteurs peuvent matcher
+        if detect_same_variant_photo_request(raw_text):
+            selected_variant_id = conversation.get('selected_variant_id')
+            selected_variant = None
+            if selected_variant_id:
+                selected_variant = await self.products.get_by_id(selected_variant_id)
+
+            if selected_variant:
+                variant_label = selected_variant.get('variant_name') or selected_variant['name']
+                # Vérifier si la photo a déjà été envoyée (lors du listing des variantes)
+                variant_photos_sent = any(
+                    'Voici les autres modèles' in msg.get('content', '') or
+                    f'Modèle {variant_label}' in msg.get('content', '')
+                    for msg in history if not msg.get('is_from_client')
+                )
+                if selected_variant.get('image_path') and not variant_photos_sent:
+                    bot_message = f"Voici la photo du modèle {variant_label}!"
+                    await self.conversations.add_message(conversation['id'], bot_message, False)
+                    return BotResponse(
+                        message=bot_message,
+                        conversation_id=conversation['id'],
+                        should_notify_merchant=False,
+                        images_to_send=[{
+                            "image_path": selected_variant['image_path'],
+                            "caption": f"Modèle {variant_label}"
+                        }]
+                    )
+                else:
+                    bot_message = f"Je n'ai qu'une seule photo pour le modèle {variant_label}, c'est celle que je t'ai déjà envoyée!"
+                    await self.conversations.add_message(conversation['id'], bot_message, False)
+                    return BotResponse(
+                        message=bot_message,
+                        conversation_id=conversation['id'],
+                        should_notify_merchant=False
+                    )
+            else:
+                # Variante non encore identifiée — demander de préciser
+                bot_message = "Dis-moi quel modèle tu as choisi et je te montre sa photo!"
+                await self.conversations.add_message(conversation['id'], bot_message, False)
+                return BotResponse(
+                    message=bot_message,
+                    conversation_id=conversation['id'],
+                    should_notify_merchant=False
+                )
+
+        # === 1.5 FALLBACK: "d'autre photo" générique + variante déjà mémorisée ===
+        # Cas: le client a reply-quoté une variante et dit "d'autre photo" sans possessif.
+        # selected_variant_id est défini → traiter comme demande de même variante (pas d'autres modèles)
+        selected_id_fallback = conversation.get('selected_variant_id')
+        if selected_id_fallback and detect_variant_request(raw_text):
+            photo_terms = ['photo', 'image', 'pic', 'voir']
+            other_model_terms = ['modèle', 'modele', 'couleur', 'variante', 'autres modèles', 'autres modeles']
+            is_photo_focused = any(t in raw_text.lower() for t in photo_terms)
+            is_model_focused = any(t in raw_text.lower() for t in other_model_terms)
+            if is_photo_focused and not is_model_focused:
+                selected_variant_fb = await self.products.get_by_id(selected_id_fallback)
+                if selected_variant_fb:
+                    variant_label_fb = selected_variant_fb.get('variant_name') or selected_variant_fb['name']
+                    if selected_variant_fb.get('image_path'):
+                        bot_message = f"Voici la photo du modèle {variant_label_fb}!"
+                        await self.conversations.add_message(conversation['id'], bot_message, False)
+                        return BotResponse(
+                            message=bot_message,
+                            conversation_id=conversation['id'],
+                            should_notify_merchant=False,
+                            images_to_send=[{
+                                "image_path": selected_variant_fb['image_path'],
+                                "caption": f"Modèle {variant_label_fb}"
+                            }]
+                        )
+                    else:
+                        bot_message = f"Je n'ai qu'une seule photo pour le modèle {variant_label_fb}, c'est celle que je t'ai déjà envoyée!"
+                        await self.conversations.add_message(conversation['id'], bot_message, False)
+                        return BotResponse(
+                            message=bot_message,
+                            conversation_id=conversation['id'],
+                            should_notify_merchant=False
+                        )
+
+        # === 2. AUTRES VARIANTES ===
+        # "d'autres modèles / variantes" → montrer les autres variantes du groupe
+        if detect_variant_request(raw_text):
             group_id = product.get('group_id')
             if group_id:
                 variants = await self.products.get_other_variants(product['id'], group_id)
                 if variants:
+                    # Dédupliquer par variant_name (évite "Rose • Rose" si doublon en DB)
+                    seen_names = set()
+                    unique_variants = []
+                    for v in variants:
+                        label = (v.get('variant_name') or v['name']).strip().lower()
+                        if label not in seen_names:
+                            seen_names.add(label)
+                            unique_variants.append(v)
+                    variants = unique_variants
+
                     images_to_send = []
                     variant_names = []
                     for v in variants:
                         variant_label = v.get('variant_name') or v['name']
                         if v.get('image_path'):
-                            # Caption simple et naturel (sans code produit)
                             images_to_send.append({
                                 "image_path": v['image_path'],
                                 "caption": f"Modèle {variant_label}"
@@ -432,7 +543,7 @@ class ChatService:
             )
 
         # === 2. PHOTO DU PRODUIT PRINCIPAL ===
-        if detect_photo_request(message.message):
+        if detect_photo_request(raw_text):
             # Vérifier si déjà envoyé
             photo_sent = any(
                 "Voici le" in msg.get('content', '') or "Voici la" in msg.get('content', '')
@@ -440,7 +551,7 @@ class ChatService:
             )
 
             # Détecter si le client dit avoir supprimé/effacé la photo → renvoyer quand même
-            msg_lower = message.message.lower()
+            msg_lower = raw_text.lower()
             client_deleted_photo = any(p in msg_lower for p in [
                 'supprim', 'effac', 'delete', 'par erreur', 'accidentell',
                 'j ai supprime', 'j ai efface', 'j ai delete',
@@ -651,6 +762,42 @@ class ChatService:
             logger.warning(f"Erreur récupération contexte négociation: {e}")
             return None
 
+    async def _find_and_save_selected_variant(
+        self,
+        conversation: Dict,
+        product: Dict,
+        message_text: str
+    ) -> None:
+        """
+        Détecte si le client a répondu à la photo d'une variante spécifique (préfixe WhatsApp reply).
+        Si oui, sauvegarde selected_variant_id dans la conversation ET dans le dict local.
+
+        Format attendu: [Répond à la photo: "Modèle Autre format"] ...
+        """
+        import re
+        match = re.search(r'\[Répond à la photo: "Modèle ([^"]+)"\]', message_text)
+        if not match:
+            return
+
+        variant_name_from_reply = match.group(1).strip()
+        group_id = product.get('group_id')
+        if not group_id:
+            return
+
+        try:
+            all_variants = await self.products.get_all_in_group(group_id)
+            for v in all_variants:
+                v_label = (v.get('variant_name') or v['name']).strip()
+                if v_label.lower() == variant_name_from_reply.lower() or \
+                   variant_name_from_reply.lower() in v_label.lower():
+                    if v['id'] != conversation.get('selected_variant_id'):
+                        await self.conversations.update(conversation['id'], selected_variant_id=v['id'])
+                        conversation['selected_variant_id'] = v['id']  # Mettre à jour le dict local
+                        logger.info(f"Variante sélectionnée mémorisée: {v_label} (id={v['id']})")
+                    return
+        except Exception as e:
+            logger.debug(f"Mémorisation variante (non bloquant): {e}")
+
     async def _record_client_purchase(
         self,
         merchant_id: int,
@@ -718,7 +865,9 @@ class ChatService:
         Anti-spam : une seule entrée auto_flagged par conversation.
         """
         try:
-            health = analyze_conversation_health(history, client_message, product)
+            # Inclure la réponse bot actuelle dans l'historique pour une analyse complète
+            full_history = list(history) + [{'content': bot_response, 'is_from_client': False}]
+            health = analyze_conversation_health(full_history, client_message, product)
             if not health['unanswered_question']:
                 return
 
