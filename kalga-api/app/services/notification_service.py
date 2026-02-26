@@ -324,20 +324,17 @@ class NotificationService:
 
         store_name = merchant_data.get('business_name') or merchant_data.get('name') or 'notre boutique'
 
-        # Si pas de vrai domaine, envoyer juste le remerciement sans lien
+        # Si pas de vrai domaine public, envoyer juste un message chaleureux sans lien
         if 'localhost' in settings.storefront_base_url or '127.0.0.1' in settings.storefront_base_url:
-            message = (
-                f"\U0001f64f Merci pour ton achat chez {store_name} !\n"
-                f"N'hesite pas a revenir \U0001f60a"
-            )
+            message = f"Super choix ! On te prépare ça. A tout à l'heure chez {store_name} 👋"
             return await self.send_message(merchant_phone, to, message)
 
         storefront_url = self._get_storefront_url(merchant_phone)
 
         message = (
-            f"\U0001f64f Merci pour ton achat !\n"
-            f"\U0001f6cd\ufe0f Visite notre boutique pour decouvrir d'autres produits :\n"
-            f"\U0001f449 {storefront_url}"
+            f"Super choix ! 🎉\n"
+            f"Découvre aussi d'autres produits de {store_name} ici :\n"
+            f"👉 {storefront_url}"
         )
         return await self.send_message(merchant_phone, to, message)
 

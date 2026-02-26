@@ -19,6 +19,7 @@ from .ai import (
     is_product_related_message,
     count_low_offers,
 )
+from .ai.conversation_ai import is_tool_call, parse_tool_call
 
 __all__ = [
     "generate_response",
@@ -33,4 +34,6 @@ __all__ = [
     "detect_photo_request",
     "is_product_related_message",
     "count_low_offers",
+    "is_tool_call",
+    "parse_tool_call",
 ]
