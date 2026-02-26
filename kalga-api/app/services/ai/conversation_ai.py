@@ -1,14 +1,16 @@
 """
-Orchestration de l'IA conversationnelle v3.0
+Orchestration de l'IA conversationnelle v4.0
 ============================================
-Architecture simplifiée — DeepSeek décide ET rédige:
+DeepSeek agentique (function calling) comme chef d'orchestre:
 
-1. DeepSeek reçoit les 45 derniers messages + règles business
-2. DeepSeek retourne un JSON: is_deal, price_mentioned, send_location, response
-3. Le code valide uniquement les règles business (prix minimum, stock)
+1. DeepSeek reçoit le brief produit + TOOL_DECISION_GUIDE + historique
+2. DeepSeek appelle le bon tool (send_photo, send_variants, accept_deal, etc.)
+   OU répond en texte libre pour la négociation courante
+3. Le code dispatche l'action du tool et valide les règles business
 4. Fallback sur conversation_engine si DeepSeek est indisponible
 """
 
+import json
 import logging
 from typing import Optional, List, Dict, Tuple
 
@@ -17,6 +19,7 @@ from ...database.repositories.knowledge_repo import KnowledgeBaseRepository
 from .conversation_engine import get_conversation_engine
 from .deepseek_client import get_deepseek_client, CORRECTION_SYSTEM_PROMPT
 from .fallback_responses import FallbackResponses
+from .tools import TOOLS, TOOL_NAMES
 from .detectors import (
     detect_delivery_request,
     detect_pickup_request,
@@ -27,6 +30,30 @@ from .detectors import (
 )
 
 logger = logging.getLogger("kalga.ai")
+
+# Préfixe interne pour transporter un tool_call dans le tuple de retour
+_TOOL_PREFIX = "__tool__:"
+
+
+def is_tool_call(response: str) -> bool:
+    """Vérifie si une réponse encode un tool_call DeepSeek."""
+    return bool(response and response.startswith(_TOOL_PREFIX))
+
+
+def parse_tool_call(response: str) -> Optional[Dict]:
+    """
+    Parse un marqueur tool_call encodé.
+    Retourne {"name": str, "args": dict} ou None.
+    """
+    if not is_tool_call(response):
+        return None
+    try:
+        payload = response[len(_TOOL_PREFIX):]
+        name, _, args_json = payload.partition(":")
+        args = json.loads(args_json) if args_json else {}
+        return {"name": name, "args": args}
+    except Exception:
+        return None
 
 
 async def generate_response(
@@ -177,11 +204,11 @@ async def generate_response(
             current_offer, False, conversation_status, False
         )
 
-    # === APPEL DEEPSEEK ===
+    # === APPEL DEEPSEEK AGENTIQUE ===
     deepseek = get_deepseek_client()
 
     try:
-        messages = deepseek.build_messages(
+        system_prompt, user_message = deepseek.build_agentic_messages(
             product_name=product['name'],
             price=product['price'],
             min_price=min_price,
@@ -200,20 +227,20 @@ async def generate_response(
             current_offer=current_offer
         )
 
-        raw = await deepseek.chat_completion(
-            messages=messages,
+        agentic_result = await deepseek.agentic_completion(
+            system_prompt=system_prompt,
+            user_message=user_message,
+            tools=TOOLS,
             temperature=0.7,
-            max_tokens=400
+            max_tokens=500
         )
 
-        result = deepseek.parse_json_response(raw) if raw else None
-
     except Exception as e:
-        logger.warning(f"Erreur appel DeepSeek: {e}")
-        result = None
+        logger.warning(f"Erreur appel DeepSeek agentique: {e}")
+        agentic_result = None
 
     # === FALLBACK si DeepSeek échoue ===
-    if not result:
+    if not agentic_result:
         logger.info("DeepSeek indisponible — fallback sur conversation_engine")
         return await _fallback_to_engine(
             client_message=client_message,
@@ -225,48 +252,64 @@ async def generate_response(
             merchant_data=merchant_data
         )
 
-    # === LIRE LA DÉCISION DE DEEPSEEK ===
-    is_deal = result['is_deal']
-    price_mentioned = result['price_mentioned']
-    send_location = result['send_location']
-    response = result['response']
+    # === TOOL CALL : DeepSeek a choisi une action ===
+    if agentic_result["type"] == "tool_call":
+        name = agentic_result["name"]
+        args = agentic_result["args"]
 
-    logger.info(
-        f"DeepSeek: deal={is_deal}, price={price_mentioned}, "
-        f"location={send_location}, response={response[:50]}..."
-    )
+        if name not in TOOL_NAMES:
+            logger.warning(f"Tool inconnu retourné par DeepSeek: {name}")
+            return await _fallback_to_engine(
+                client_message=client_message,
+                product=product,
+                conversation_history=conversation_history,
+                current_offer=current_offer,
+                conversation_status=conversation_status,
+                is_first_message=is_first_message,
+                merchant_data=merchant_data
+            )
 
-    # === VALIDATION RÈGLE BUSINESS: prix minimum ===
-    if is_deal and price_mentioned and price_mentioned < min_price:
-        logger.warning(
-            f"DeepSeek a dit deal=true mais {price_mentioned} < min {min_price} — rejeté"
+        logger.info(f"DeepSeek tool_call: {name}({args})")
+
+        # Garde-fou : si accept_deal avec prix < min → rejeter
+        if name == "accept_deal":
+            offered = args.get("price") or current_offer
+            if offered and offered < min_price:
+                logger.warning(
+                    f"accept_deal rejeté: {offered} < min {min_price} — converti en counter_offer"
+                )
+                min_f = f"{int(min_price):,}".replace(",", " ")
+                price_f = f"{int(offered):,}".replace(",", " ")
+                counter_msg = f"{price_f} F c'est un peu bas! Je peux faire {min_f} F, c'est mon dernier prix."
+                return counter_msg, offered, False, "negotiating", False
+
+        # Retourner le tool_call encodé — chat_service dispatch et exécute
+        encoded = f"{_TOOL_PREFIX}{name}:{json.dumps(args, ensure_ascii=False)}"
+        return encoded, current_offer, False, conversation_status, False
+
+    # === TEXTE LIBRE : réponse normale de négociation ===
+    response = agentic_result.get("content", "").strip()
+    if not response:
+        logger.warning("DeepSeek agentic a retourné un texte vide — fallback")
+        return await _fallback_to_engine(
+            client_message=client_message,
+            product=product,
+            conversation_history=conversation_history,
+            current_offer=current_offer,
+            conversation_status=conversation_status,
+            is_first_message=is_first_message,
+            merchant_data=merchant_data
         )
-        is_deal = False
-        min_f = f"{int(min_price):,}".replace(",", " ")
-        price_f = f"{int(price_mentioned):,}".replace(",", " ")
-        response = f"{price_f} F c'est un peu bas! Je peux faire {min_f} F, c'est mon dernier prix."
 
-    # === DÉTERMINER LE NOUVEAU STATUT ===
-    new_offer = price_mentioned if price_mentioned else current_offer
+    logger.info(f"DeepSeek text: {response[:80]}...")
 
-    if is_deal:
-        # Déterminer si livraison ou pickup (cas simples et déterministes)
-        if detect_delivery_request(client_message):
-            new_status = "pending_delivery"
-        elif detect_pickup_request(client_message) or send_location:
-            new_status = "pending_pickup"
-        else:
-            # Accord confirmé, attente du choix livraison/pickup
-            new_status = "agreed"
-            new_offer = price_mentioned or current_offer or product['price']
+    # Statut : progresser si une offre est mentionnée dans la réponse
+    if conversation_status in ("active", "negotiating"):
+        new_status = "negotiating"
     else:
-        # Maintenir ou faire progresser le statut
-        if conversation_status in ("active", "negotiating"):
-            new_status = "negotiating" if price_mentioned else conversation_status
-        else:
-            new_status = conversation_status
+        new_status = conversation_status
 
-    return response, new_offer, is_deal, new_status, send_location
+    return response, current_offer, False, new_status, False
 
 
 # =============================================================================

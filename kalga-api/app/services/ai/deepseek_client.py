@@ -152,6 +152,173 @@ class DeepSeekClient:
         return None
 
     # =========================================================================
+    # AGENTIQUE — function calling (DeepSeek choisit le tool)
+    # =========================================================================
+
+    async def agentic_completion(
+        self,
+        system_prompt: str,
+        user_message: str,
+        tools: List[Dict],
+        temperature: float = 0.7,
+        max_tokens: int = 500
+    ) -> Optional[Dict]:
+        """
+        Appel DeepSeek avec function calling (mode agentique).
+
+        Retourne un dict :
+            {"type": "text",      "content": "..."}
+            {"type": "tool_call", "name": "...", "args": {...}}
+        Retourne None en cas d'erreur.
+        """
+        if not self.api_key:
+            return None
+
+        for attempt in range(self.max_retries + 1):
+            try:
+                async with httpx.AsyncClient(timeout=self.timeout) as client:
+                    response = await client.post(
+                        f"{self.base_url}/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {self.api_key}",
+                            "Content-Type": "application/json"
+                        },
+                        json={
+                            "model": "deepseek-chat",
+                            "messages": [
+                                {"role": "system", "content": system_prompt},
+                                {"role": "user",   "content": user_message}
+                            ],
+                            "tools": tools,
+                            "tool_choice": "auto",
+                            "temperature": temperature,
+                            "max_tokens": max_tokens
+                        }
+                    )
+
+                    if response.status_code != 200:
+                        logger.warning(f"DeepSeek agentic [{response.status_code}]: {response.text[:100]}")
+                        if attempt < self.max_retries:
+                            continue
+                        return None
+
+                    data = response.json()
+                    choice = data["choices"][0]["message"]
+
+                    if choice.get("tool_calls"):
+                        tc = choice["tool_calls"][0]
+                        name = tc["function"]["name"]
+                        try:
+                            args = json.loads(tc["function"]["arguments"])
+                        except json.JSONDecodeError:
+                            args = {}
+                        logger.info(f"DeepSeek tool_call: {name}({args})")
+                        return {"type": "tool_call", "name": name, "args": args}
+
+                    content = choice.get("content", "")
+                    logger.debug(f"DeepSeek agentic text: {content[:80]}")
+                    return {"type": "text", "content": content}
+
+            except httpx.TimeoutException:
+                logger.warning(f"Timeout DeepSeek agentic (tentative {attempt + 1})")
+                if attempt < self.max_retries:
+                    continue
+                return None
+            except Exception as e:
+                logger.error(f"Exception DeepSeek agentic: {type(e).__name__}: {e}")
+                if attempt < self.max_retries:
+                    continue
+                return None
+
+        return None
+
+    def build_agentic_messages(
+        self,
+        product_name: str,
+        price: float,
+        min_price: float,
+        conversation_history: List[Dict],
+        client_message: str,
+        is_first_message: bool = False,
+        product_description: str = None,
+        variants: List[str] = None,
+        merchant_address: str = None,
+        merchant_city: str = None,
+        merchant_commune: str = None,
+        merchant_quarter: str = None,
+        merchant_persona: Dict = None,
+        knowledge_context: List[str] = None,
+        conversation_status: str = "active",
+        current_offer: float = None
+    ):
+        """
+        Construit (system_prompt, user_message) pour agentic_completion().
+
+        system_prompt = brief produit + TOOL_DECISION_GUIDE
+        user_message  = historique + message client + état négociation
+        """
+        from .tools import TOOL_DECISION_GUIDE
+
+        # --- System prompt : brief produit + guide outils ---
+        brief = self.build_product_brief(
+            product_name=product_name,
+            price=price,
+            min_price=min_price,
+            product_description=product_description,
+            variants=variants,
+            merchant_address=merchant_address,
+            merchant_city=merchant_city,
+            merchant_commune=merchant_commune,
+            merchant_quarter=merchant_quarter,
+            merchant_persona=merchant_persona
+        )
+
+        system_prompt = brief
+
+        if knowledge_context:
+            kb_lines = "\n".join(f"  • {kb}" for kb in knowledge_context)
+            system_prompt += f"\n\nINFORMATIONS UTILES (réponses habituelles de ce marchand):\n{kb_lines}"
+
+        system_prompt += f"\n\n{TOOL_DECISION_GUIDE}"
+
+        # --- User message : historique + message client ---
+        recent_history = conversation_history[-45:] if len(conversation_history) > 45 else conversation_history
+        history_lines = []
+        for msg in recent_history:
+            role = "Client" if msg.get('is_from_client') else "Toi"
+            history_lines.append(f"{role}: {msg.get('content', '')}")
+        history_text = "\n".join(history_lines)
+
+        parts = []
+        if is_first_message:
+            parts.append("C'est le PREMIER message de ce client. Commence par saluer et présente le prix.")
+        if history_text:
+            parts.append(f"CONVERSATION EN COURS:\n{history_text}")
+
+        parts.append(f'\nLe client dit maintenant: "{client_message}"')
+
+        if not is_first_message:
+            status_labels = {
+                "active": "début de conversation",
+                "negotiating": "négociation en cours, aucun accord confirmé",
+                "agreed": "accord sur le prix, client doit choisir livraison ou pickup",
+                "pending_pickup": "deal conclu, client vient chercher",
+                "pending_delivery": "deal conclu, livraison en cours",
+                "ended": "conversation terminée",
+            }
+            status_label = status_labels.get(conversation_status, conversation_status)
+            offer_info = (
+                f"{int(current_offer):,} F".replace(",", " ")
+                if current_offer else "aucune offre confirmée"
+            )
+            parts.append(
+                f"\nÉTAT: {status_label} | Offre actuelle: {offer_info}"
+            )
+
+        user_message = "\n".join(parts)
+        return system_prompt, user_message
+
+    # =========================================================================
     # BRIEF PRODUIT — avec localisation complète
     # =========================================================================
 

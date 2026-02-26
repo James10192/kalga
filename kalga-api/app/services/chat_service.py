@@ -12,8 +12,11 @@ from ..database.repositories.knowledge_repo import KnowledgeBaseRepository
 from ..models.schemas import IncomingMessage, BotResponse
 from .notification_service import NotificationService
 from .followup_service import get_followup_service
-from .conversation_ai import generate_response, extract_product_code, detect_variant_request, detect_photo_request, analyze_conversation_health
-from .ai.detectors import detect_other_products_request, detect_same_variant_photo_request
+from .conversation_ai import (
+    generate_response, extract_product_code, analyze_conversation_health,
+    is_tool_call, parse_tool_call
+)
+from .ai.detectors import detect_other_products_request
 
 logger = logging.getLogger("kalga.chat")
 
@@ -168,7 +171,22 @@ class ChatService:
             merchant_data=merchant
         )
 
-        logger.info(f"Réponse IA: {bot_response[:50] if bot_response else 'NONE'}... | Status: {new_status} | Location: {send_location}")
+        logger.info(f"Réponse IA: {bot_response[:80] if bot_response else 'NONE'}... | Status: {new_status} | Location: {send_location}")
+
+        # 6.1 Dispatcher le tool_call si DeepSeek a choisi une action
+        images_to_send = None
+        if bot_response and is_tool_call(bot_response):
+            tool = parse_tool_call(bot_response)
+            if tool:
+                bot_response, new_status, send_location, images_to_send = await self._execute_tool(
+                    tool=tool,
+                    conversation=conversation,
+                    product=product,
+                    merchant=merchant,
+                    current_status=current_status,
+                    current_offer=conversation.get('current_offer'),
+                    min_price=product.get('effective_min_price', product['min_price'])
+                )
 
         # 6. Mettre à jour la conversation
         update_data = {"status": new_status}
@@ -289,7 +307,8 @@ class ChatService:
             notification_reason=notification,
             send_location=send_location,
             merchant_location=merchant_location,
-            goodbye_message=goodbye_message
+            goodbye_message=goodbye_message,
+            images_to_send=images_to_send
         )
 
     async def _get_or_create_conversation(
@@ -368,37 +387,27 @@ class ChatService:
         product: Dict
     ) -> Optional[BotResponse]:
         """
-        Gère les demandes spéciales (photos, variantes).
-        Retourne une BotResponse si traité, None sinon.
-
-        IMPORTANT: L'ordre de vérification est crucial!
-        0. Demande d'autres produits (catalogue) EN PREMIER
-        1. Variantes (car "autre photo" = demande de variante, pas de photo du même produit)
-        2. Photos du produit principal ensuite
+        Gère uniquement les demandes de catalogue (autres produits du marchand).
+        Les photos, variantes, localisation sont désormais gérées par DeepSeek agentique
+        via _execute_tool().
         """
         import re
-        history = await self.conversations.get_messages(conversation['id'])
 
-        # Extraire le vrai texte client sans le préfixe WhatsApp reply
-        # [Répond à la photo: "X"] ou [Répond à: "X"] sont des signaux techniques
-        # pour DeepSeek — les détecteurs ne doivent PAS réagir à ce préfixe
         raw_text = re.sub(r'^\[Répond à[^\]]*\]\s*', '', message.message)
 
-        # === 0. AUTRES PRODUITS DU MARCHAND (catalogue multi-produits) ===
+        # === AUTRES PRODUITS DU MARCHAND (catalogue multi-produits) ===
+        # Cas déterministe : le client veut voir d'autres produits (pas des variantes du même)
         if detect_other_products_request(raw_text):
             merchant_obj = await self.merchants.get_by_phone(message.merchant_phone)
             if merchant_obj:
                 all_products = await self.products.get_by_merchant(merchant_obj['id'])
-                # Exclure le produit en cours de conversation
                 other_products = [p for p in all_products if p['id'] != product['id']]
 
                 if other_products:
-                    # Lister les autres produits disponibles
                     product_lines = []
-                    for p in other_products[:5]:  # Max 5 produits pour ne pas surcharger
+                    for p in other_products[:5]:
                         price_str = f"{p['price']:,.0f}".replace(",", " ")
                         product_lines.append(f"• {p['name']} — {price_str} F ({p['code']})")
-
                     products_text = "\n".join(product_lines)
                     bot_message = f"Oui, on a aussi d'autres articles:\n\n{products_text}\n\nLequel t'intéresse?"
                 else:
@@ -411,95 +420,54 @@ class ChatService:
                     should_notify_merchant=False
                 )
 
-        # === 1. PHOTO DE LA MÊME VARIANTE (priorité absolue) ===
-        # "d'autre photo de MA fleur / CE modèle" → l'une photo de la variante déjà choisie
-        # Doit être AVANT detect_variant_request car les deux détecteurs peuvent matcher
-        if detect_same_variant_photo_request(raw_text):
+        return None
+
+    async def _execute_tool(
+        self,
+        tool: Dict,
+        conversation: Dict,
+        product: Dict,
+        merchant: Dict,
+        current_status: str,
+        current_offer: Optional[float],
+        min_price: float
+    ):
+        """
+        Exécute l'action décidée par DeepSeek (function calling).
+
+        Retourne (bot_response, new_status, send_location, images_to_send).
+        """
+        name = tool["name"]
+        args = tool.get("args", {})
+        message_text = args.get("message", "")
+        send_location = False
+        images_to_send = None
+        new_status = current_status
+
+        # ── send_photo : photo du produit actuel ou de la variante sélectionnée ──
+        if name == "send_photo":
             selected_variant_id = conversation.get('selected_variant_id')
-            selected_variant = None
+            target = None
             if selected_variant_id:
-                selected_variant = await self.products.get_by_id(selected_variant_id)
+                target = await self.products.get_by_id(selected_variant_id)
 
-            if selected_variant:
-                variant_label = selected_variant.get('variant_name') or selected_variant['name']
-                # Vérifier si la photo a déjà été envoyée (lors du listing des variantes)
-                variant_photos_sent = any(
-                    'Voici les autres modèles' in msg.get('content', '') or
-                    f'Modèle {variant_label}' in msg.get('content', '')
-                    for msg in history if not msg.get('is_from_client')
-                )
-                if selected_variant.get('image_path') and not variant_photos_sent:
-                    bot_message = f"Voici la photo du modèle {variant_label}!"
-                    await self.conversations.add_message(conversation['id'], bot_message, False)
-                    return BotResponse(
-                        message=bot_message,
-                        conversation_id=conversation['id'],
-                        should_notify_merchant=False,
-                        images_to_send=[{
-                            "image_path": selected_variant['image_path'],
-                            "caption": f"Modèle {variant_label}"
-                        }]
-                    )
-                else:
-                    bot_message = f"Je n'ai qu'une seule photo pour le modèle {variant_label}, c'est celle que je t'ai déjà envoyée!"
-                    await self.conversations.add_message(conversation['id'], bot_message, False)
-                    return BotResponse(
-                        message=bot_message,
-                        conversation_id=conversation['id'],
-                        should_notify_merchant=False
-                    )
+            if target and target.get('image_path'):
+                variant_label = target.get('variant_name') or target['name']
+                images_to_send = [{"image_path": target['image_path'], "caption": f"Modèle {variant_label}"}]
+                bot_response = message_text or f"Voici la photo du modèle {variant_label}!"
+            elif product.get('image_path'):
+                images_to_send = [{"image_path": product['image_path'],
+                                   "caption": f"{product['name']} - {product['code']} - {product['price']:,.0f} F"}]
+                bot_response = message_text or f"Voici le {product['name']}!"
             else:
-                # Variante non encore identifiée — demander de préciser
-                bot_message = "Dis-moi quel modèle tu as choisi et je te montre sa photo!"
-                await self.conversations.add_message(conversation['id'], bot_message, False)
-                return BotResponse(
-                    message=bot_message,
-                    conversation_id=conversation['id'],
-                    should_notify_merchant=False
-                )
+                bot_response = "Désolé, je n'ai pas de photo pour ce produit. Passe au magasin pour le voir!"
 
-        # === 1.5 FALLBACK: "d'autre photo" générique + variante déjà mémorisée ===
-        # Cas: le client a reply-quoté une variante et dit "d'autre photo" sans possessif.
-        # selected_variant_id est défini → traiter comme demande de même variante (pas d'autres modèles)
-        selected_id_fallback = conversation.get('selected_variant_id')
-        if selected_id_fallback and detect_variant_request(raw_text):
-            photo_terms = ['photo', 'image', 'pic', 'voir']
-            other_model_terms = ['modèle', 'modele', 'couleur', 'variante', 'autres modèles', 'autres modeles']
-            is_photo_focused = any(t in raw_text.lower() for t in photo_terms)
-            is_model_focused = any(t in raw_text.lower() for t in other_model_terms)
-            if is_photo_focused and not is_model_focused:
-                selected_variant_fb = await self.products.get_by_id(selected_id_fallback)
-                if selected_variant_fb:
-                    variant_label_fb = selected_variant_fb.get('variant_name') or selected_variant_fb['name']
-                    if selected_variant_fb.get('image_path'):
-                        bot_message = f"Voici la photo du modèle {variant_label_fb}!"
-                        await self.conversations.add_message(conversation['id'], bot_message, False)
-                        return BotResponse(
-                            message=bot_message,
-                            conversation_id=conversation['id'],
-                            should_notify_merchant=False,
-                            images_to_send=[{
-                                "image_path": selected_variant_fb['image_path'],
-                                "caption": f"Modèle {variant_label_fb}"
-                            }]
-                        )
-                    else:
-                        bot_message = f"Je n'ai qu'une seule photo pour le modèle {variant_label_fb}, c'est celle que je t'ai déjà envoyée!"
-                        await self.conversations.add_message(conversation['id'], bot_message, False)
-                        return BotResponse(
-                            message=bot_message,
-                            conversation_id=conversation['id'],
-                            should_notify_merchant=False
-                        )
-
-        # === 2. AUTRES VARIANTES ===
-        # "d'autres modèles / variantes" → montrer les autres variantes du groupe
-        if detect_variant_request(raw_text):
+        # ── send_variants : toutes les autres variantes du groupe ──
+        elif name == "send_variants":
             group_id = product.get('group_id')
             if group_id:
                 variants = await self.products.get_other_variants(product['id'], group_id)
                 if variants:
-                    # Dédupliquer par variant_name (évite "Rose • Rose" si doublon en DB)
                     seen_names = set()
                     unique_variants = []
                     for v in variants:
@@ -507,93 +475,93 @@ class ChatService:
                         if label not in seen_names:
                             seen_names.add(label)
                             unique_variants.append(v)
-                    variants = unique_variants
 
                     images_to_send = []
                     variant_names = []
-                    for v in variants:
+                    for v in unique_variants:
                         variant_label = v.get('variant_name') or v['name']
                         if v.get('image_path'):
-                            images_to_send.append({
-                                "image_path": v['image_path'],
-                                "caption": f"Modèle {variant_label}"
-                            })
+                            images_to_send.append({"image_path": v['image_path'], "caption": f"Modèle {variant_label}"})
                         variant_names.append(f"• {variant_label}")
 
                     variants_text = "\n".join(variant_names)
-                    bot_message = f"Voici les autres modèles disponibles:\n\n{variants_text}\n\nLequel t'intéresse?"
-                    await self.conversations.add_message(conversation['id'], bot_message, False)
-
-                    logger.info(f"Envoi de {len(images_to_send)} images de variantes au client")
-
-                    return BotResponse(
-                        message=bot_message,
-                        conversation_id=conversation['id'],
-                        should_notify_merchant=False,
-                        images_to_send=images_to_send if images_to_send else None
-                    )
-
-            # Pas de variantes disponibles
-            bot_message = "Ce produit n'est disponible que dans ce modèle pour l'instant."
-            await self.conversations.add_message(conversation['id'], bot_message, False)
-            return BotResponse(
-                message=bot_message,
-                conversation_id=conversation['id'],
-                should_notify_merchant=False
-            )
-
-        # === 2. PHOTO DU PRODUIT PRINCIPAL ===
-        if detect_photo_request(raw_text):
-            # Vérifier si déjà envoyé
-            photo_sent = any(
-                "Voici le" in msg.get('content', '') or "Voici la" in msg.get('content', '')
-                for msg in history if not msg.get('is_from_client')
-            )
-
-            # Détecter si le client dit avoir supprimé/effacé la photo → renvoyer quand même
-            msg_lower = raw_text.lower()
-            client_deleted_photo = any(p in msg_lower for p in [
-                'supprim', 'effac', 'delete', 'par erreur', 'accidentell',
-                'j ai supprime', 'j ai efface', 'j ai delete',
-                "j'ai supprime", "j'ai efface", "perdu la photo",
-                'la photo est partie', 'photo partie', 'plus la photo',
-            ])
-
-            if photo_sent and not client_deleted_photo:
-                bot_message = "Je t'ai déjà envoyé la photo plus haut! Tu peux la regarder. Tu veux autre chose?"
-                await self.conversations.add_message(conversation['id'], bot_message, False)
-                return BotResponse(
-                    message=bot_message,
-                    conversation_id=conversation['id'],
-                    should_notify_merchant=False
-                )
-
-            if product.get('image_path'):
-                # Si le client a supprimé la photo par erreur, adapter le message
-                if client_deleted_photo:
-                    bot_message = f"Pas de problème, je te renvoie!"
+                    bot_response = message_text or f"Voici les autres modèles disponibles:\n\n{variants_text}\n\nLequel t'intéresse?"
+                    if not images_to_send:
+                        images_to_send = None
                 else:
-                    bot_message = f"Voici le {product['name']}!"
-                await self.conversations.add_message(conversation['id'], bot_message, False)
-                return BotResponse(
-                    message=bot_message,
-                    conversation_id=conversation['id'],
-                    should_notify_merchant=False,
-                    images_to_send=[{
-                        "image_path": product['image_path'],
-                        "caption": f"{product['name']} - {product['code']} - {product['price']:,.0f} F"
-                    }]
-                )
+                    bot_response = "Ce produit n'est disponible que dans ce modèle pour l'instant."
             else:
-                bot_message = "Désolé, je n'ai pas de photo pour ce produit. Mais tu peux passer au magasin pour le voir!"
-                await self.conversations.add_message(conversation['id'], bot_message, False)
-                return BotResponse(
-                    message=bot_message,
-                    conversation_id=conversation['id'],
-                    should_notify_merchant=False
-                )
+                bot_response = "Ce produit n'est disponible que dans ce modèle pour l'instant."
 
-        return None
+        # ── send_location : GPS du marchand ──
+        elif name == "send_location":
+            send_location = True
+            bot_response = message_text or "Je t'envoie la localisation!"
+
+        # ── accept_deal : confirmer la vente ──
+        elif name == "accept_deal":
+            delivery_type = args.get("delivery_type", "ask")
+            deal_price = args.get("price") or current_offer or product['price']
+
+            # Garde-fou prix minimum
+            if deal_price < min_price:
+                logger.warning(f"accept_deal rejeté par _execute_tool: {deal_price} < min {min_price}")
+                min_f = f"{int(min_price):,}".replace(",", " ")
+                bot_response = f"Je peux faire {min_f} F, c'est mon dernier prix!"
+                new_status = "negotiating"
+            else:
+                if delivery_type == "delivery":
+                    new_status = "pending_delivery"
+                    send_location = False
+                elif delivery_type == "pickup":
+                    new_status = "pending_pickup"
+                    send_location = True
+                else:
+                    new_status = "agreed"
+                bot_response = message_text or "Super! Livraison ou tu passes chercher?"
+
+        # ── counter_offer : contre-offre prix ──
+        elif name == "counter_offer":
+            counter_price = args.get("price", 0)
+            if counter_price and counter_price < min_price:
+                counter_price = min_price
+            bot_response = message_text or f"Je peux faire {int(counter_price):,} F!".replace(",", " ")
+            if current_status in ("active", "negotiating"):
+                new_status = "negotiating"
+
+        # ── end_conversation ──
+        elif name == "end_conversation":
+            new_status = "ended"
+            bot_response = message_text or "Pas de souci, reviens quand tu veux!"
+
+        # ── request_human_takeover ──
+        elif name == "request_human_takeover":
+            bot_response = message_text or "Je transmets ton message au vendeur, il te répond très vite!"
+
+        # ── send_payment_info ──
+        elif name == "send_payment_info":
+            payment_info = merchant.get('payment_info') or merchant.get('payment_methods', '')
+            if payment_info:
+                bot_response = f"{message_text or 'Voici comment payer !'}\n{payment_info}"
+            else:
+                bot_response = "Pour les infos de paiement, contacte directement le vendeur!"
+
+        # ── collect_delivery_address ──
+        elif name == "collect_delivery_address":
+            address = args.get("address", "")
+            if address:
+                new_status = "pending_delivery"
+                bot_response = message_text or f"Noté! On livrera à: {address}"
+            else:
+                bot_response = message_text or "Parfait! Donne-moi ton adresse de livraison?"
+
+        # ── tool inconnu (ne devrait pas arriver) ──
+        else:
+            logger.warning(f"_execute_tool: tool inconnu '{name}'")
+            bot_response = message_text or ""
+
+        logger.info(f"_execute_tool({name}): status={new_status}, location={send_location}, images={len(images_to_send) if images_to_send else 0}")
+        return bot_response, new_status, send_location, images_to_send
 
     async def _handle_notifications(
         self,
