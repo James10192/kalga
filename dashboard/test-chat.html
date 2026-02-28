@@ -1539,8 +1539,11 @@ function updateMemory(trace, turnNum, latency) {
       ${sessionsHtml}`;
     c.appendChild(makeBlock(icoEpis, 'Épisodique', episStatus, episBody, true));
   } else {
+    const isFirst = (trace.events || []).some(e => e.name === 'is_first_message' && e.data?.result === true);
+    const episLabel = isFirst ? '1er message' : 'non tracé';
+    const episCls = isFirst ? 'style="background:rgba(99,179,237,.1);color:#63b3ed;border:1px solid rgba(99,179,237,.3)"' : 'class="mem-status off"';
     const b = document.createElement('div'); b.className = 'mem-layer';
-    b.innerHTML = `<div class="mem-layer-header" style="cursor:default">${icoEpis}<span class="mem-title">Épisodique</span><span class="mem-status off">non tracé</span></div>`;
+    b.innerHTML = `<div class="mem-layer-header" style="cursor:default">${icoEpis}<span class="mem-title">Épisodique</span><span class="mem-status" ${episCls}>${episLabel}</span></div>`;
     c.appendChild(b);
   }
 
