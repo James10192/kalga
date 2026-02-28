@@ -978,35 +978,44 @@ function renderProducts() {
             ? (product._variants.find(v => !v.variant_name)?.name || product.name.replace(/ - .+$/, ''))
             : product.name;
 
+        const imgHtml = product.image_url
+            ? `<img src="${product.image_url}" alt="${escapeHtml(displayName)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'product-img-placeholder\\'><i class=\\'fas fa-box\\'></i><span>${product.code}</span></div>'">`
+            : `<div class="product-img-placeholder"><i class="fas fa-box"></i><span>${product.code}</span></div>`;
+
         return `
         <div class="product-card ${isOut ? 'out-of-stock' : ''}">
-            <div class="product-card-header">
-                <h4>${escapeHtml(displayName)}</h4>
-                <span class="product-code-badge">${product.code}</span>
+            <div class="product-img-wrapper">
+                ${imgHtml}
+                <span class="product-code-badge">#${product.code}</span>
+                ${stockBadge}
             </div>
-            ${stockBadge}
-            ${product.description ? `<p class="product-description">${escapeHtml(product.description)}</p>` : ''}
-            ${variantsHtml}
-            <div class="product-prices">
-                <div class="price-item">
-                    <span class="price-label">Prix affiché</span>
-                    <span class="price-value">${formatPrice(product.price)} F</span>
+            <div class="product-card-body">
+                <div class="product-card-header">
+                    <h4>${escapeHtml(displayName)}</h4>
                 </div>
-                <div class="price-item">
-                    <span class="price-label">Prix minimum</span>
-                    <span class="price-value min">${formatPrice(product.min_price)} F</span>
+                ${product.description ? `<p class="product-description">${escapeHtml(product.description)}</p>` : ''}
+                ${variantsHtml}
+                <div class="product-prices">
+                    <div class="price-item">
+                        <span class="price-label">Prix affiché</span>
+                        <span class="price-value">${formatPrice(product.price)} F</span>
+                    </div>
+                    <div class="price-item">
+                        <span class="price-label">Prix minimum</span>
+                        <span class="price-value min">${formatPrice(product.min_price)} F</span>
+                    </div>
                 </div>
-            </div>
-            <div class="product-card-actions">
-                <button class="btn-icon" onclick="showStockModal(${product.id}, '${product.code}', ${stockQty})" title="Gérer le stock">
-                    <i class="fas fa-boxes"></i>
-                </button>
-                <button class="btn-icon" onclick="copyCode('${product.code}')" title="Copier le code">
-                    <i class="fas fa-copy"></i>
-                </button>
-                <button class="btn-icon danger" onclick="deleteProduct(${product.id})" title="Supprimer">
-                    <i class="fas fa-trash"></i>
-                </button>
+                <div class="product-card-actions">
+                    <button class="btn-icon" onclick="showStockModal(${product.id}, '${product.code}', ${stockQty})" title="Gérer le stock">
+                        <i class="fas fa-boxes"></i> Stock
+                    </button>
+                    <button class="btn-icon" onclick="copyCode('${product.code}')" title="Copier le code">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                    <button class="btn-icon danger" onclick="deleteProduct(${product.id})" title="Supprimer">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
             </div>
         </div>
     `;
