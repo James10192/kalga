@@ -209,6 +209,18 @@ class ChatService:
                     min_price=product.get('effective_min_price', product['min_price']),
                     tracer=tracer
                 )
+                # LTM tracée après tool call si conversation terminée
+                if tracer and new_status in ("pending_pickup", "pending_delivery", "ended", "agreed"):
+                    try:
+                        existing_facts = await self.client_history.get_memory_facts(
+                            merchant['id'], message.client_phone) or []
+                        existing_prefs = await self.client_history.get_preferences(
+                            merchant['id'], message.client_phone)
+                        tracer.set_ltm(facts=existing_facts, preferences=existing_prefs)
+                        tracer.event("MEMORY", "ltm_extraction_scheduled",
+                            history_len=len(history) if history else 0)
+                    except Exception:
+                        pass
 
         # 6. Mettre à jour la conversation
         update_data = {"status": new_status}
