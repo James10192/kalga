@@ -148,29 +148,34 @@ async def list_merchants(
         status_filter=status_filter
     )
 
-    # Ajouter le statut WhatsApp pour chaque marchand
+    # Ajouter le statut WhatsApp pour chaque marchand (en parallèle)
+    import asyncio
+
+    async def fetch_wa_status(client: httpx.AsyncClient, phone: str) -> str:
+        try:
+            response = await client.get(
+                f"{settings.whatsapp_bridge_url}/status/{phone}",
+                timeout=1.5
+            )
+            if response.status_code == 200:
+                return response.json().get("status", "disconnected")
+            return "unknown"
+        except Exception:
+            return "unknown"
+
+    async def no_phone() -> str:
+        return "no_phone"
+
+    async with httpx.AsyncClient() as client:
+        wa_statuses = await asyncio.gather(*[
+            fetch_wa_status(client, m["phone"]) if m.get("phone") else no_phone()
+            for m in result["merchants"]
+        ])
+
     merchants_with_status = []
-    for m in result["merchants"]:
+    for m, wa_status in zip(result["merchants"], wa_statuses):
         merchant_data = dict(m)
-
-        # Récupérer le statut WhatsApp
-        if m.get("phone"):
-            try:
-                async with httpx.AsyncClient() as client:
-                    response = await client.get(
-                        f"{settings.whatsapp_bridge_url}/status/{m['phone']}",
-                        timeout=2.0
-                    )
-                    if response.status_code == 200:
-                        wa_status = response.json()
-                        merchant_data["whatsapp_status"] = wa_status.get("status", "disconnected")
-                    else:
-                        merchant_data["whatsapp_status"] = "unknown"
-            except Exception:
-                merchant_data["whatsapp_status"] = "unknown"
-        else:
-            merchant_data["whatsapp_status"] = "no_phone"
-
+        merchant_data["whatsapp_status"] = wa_status
         merchants_with_status.append(merchant_data)
 
     result["merchants"] = merchants_with_status

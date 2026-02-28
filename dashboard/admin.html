@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KALGA Admin - Dashboard</title>
-    <link rel="stylesheet" href="static/admin.css">
+    <link rel="stylesheet" href="static/admin.css?v=3">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -294,13 +294,13 @@
                             <h3>Expirent bientôt</h3>
                             <span class="panel-tag panel-tag--warn">À traiter</span>
                         </div>
-                        <table class="data-table">
+                        <table class="expiring-data-table">
                             <thead>
                                 <tr>
                                     <th>Marchand</th>
                                     <th>Plan</th>
                                     <th>Expire le</th>
-                                    <th>Actions</th>
+                                    <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody id="expiring-list">
@@ -422,23 +422,8 @@
                     </div>
                 </header>
 
-                <div class="panel">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th><i class="fas fa-store"></i> Marchand</th>
-                                <th><i class="fas fa-phone"></i> Téléphone</th>
-                                <th><i class="fab fa-whatsapp"></i> WhatsApp</th>
-                                <th><i class="fas fa-tag"></i> Plan</th>
-                                <th><i class="fas fa-comment-dots"></i> Messages</th>
-                                <th><i class="fas fa-circle"></i> Statut</th>
-                                <th><i class="fas fa-ellipsis-h"></i> Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="merchants-list">
-                            <!-- Dynamically filled -->
-                        </tbody>
-                    </table>
+                <div id="merchants-list">
+                    <!-- Dynamically filled -->
                 </div>
 
                 <div class="pagination" id="merchants-pagination">
@@ -560,19 +545,21 @@
                 </header>
 
                 <div class="panel">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th><i class="fas fa-calendar-alt"></i> Date</th>
-                                <th><i class="fas fa-user-shield"></i> Admin</th>
-                                <th><i class="fas fa-bolt"></i> Action</th>
-                                <th><i class="fas fa-info-circle"></i> Détails</th>
-                            </tr>
-                        </thead>
-                        <tbody id="audit-list">
-                            <!-- Dynamically filled -->
-                        </tbody>
-                    </table>
+                    <div class="audit-table-wrapper">
+                        <table class="audit-data-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Admin</th>
+                                    <th>Action</th>
+                                    <th>Détails</th>
+                                </tr>
+                            </thead>
+                            <tbody id="audit-list">
+                                <!-- Dynamically filled -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
         </main>
@@ -675,7 +662,7 @@
         </div>
     </div>
 
-    <script src="static/admin.js"></script>
+    <script src="static/admin.js?v=3"></script>
     <script>
         // Populate left-panel merchant count on login screen
         fetch('http://localhost:8000/api/merchants/?limit=1')

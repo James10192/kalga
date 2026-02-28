@@ -248,7 +248,29 @@ async function loadPendingActivationsCount() {
     }
 }
 
+function showStatSkeletons() {
+    document.querySelectorAll('.stat-card-value').forEach(el => {
+        el.innerHTML = '<div class="skeleton" style="height:28px;width:60px;border-radius:6px;display:inline-block;"></div>';
+    });
+    document.querySelectorAll('.stat-card-sub').forEach(el => {
+        el.innerHTML = '<div class="skeleton" style="height:10px;width:80px;border-radius:6px;display:inline-block;"></div>';
+    });
+    const bars = document.getElementById('subscription-bars');
+    if (bars) bars.innerHTML = Array.from({length:4}).map(() => `
+        <div style="display:flex;flex-direction:column;gap:0.4rem;margin-bottom:0.75rem;">
+            <div style="display:flex;justify-content:space-between;"><div class="skeleton" style="height:10px;width:60px;border-radius:4px;"></div><div class="skeleton" style="height:10px;width:20px;border-radius:4px;"></div></div>
+            <div class="skeleton" style="height:6px;border-radius:100px;"></div>
+        </div>`).join('');
+    const exp = document.getElementById('expiring-list');
+    if (exp) exp.innerHTML = Array.from({length:3}).map(() => `
+        <tr><td><div class="skeleton" style="height:11px;width:120px;border-radius:4px;margin-bottom:0.3rem;"></div><div class="skeleton" style="height:9px;width:80px;border-radius:4px;"></div></td>
+        <td><div class="skeleton" style="height:20px;width:50px;border-radius:100px;"></div></td>
+        <td><div class="skeleton" style="height:10px;width:70px;border-radius:4px;"></div></td>
+        <td><div class="skeleton" style="height:24px;width:64px;border-radius:6px;"></div></td></tr>`).join('');
+}
+
 async function loadDashboardStats() {
+    showStatSkeletons();
     try {
         const data = await apiGet('/api/admin/dashboard');
 
@@ -327,25 +349,26 @@ function renderExpiringSoon(subscriptions) {
     const tbody = document.getElementById('expiring-list');
 
     if (!subscriptions.length) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">Aucun abonnement expirant prochainement</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--text-muted);font-size:0.82rem;"><i class="fas fa-circle-check" style="display:block;font-size:1.2rem;margin-bottom:0.4rem;opacity:0.3;"></i>Aucun abonnement expirant bientôt</td></tr>';
         return;
     }
 
     tbody.innerHTML = subscriptions.map(s => {
         const expiresAt = s.trial_ends_at || s.end_date;
-        const expiresDate = new Date(expiresAt).toLocaleDateString('fr-FR');
+        const expiresDate = expiresAt ? new Date(expiresAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '—';
+        const planLabels = { trial: 'Trial', starter: 'Starter', pro: 'Pro', enterprise: 'Enterprise' };
 
         return `
             <tr>
                 <td>
-                    <strong>${s.name}</strong>
-                    <br><small style="color: var(--text-muted)">${s.phone}</small>
+                    <div class="exp-merchant-name">${s.name || '—'}</div>
+                    <div class="exp-merchant-phone">${s.phone || ''}</div>
                 </td>
-                <td><span class="status-badge ${s.plan}">${s.plan}</span></td>
-                <td>${expiresDate}</td>
+                <td><span class="status-badge ${s.plan || 'trial'}">${planLabels[s.plan] || s.plan || 'trial'}</span></td>
+                <td><span class="exp-date-chip"><i class="fas fa-hourglass-half"></i>${expiresDate}</span></td>
                 <td>
-                    <button onclick="openSubscriptionModal(${s.merchant_id})" class="btn btn-small btn-secondary">
-                        Modifier
+                    <button onclick="openSubscriptionModal(${s.merchant_id})" class="btn-mc-detail">
+                        <i class="fas fa-pen"></i> Modifier
                     </button>
                 </td>
             </tr>
@@ -366,52 +389,141 @@ function setMerchantFilter(btn, value) {
 }
 
 async function loadMerchants() {
+    const container = document.getElementById('merchants-list');
+    showMerchantSkeletons(container);
+
     try {
         const filter = document.getElementById('merchant-filter').value;
         const filterParam = filter ? `&status_filter=${filter}` : '';
         const data = await apiGet(`/api/admin/merchants?page=${state.merchantsPage}&limit=20${filterParam}`);
 
-        renderMerchantsList(data.merchants);
+        renderMerchantsList(container, data.merchants, data.total);
         renderPagination(data.page, data.pages, 'merchants');
 
     } catch (error) {
         console.error('Erreur chargement marchands:', error);
+        container.innerHTML = `<div class="merchants-empty"><i class="fas fa-triangle-exclamation"></i><h3>Erreur de chargement</h3><p>Impossible de récupérer les marchands</p></div>`;
     }
 }
 
-function renderMerchantsList(merchants) {
-    const tbody = document.getElementById('merchants-list');
+function showMerchantSkeletons(container, count = 6) {
+    container.innerHTML = Array.from({ length: count }).map(() => `
+        <div class="merchant-card-skeleton">
+            <div class="sk-header">
+                <div class="skeleton sk-avatar"></div>
+                <div class="sk-title">
+                    <div class="skeleton sk-line-lg"></div>
+                    <div class="skeleton sk-line-sm"></div>
+                </div>
+            </div>
+            <div class="sk-pills">
+                <div class="skeleton sk-badge"></div>
+                <div class="skeleton sk-badge"></div>
+            </div>
+            <div>
+                <div class="skeleton sk-line-md" style="margin-bottom:0.4rem"></div>
+                <div class="skeleton sk-line-xs"></div>
+            </div>
+            <div class="sk-footer">
+                <div class="skeleton sk-line-sm"></div>
+                <div class="skeleton sk-badge" style="width:80px;height:28px;border-radius:8px;"></div>
+            </div>
+        </div>
+    `).join('');
+}
 
+function renderMerchantsList(container, merchants, total) {
     if (!merchants.length) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Aucun marchand trouve</td></tr>';
+        container.innerHTML = `
+            <div class="merchants-empty">
+                <i class="fas fa-store-slash"></i>
+                <h3>Aucun marchand trouvé</h3>
+                <p>Essayez un autre filtre ou actualisez la page</p>
+            </div>`;
         return;
     }
 
-    tbody.innerHTML = merchants.map(m => {
-        const waStatus = m.whatsapp_status === 'ready' ? 'connected' : 'disconnected';
-        const waLabel = m.whatsapp_status === 'ready' ? 'Connecte' : 'Deconnecte';
-        const userStatus = m.is_active ? 'active' : 'inactive';
-        const userLabel = m.is_active ? 'Actif' : 'Inactif';
+    const planColors = { trial: '#60a5fa', starter: '#a78bfa', pro: '#34d399', enterprise: '#f59e0b' };
+    const planLabels = { trial: 'Trial', starter: 'Starter', pro: 'Pro', enterprise: 'Enterprise' };
+
+    const countChip = `<div class="merchants-count-chip"><strong>${total}</strong> marchand${total > 1 ? 's' : ''}</div>`;
+
+    const cards = merchants.map(m => {
+        const waKey = m.whatsapp_status === 'ready' ? 'connected' : (m.whatsapp_status === 'unknown' || !m.whatsapp_status ? 'unknown' : 'disconnected');
+        const waLabel = waKey === 'connected' ? 'WhatsApp connecté' : (waKey === 'unknown' ? 'Statut inconnu' : 'WhatsApp déconnecté');
+        const waIcon = waKey === 'connected' ? 'fa-circle-check' : (waKey === 'unknown' ? 'fa-circle-question' : 'fa-circle-xmark');
+
+        const userStatus = m.is_active === null || m.is_active === undefined ? 'trial' : (m.is_active ? 'active' : 'inactive');
+        const userLabel = m.is_active === null || m.is_active === undefined ? 'Sans compte' : (m.is_active ? 'Actif' : 'Inactif');
+
+        const initial = (m.name || '?').replace(/[^a-zA-Z0-9]/g, '').charAt(0).toUpperCase() || '?';
+        const plan = m.plan || 'trial';
+        const planLabel = planLabels[plan] || plan;
+        const planColor = planColors[plan] || '#718096';
+
+        const used = m.messages_used || 0;
+        const limit = m.messages_limit || 500;
+        const usagePct = Math.min(100, Math.round((used / limit) * 100));
+        const usageClass = usagePct >= 90 ? 'usage--warn' : 'usage--ok';
+
+        const createdDate = m.merchant_created_at || m.user_created_at;
+        const dateLabel = createdDate ? new Date(createdDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
 
         return `
-            <tr>
-                <td>
-                    <strong>${m.name || 'N/A'}</strong>
-                    <br><small style="color: var(--text-muted)">${m.business_name || ''}</small>
-                </td>
-                <td>${m.phone || 'N/A'}</td>
-                <td><span class="status-badge ${waStatus}">${waLabel}</span></td>
-                <td><span class="status-badge ${m.plan || 'trial'}">${m.plan || 'trial'}</span></td>
-                <td>${m.messages_used || 0} / ${m.messages_limit || 500}</td>
-                <td><span class="status-badge ${userStatus}">${userLabel}</span></td>
-                <td>
-                    <button onclick="showMerchantDetail(${m.merchant_id})" class="btn btn-small btn-secondary">
-                        Details
+            <div class="merchant-card mc--${waKey}">
+                <div class="mc-header">
+                    <div class="mc-identity">
+                        <div class="mc-avatar av--${waKey}">${initial}</div>
+                        <div class="mc-name-block">
+                            <span class="mc-name">${m.name || 'Marchand inconnu'}</span>
+                            <span class="mc-biz">${m.business_name || m.phone || '—'}</span>
+                        </div>
+                    </div>
+                    <div class="mc-badges">
+                        <span class="mc-wa-badge wab--${waKey}">
+                            <span class="mc-wa-badge-dot"></span>
+                            ${waKey === 'connected' ? 'Connecté' : (waKey === 'unknown' ? 'Inconnu' : 'Hors ligne')}
+                        </span>
+                        <span class="status-badge ${userStatus}">${userLabel}</span>
+                    </div>
+                </div>
+
+                <div class="mc-meta">
+                    <div class="mc-meta-row">
+                        <i class="fas fa-phone"></i>
+                        <span>${m.phone || '—'}</span>
+                    </div>
+                    <div class="mc-meta-row">
+                        <i class="fas fa-tag"></i>
+                        <span style="color:${planColor};font-weight:600;">${planLabel}</span>
+                        ${m.subscription_status ? `<span style="margin-left:auto;font-size:0.69rem;color:var(--text-muted);">${m.subscription_status}</span>` : ''}
+                    </div>
+                </div>
+
+                <div class="mc-usage">
+                    <div class="mc-usage-label">
+                        <span>Messages</span>
+                        <strong>${used.toLocaleString()} / ${limit.toLocaleString()}</strong>
+                    </div>
+                    <div class="mc-usage-track">
+                        <div class="mc-usage-fill ${usageClass}" style="width:${Math.max(usagePct, 2)}%"></div>
+                    </div>
+                </div>
+
+                <div class="mc-footer">
+                    <span class="mc-footer-info">
+                        <i class="fas fa-calendar-plus"></i>
+                        Ajouté le ${dateLabel}
+                    </span>
+                    <button onclick="showMerchantDetail(${m.merchant_id})" class="btn-mc-detail">
+                        <i class="fas fa-arrow-right"></i> Détails
                     </button>
-                </td>
-            </tr>
+                </div>
+            </div>
         `;
     }).join('');
+
+    container.innerHTML = countChip + `<div class="merchants-grid">${cards}</div>`;
 }
 
 function renderPagination(currentPage, totalPages, type) {
@@ -615,6 +727,19 @@ async function saveSubscription() {
 // ============================================
 
 async function loadWhatsAppStatus() {
+    const grid = document.getElementById('whatsapp-grid');
+    grid.innerHTML = Array.from({length: 5}).map(() => `
+        <div class="wa-card" style="gap:0.9rem;">
+            <div class="wa-card-left">
+                <div class="skeleton" style="width:40px;height:40px;border-radius:10px;flex-shrink:0;"></div>
+                <div style="display:flex;flex-direction:column;gap:0.35rem;flex:1;">
+                    <div class="skeleton" style="height:12px;width:40%;border-radius:4px;"></div>
+                    <div class="skeleton" style="height:10px;width:60%;border-radius:4px;"></div>
+                </div>
+            </div>
+            <div class="skeleton" style="height:22px;width:80px;border-radius:100px;"></div>
+        </div>`).join('');
+
     try {
         const data = await apiGet('/api/admin/system/whatsapp-status');
 
@@ -658,13 +783,28 @@ async function loadWhatsAppStatus() {
 // ============================================
 
 async function loadAuditLogs() {
+    const tbody = document.getElementById('audit-list');
+    tbody.innerHTML = Array.from({length: 6}).map(() => `
+        <tr>
+            <td><div class="audit-skeleton-row" style="padding:0;border:none;">
+                <div class="skeleton" style="height:10px;width:110px;border-radius:4px;"></div>
+            </div></td>
+            <td><div style="display:flex;align-items:center;gap:0.5rem;">
+                <div class="skeleton" style="width:28px;height:28px;border-radius:50%;flex-shrink:0;"></div>
+                <div class="skeleton" style="height:10px;width:120px;border-radius:4px;"></div>
+            </div></td>
+            <td><div class="skeleton" style="height:20px;width:90px;border-radius:100px;"></div></td>
+            <td><div style="display:flex;gap:0.4rem;">
+                <div class="skeleton" style="height:20px;width:70px;border-radius:6px;"></div>
+                <div class="skeleton" style="height:20px;width:50px;border-radius:6px;"></div>
+            </div></td>
+        </tr>`).join('');
+
     try {
         const data = await apiGet('/api/admin/audit-logs?limit=50');
 
-        const tbody = document.getElementById('audit-list');
-
         if (!data.logs.length) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">Aucun log</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:3rem;color:var(--text-muted);font-size:0.85rem;"><i class="fas fa-shield-halved" style="opacity:0.2;font-size:1.5rem;display:block;margin-bottom:0.5rem;"></i>Aucun log d\'audit</td></tr>';
             return;
         }
 
@@ -699,6 +839,7 @@ async function loadAuditLogs() {
 
     } catch (error) {
         console.error('Erreur chargement logs:', error);
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--text-muted);">Erreur de chargement</td></tr>';
     }
 }
 
@@ -850,9 +991,26 @@ function formatDateTime(dateStr) {
 // ============================================
 
 async function loadPendingActivations() {
+    const container = document.getElementById('pending-activations-list');
+    container.innerHTML = Array.from({length: 3}).map(() => `
+        <div class="merchant-card-skeleton">
+            <div class="sk-header">
+                <div class="skeleton sk-avatar"></div>
+                <div class="sk-title">
+                    <div class="skeleton sk-line-lg"></div>
+                    <div class="skeleton sk-line-sm"></div>
+                </div>
+            </div>
+            <div class="sk-pills">
+                <div class="skeleton sk-badge"></div>
+                <div class="skeleton sk-badge"></div>
+            </div>
+            <div class="skeleton sk-line-md"></div>
+        </div>`).join('');
+
     try {
         const data = await apiGet('/api/admin/pending-activations');
-        const container = document.getElementById('pending-activations-list');
+        container.innerHTML = '';
         const emptyState = document.getElementById('pending-activations-empty');
         const badge = document.getElementById('pending-activations-badge');
 

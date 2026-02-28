@@ -249,6 +249,7 @@ class UserRepository(BaseRepository):
                 m.phone,
                 m.business_name,
                 m.address,
+                m.created_at as merchant_created_at,
                 s.plan,
                 s.status as subscription_status,
                 s.start_date,
@@ -256,10 +257,10 @@ class UserRepository(BaseRepository):
                 s.trial_ends_at,
                 s.messages_used,
                 s.messages_limit
-            FROM users u
-            LEFT JOIN merchants m ON u.merchant_id = m.id
+            FROM merchants m
+            LEFT JOIN users u ON u.merchant_id = m.id
             LEFT JOIN subscriptions s ON m.id = s.merchant_id
-            WHERE u.role = 'merchant'
+            WHERE 1=1
         """
 
         if status_filter:
@@ -273,7 +274,7 @@ class UserRepository(BaseRepository):
                 base_query += " AND s.status = 'expired'"
 
         count_query = f"SELECT COUNT(*) as total FROM ({base_query})"
-        data_query = f"{base_query} ORDER BY u.created_at DESC LIMIT ? OFFSET ?"
+        data_query = f"{base_query} ORDER BY COALESCE(u.created_at, m.created_at) DESC LIMIT ? OFFSET ?"
 
         async with get_connection() as db:
             # Count total

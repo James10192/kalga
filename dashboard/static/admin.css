@@ -2983,3 +2983,516 @@ body {
 }
 
 .hist-empty i { font-size: 2rem; opacity: 0.25; }
+
+/* ============================================
+   SKELETON LOADING
+   ============================================ */
+
+@keyframes skeleton-shimmer {
+    0%   { background-position: -600px 0; }
+    100% { background-position: 600px 0; }
+}
+
+.skeleton {
+    background: linear-gradient(
+        90deg,
+        rgba(255,255,255,0.04) 25%,
+        rgba(255,255,255,0.09) 50%,
+        rgba(255,255,255,0.04) 75%
+    );
+    background-size: 600px 100%;
+    animation: skeleton-shimmer 1.6s ease-in-out infinite;
+    border-radius: 6px;
+}
+
+/* Skeleton — merchant card */
+.merchant-card-skeleton {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 16px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.merchant-card-skeleton .sk-header {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+}
+
+.merchant-card-skeleton .sk-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    flex-shrink: 0;
+}
+
+.merchant-card-skeleton .sk-title {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    flex: 1;
+}
+
+.merchant-card-skeleton .sk-line-lg  { height: 13px; width: 55%; }
+.merchant-card-skeleton .sk-line-sm  { height: 10px; width: 35%; }
+.merchant-card-skeleton .sk-line-md  { height: 11px; width: 45%; }
+.merchant-card-skeleton .sk-line-xs  { height: 9px;  width: 25%; }
+.merchant-card-skeleton .sk-badge    { height: 22px; width: 64px; border-radius: 100px; }
+
+.merchant-card-skeleton .sk-pills {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.merchant-card-skeleton .sk-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Skeleton — stat cards on overview */
+.stat-card-skeleton {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 16px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* Skeleton — table rows */
+.skeleton-row td {
+    padding: 0.875rem 1rem;
+}
+
+.skeleton-row .sk-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Skeleton — audit rows */
+.audit-skeleton-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+/* ============================================
+   MERCHANT CARDS (nouvelle vue)
+   ============================================ */
+
+.merchants-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1rem;
+}
+
+.merchant-card {
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 16px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    transition: background 0.2s, border-color 0.2s, transform 0.18s;
+    cursor: default;
+    position: relative;
+    overflow: hidden;
+}
+
+.merchant-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: transparent;
+    transition: background 0.2s;
+}
+
+.merchant-card.mc--connected::before  { background: linear-gradient(90deg, #34d399, transparent); }
+.merchant-card.mc--disconnected::before { background: linear-gradient(90deg, #f87171, transparent); }
+.merchant-card.mc--unknown::before    { background: linear-gradient(90deg, #60a5fa, transparent); }
+
+.merchant-card:hover {
+    background: rgba(255,255,255,0.04);
+    border-color: rgba(255,255,255,0.12);
+    transform: translateY(-2px);
+}
+
+/* Card header */
+.mc-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.mc-identity {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.mc-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1.05rem;
+    font-family: 'Outfit', sans-serif;
+    flex-shrink: 0;
+    letter-spacing: -0.02em;
+}
+
+.mc-avatar.av--connected    { background: rgba(52,211,153,0.15); color: #34d399; border: 1px solid rgba(52,211,153,0.2); }
+.mc-avatar.av--disconnected { background: rgba(248,113,113,0.12); color: #f87171; border: 1px solid rgba(248,113,113,0.2); }
+.mc-avatar.av--unknown      { background: rgba(96,165,250,0.12); color: #60a5fa; border: 1px solid rgba(96,165,250,0.2); }
+
+.mc-name-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.mc-name {
+    font-weight: 700;
+    font-size: 0.925rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: 'Outfit', sans-serif;
+}
+
+.mc-biz {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mc-badges {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.35rem;
+    flex-shrink: 0;
+}
+
+/* Card meta row */
+.mc-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.mc-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+.mc-meta-row i {
+    width: 14px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+}
+
+.mc-meta-row span {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+/* Card progress bar */
+.mc-usage {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.mc-usage-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+.mc-usage-label strong {
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.mc-usage-track {
+    height: 5px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 100px;
+    overflow: hidden;
+    position: relative;
+}
+
+.mc-usage-fill {
+    height: 100%;
+    border-radius: 100px;
+    transition: width 0.6s cubic-bezier(.4,0,.2,1);
+    background: linear-gradient(90deg, #667eea, #8b5cf6);
+}
+
+.mc-usage-fill.usage--warn    { background: linear-gradient(90deg, #f59e0b, #ef4444); }
+.mc-usage-fill.usage--ok      { background: linear-gradient(90deg, #34d399, #059669); }
+
+/* Card footer */
+.mc-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+.mc-footer-info {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.mc-footer-info i { font-size: 0.65rem; }
+
+.btn-mc-detail {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.875rem;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    font-family: inherit;
+}
+
+.btn-mc-detail:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: rgba(255,255,255,0.18);
+}
+
+/* WA badge inline */
+.mc-wa-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 100px;
+    font-size: 0.68rem;
+    font-weight: 600;
+}
+
+.mc-wa-badge.wab--connected    { background: rgba(52,211,153,0.12); color: #34d399; }
+.mc-wa-badge.wab--disconnected { background: rgba(248,113,113,0.12); color: #f87171; }
+.mc-wa-badge.wab--unknown      { background: rgba(96,165,250,0.10); color: #60a5fa; }
+
+.mc-wa-badge-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.mc-wa-badge.wab--connected .mc-wa-badge-dot {
+    box-shadow: 0 0 0 2px rgba(52,211,153,0.25);
+    animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+/* Merchants empty state */
+.merchants-empty {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--text-muted);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.merchants-empty i {
+    font-size: 2.5rem;
+    opacity: 0.2;
+}
+
+.merchants-empty h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.merchants-empty p {
+    font-size: 0.82rem;
+}
+
+/* Merchants count chip */
+.merchants-count-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.7rem;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 100px;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+}
+
+.merchants-count-chip strong {
+    color: var(--text-secondary);
+}
+
+/* ============================================
+   IMPROVED AUDIT TABLE
+   ============================================ */
+
+.audit-table-wrapper {
+    overflow-x: auto;
+}
+
+.audit-data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.audit-data-table thead tr {
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.audit-data-table th {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.25);
+    white-space: nowrap;
+}
+
+.audit-data-table td {
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    vertical-align: middle;
+}
+
+.audit-data-table tbody tr {
+    transition: background 0.12s;
+}
+
+.audit-data-table tbody tr:hover {
+    background: rgba(255,255,255,0.025);
+}
+
+.audit-data-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* ============================================
+   IMPROVED EXPIRING TABLE
+   ============================================ */
+
+.expiring-data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.expiring-data-table th {
+    padding: 0.65rem 0.875rem;
+    text-align: left;
+    font-size: 0.67rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: rgba(255,255,255,0.22);
+}
+
+.expiring-data-table td {
+    padding: 0.75rem 0.875rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    vertical-align: middle;
+}
+
+.expiring-data-table tbody tr:last-child td { border-bottom: none; }
+.expiring-data-table tbody tr:hover { background: rgba(255,255,255,0.025); }
+
+/* Expiring date chip */
+.exp-date-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.78rem;
+    color: #fb923c;
+    font-weight: 500;
+}
+
+.exp-merchant-name {
+    font-weight: 600;
+    font-size: 0.87rem;
+    color: var(--text-primary);
+}
+
+.exp-merchant-phone {
+    font-size: 0.73rem;
+    color: var(--text-muted);
+    margin-top: 0.1rem;
+}
+
+/* ============================================
+   LOADING SPINNER (section-level)
+   ============================================ */
+
+.section-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 3rem;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255,255,255,0.08);
+    border-top-color: #667eea;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
