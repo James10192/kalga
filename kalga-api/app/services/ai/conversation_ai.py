@@ -103,6 +103,8 @@ async def generate_response(
     if conversation_status == "pending_pickup":
         if tracer:
             tracer.set_mode("pending_pickup")
+            tracer.set_stm(msg_count=len(conversation_history), compressed=False,
+                           window=min(len(conversation_history), 8))
         resp, offer, accepted, status = _handle_pending_pickup(client_message, current_offer)
         resend_location = detect_location_request(client_message)
         return resp, offer, accepted, status, resend_location
@@ -110,6 +112,8 @@ async def generate_response(
     if conversation_status == "pending_delivery":
         if tracer:
             tracer.set_mode("pending_delivery")
+            tracer.set_stm(msg_count=len(conversation_history), compressed=False,
+                           window=min(len(conversation_history), 8))
         resp, offer, accepted, status = _handle_pending_delivery(client_message, current_offer)
         return resp, offer, accepted, status, False
 
@@ -432,6 +436,9 @@ async def generate_response(
             if tracer:
                 tracer.event("MEMORY", "ltm_extraction_scheduled",
                     history_len=len(conversation_history))
+                existing_facts = await client_history_repo.get_memory_facts(merchant_id, client_phone) or []
+                existing_prefs = await client_history_repo.get_preferences(merchant_id, client_phone)
+                tracer.set_ltm(facts=existing_facts, preferences=existing_prefs)
         except Exception as e:
             logger.debug(f"LTM scheduling skipped: {e}")
     elif tracer and client_phone and merchant_id:

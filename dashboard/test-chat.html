@@ -665,7 +665,7 @@
     </div>
 
     <div class="chat-input-area">
-      <textarea class="msg-input" id="msgInput" placeholder="Tapez votre message…" rows="1"></textarea>
+      <textarea class="msg-input" id="msgInput" placeholder="Tapez votre message… ou incluez #K001 pour démarrer" rows="1"></textarea>
       <button class="btn-send" id="btnSend" title="Envoyer">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       </button>
@@ -1114,7 +1114,6 @@ async function sendMessage() {
   const clientPhone = $('clientPhone').value.trim() || '+221770000001';
   const productCode = $('productCode').value.trim() || state.productCode;
 
-  if (!productCode) { toast('Configurez un code produit', 'error'); return; }
   if (!state.merchantId) { toast('Sélectionnez un marchand', 'error'); return; }
 
   state._lastMsg = msg;
@@ -1136,7 +1135,7 @@ async function sendMessage() {
         merchant_phone: state.merchantPhone,
         client_phone: clientPhone,
         message: msg,
-        product_code: productCode,
+        ...(productCode ? { product_code: productCode } : {}),
         debug: true
       })
     });
@@ -1154,8 +1153,24 @@ async function sendMessage() {
     const data = await r.json();
     showTyping(false);
 
+    // Réponse vide = pas de conversation active et aucun code produit trouvé
+    if (data.no_response) {
+      appendSystem('Aucune conversation active — inclure un code #KXXX dans le message ou sélectionner un produit');
+      addLog('warn', 'Pas de réponse: code produit introuvable et aucune conv active');
+      return;
+    }
+
     state.turnCount++;
     state.lastTrace = data.debug_trace;
+
+    // Mettre à jour le header si on vient de démarrer une conv via code dans le texte
+    if (!productCode && data.conversation_id) {
+      const trace = data.debug_trace || {};
+      const convProduct = (trace.events || []).find(e => e.name === 'ai_generate_start');
+      if (convProduct) {
+        $('chatHeaderSub').textContent = `Conversation #${data.conversation_id} — produit détecté dans le message`;
+      }
+    }
 
     // Build debug strip for message
     const trace = data.debug_trace || {};
@@ -1180,6 +1195,30 @@ async function sendMessage() {
       showTakeover(false);
     }
     addLog('info', `← Réponse: "${(data.message||data.response||'').substring(0,60)}…" (${latency}ms)`);
+
+    // Afficher la localisation si envoyée
+    if (data.send_location && data.merchant_location) {
+      const loc = data.merchant_location;
+      const locEl = document.createElement('div');
+      locEl.className = 'msg-wrapper in';
+      const mapsUrl = loc.latitude && loc.longitude
+        ? `https://www.google.com/maps?q=${loc.latitude},${loc.longitude}`
+        : null;
+      locEl.innerHTML = `
+        <div class="msg-bubble" style="background:rgba(37,211,102,.12);border:1px solid rgba(37,211,102,.25);padding:10px 14px;display:flex;align-items:center;gap:10px;min-width:180px">
+          <span style="font-size:20px">📍</span>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--k-green)">${loc.name || 'Ma boutique'}</div>
+            ${loc.address ? `<div style="font-size:11px;color:var(--text2);margin-top:2px">${loc.address}</div>` : ''}
+            ${mapsUrl ? `<a href="${mapsUrl}" target="_blank" style="font-size:10px;color:var(--k-green);text-decoration:underline;margin-top:3px;display:block">Voir sur Maps</a>` : ''}
+          </div>
+        </div>
+        <div class="msg-time">Localisation</div>
+      `;
+      $('chatMessages').appendChild(locEl);
+      $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
+      addLog('info', `📍 Localisation envoyée: ${loc.name} (${loc.latitude}, ${loc.longitude})`);
+    }
 
     // Update summary
     $('sumMode').textContent = trace.mode || '—';
@@ -1438,24 +1477,31 @@ function updateMemory(trace, turnNum, latency) {
   }
 
   // ── LTM ──
+  const ltmScheduled = (trace.events || []).some(e => e.name === 'ltm_extraction_scheduled');
   const ltmFc = ltm ? (ltm.fact_count ?? ltm.facts_count) : undefined;
   if (ltmFc !== undefined) {
-    const ltmStatus = `<span class="mem-status ok">Actif</span>`;
+    const ltmStatus = ltmScheduled
+      ? `<span class="mem-status" style="background:rgba(255,197,61,.1);color:var(--yellow);border:1px solid rgba(255,197,61,.3)">Extraction en cours…</span>`
+      : `<span class="mem-status ok">Actif</span>`;
     const facts = Array.isArray(ltm.facts) ? ltm.facts : [];
     let factsHtml = '';
     if (facts.length) {
-      factsHtml = `<div class="mem-detail"><div class="mem-detail-label">Faits extraits</div>${
-        facts.map(f => `<div class="mem-detail-item">· ${escHtml(typeof f === 'string' ? f : JSON.stringify(f))}</div>`).join('')
+      factsHtml = `<div class="mem-detail"><div class="mem-detail-label">Faits en DB</div>${
+        facts.map(f => `<div class="mem-detail-item">· ${escHtml(typeof f === 'string' ? f : (f.fact || JSON.stringify(f)))}</div>`).join('')
       }</div>`;
+    } else if (ltmScheduled) {
+      factsHtml = `<div class="mem-detail-item" style="color:var(--text3);font-style:italic">Extraction DeepSeek en arrière-plan…</div>`;
     }
     const ltmBody = `
-      ${memRow('Faits', ltmFc, true)}
-      ${memRow('Extraction async', ltm.extracted ? 'Oui' : 'En attente', ltm.extracted)}
+      ${memRow('Faits en DB', ltmFc, ltmFc > 0)}
+      ${ltmScheduled ? memRow('Nouvelle extraction', 'Schedulée async', false) : memRow('Extraction async', 'En attente', false)}
       ${factsHtml}`;
     c.appendChild(makeBlock(icoLtm, 'LTM — Long terme', ltmStatus, ltmBody, true));
   } else {
+    const ltmLabel = ltmScheduled ? 'Extraction en cours…' : 'non tracé';
+    const ltmCls = ltmScheduled ? 'style="background:rgba(255,197,61,.1);color:var(--yellow);border:1px solid rgba(255,197,61,.3)"' : 'class="mem-status off"';
     const b = document.createElement('div'); b.className = 'mem-layer';
-    b.innerHTML = `<div class="mem-layer-header" style="cursor:default">${icoLtm}<span class="mem-title">LTM — Long terme</span><span class="mem-status off">non tracé</span></div>`;
+    b.innerHTML = `<div class="mem-layer-header" style="cursor:default">${icoLtm}<span class="mem-title">LTM — Long terme</span><span class="mem-status" ${ltmCls}>${ltmLabel}</span></div>`;
     c.appendChild(b);
   }
 

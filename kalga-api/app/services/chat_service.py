@@ -206,7 +206,8 @@ class ChatService:
                     merchant=merchant,
                     current_status=current_status,
                     current_offer=conversation.get('current_offer'),
-                    min_price=product.get('effective_min_price', product['min_price'])
+                    min_price=product.get('effective_min_price', product['min_price']),
+                    tracer=tracer
                 )
 
         # 6. Mettre à jour la conversation
@@ -348,7 +349,8 @@ class ChatService:
         Retourne (conversation, product) ou (None, None) si pas de contexte.
         """
         # Extraire le code produit si pas fourni
-        code = product_code or extract_product_code(message_text)
+        code_from_text = extract_product_code(message_text)
+        code = product_code or code_from_text
         logger.info(f"Code produit: {code}")
 
         product = None
@@ -365,12 +367,14 @@ class ChatService:
                     product['id']
                 )
 
-                # Si la conversation existante est en pending_pickup/pending_delivery,
-                # le client revient sur le même produit = nouvelle intention d'achat.
+                # Si la conversation existante est en pending_pickup/pending_delivery ET
+                # que le code vient du texte du message (pas d'un paramètre explicite),
+                # le client mentionne explicitement le produit = nouvelle intention d'achat.
                 # Fermer l'ancienne et en créer une nouvelle.
-                if conversation and conversation.get('status') in ('pending_pickup', 'pending_delivery'):
+                if (conversation and conversation.get('status') in ('pending_pickup', 'pending_delivery')
+                        and code_from_text):
                     logger.info(f"Conversation {conversation['id']} en {conversation['status']}, "
-                                f"client renvoie #code => fermer et créer nouvelle conversation")
+                                f"client renvoie #code dans le texte => fermer et créer nouvelle conversation")
                     await self.conversations.update(conversation['id'], status='completed')
                     conversation = None
 
@@ -455,7 +459,8 @@ class ChatService:
         merchant: Dict,
         current_status: str,
         current_offer: Optional[float],
-        min_price: float
+        min_price: float,
+        tracer=None
     ):
         """
         Exécute l'action décidée par DeepSeek (function calling).
@@ -586,6 +591,8 @@ class ChatService:
             bot_response = message_text or ""
 
         logger.info(f"_execute_tool({name}): status={new_status}, location={send_location}, images={len(images_to_send) if images_to_send else 0}")
+        if tracer:
+            tracer.add_tool_call(name, reason="DeepSeek tool call dispatched", args={**tool.get("args", {}), "_result_status": new_status, "_send_location": send_location})
         return bot_response, new_status, send_location, images_to_send
 
     async def _handle_notifications(
