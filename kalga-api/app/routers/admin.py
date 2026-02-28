@@ -158,10 +158,13 @@ async def list_merchants(
                 timeout=1.5
             )
             if response.status_code == 200:
-                return response.json().get("status", "disconnected")
-            return "unknown"
+                data = response.json()
+                return "ready" if data.get("ready") else "disconnected"
+            if response.status_code == 404:
+                return "not_registered"
+            return "disconnected"
         except Exception:
-            return "unknown"
+            return "disconnected"
 
     async def no_phone() -> str:
         return "no_phone"
@@ -255,15 +258,33 @@ async def get_merchant_details(
                 timeout=2.0
             )
             if response.status_code == 200:
-                whatsapp_status = response.json().get("status", "disconnected")
+                data = response.json()
+                whatsapp_status = "ready" if data.get("ready") else "disconnected"
+            elif response.status_code == 404:
+                whatsapp_status = "not_registered"
     except Exception:
         pass
+
+    # Compte réel de messages
+    real_messages_count = 0
+    async with get_connection() as db:
+        cursor = await db.execute(
+            """
+            SELECT COUNT(msg.id) as total
+            FROM conversations c
+            JOIN messages msg ON msg.conversation_id = c.id
+            WHERE c.merchant_id = ?
+            """,
+            (merchant_id,)
+        )
+        real_messages_count = (await cursor.fetchone())["total"]
 
     return {
         "merchant": merchant,
         "user": dict(user) if user else None,
         "subscription": subscription,
         "whatsapp_status": whatsapp_status,
+        "real_messages_count": real_messages_count,
         "stats": {
             "products": products_count,
             "conversations": conversations_count,

@@ -445,13 +445,14 @@ function renderMerchantsList(container, merchants, total) {
 
     const planColors = { trial: '#60a5fa', starter: '#a78bfa', pro: '#34d399', enterprise: '#f59e0b' };
     const planLabels = { trial: 'Trial', starter: 'Starter', pro: 'Pro', enterprise: 'Enterprise' };
+    const subStatusLabels = { active: 'Actif', trial: 'En essai', expired: 'Expiré', cancelled: 'Annulé', suspended: 'Suspendu' };
 
     const countChip = `<div class="merchants-count-chip"><strong>${total}</strong> marchand${total > 1 ? 's' : ''}</div>`;
 
     const cards = merchants.map(m => {
-        const waKey = m.whatsapp_status === 'ready' ? 'connected' : (m.whatsapp_status === 'unknown' || !m.whatsapp_status ? 'unknown' : 'disconnected');
-        const waLabel = waKey === 'connected' ? 'WhatsApp connecté' : (waKey === 'unknown' ? 'Statut inconnu' : 'WhatsApp déconnecté');
-        const waIcon = waKey === 'connected' ? 'fa-circle-check' : (waKey === 'unknown' ? 'fa-circle-question' : 'fa-circle-xmark');
+        const waKey = m.whatsapp_status === 'ready' ? 'connected' : 'disconnected';
+        const waLabel = waKey === 'connected' ? 'WhatsApp connecté' : (m.whatsapp_status === 'not_registered' ? 'Non enregistré' : 'Hors ligne');
+        const waIcon = waKey === 'connected' ? 'fa-circle-check' : 'fa-circle-xmark';
 
         const userStatus = m.is_active === null || m.is_active === undefined ? 'trial' : (m.is_active ? 'active' : 'inactive');
         const userLabel = m.is_active === null || m.is_active === undefined ? 'Sans compte' : (m.is_active ? 'Actif' : 'Inactif');
@@ -461,7 +462,7 @@ function renderMerchantsList(container, merchants, total) {
         const planLabel = planLabels[plan] || plan;
         const planColor = planColors[plan] || '#718096';
 
-        const used = m.messages_used || 0;
+        const used = m.real_messages_count || 0;
         const limit = m.messages_limit || 500;
         const usagePct = Math.min(100, Math.round((used / limit) * 100));
         const usageClass = usagePct >= 90 ? 'usage--warn' : 'usage--ok';
@@ -482,7 +483,7 @@ function renderMerchantsList(container, merchants, total) {
                     <div class="mc-badges">
                         <span class="mc-wa-badge wab--${waKey}">
                             <span class="mc-wa-badge-dot"></span>
-                            ${waKey === 'connected' ? 'Connecté' : (waKey === 'unknown' ? 'Inconnu' : 'Hors ligne')}
+                            ${waKey === 'connected' ? 'Connecté' : (m.whatsapp_status === 'not_registered' ? 'Non enregistré' : 'Hors ligne')}
                         </span>
                         <span class="status-badge ${userStatus}">${userLabel}</span>
                     </div>
@@ -496,7 +497,7 @@ function renderMerchantsList(container, merchants, total) {
                     <div class="mc-meta-row">
                         <i class="fas fa-tag"></i>
                         <span style="color:${planColor};font-weight:600;">${planLabel}</span>
-                        ${m.subscription_status ? `<span style="margin-left:auto;font-size:0.69rem;color:var(--text-muted);">${m.subscription_status}</span>` : ''}
+                        ${m.subscription_status ? `<span style="margin-left:auto;font-size:0.69rem;color:var(--text-muted);">${subStatusLabels[m.subscription_status] || m.subscription_status}</span>` : ''}
                     </div>
                 </div>
 
@@ -588,7 +589,7 @@ async function showMerchantDetail(merchantId) {
                     <div class="detail-row">
                         <span class="detail-label">WhatsApp</span>
                         <span class="status-badge ${data.whatsapp_status === 'ready' ? 'connected' : 'disconnected'}">
-                            ${data.whatsapp_status === 'ready' ? 'Connecte' : 'Deconnecte'}
+                            ${data.whatsapp_status === 'ready' ? 'Connecté' : (data.whatsapp_status === 'not_registered' ? 'Non enregistré' : 'Hors ligne')}
                         </span>
                     </div>
                 </div>
@@ -598,15 +599,15 @@ async function showMerchantDetail(merchantId) {
                     ${data.subscription ? `
                         <div class="detail-row">
                             <span class="detail-label">Plan</span>
-                            <span class="status-badge ${data.subscription.plan}">${data.subscription.plan}</span>
+                            <span class="status-badge ${data.subscription.plan}">${{ trial: 'Trial', starter: 'Starter', pro: 'Pro', enterprise: 'Enterprise' }[data.subscription.plan] || data.subscription.plan}</span>
                         </div>
                         <div class="detail-row">
-                            <span class="detail-label">Status</span>
-                            <span class="status-badge ${data.subscription.status}">${data.subscription.status}</span>
+                            <span class="detail-label">Statut</span>
+                            <span class="status-badge ${data.subscription.status}">${{ active: 'Actif', trial: 'En essai', expired: 'Expiré', cancelled: 'Annulé', suspended: 'Suspendu' }[data.subscription.status] || data.subscription.status}</span>
                         </div>
                         <div class="detail-row">
                             <span class="detail-label">Messages</span>
-                            <span class="detail-value">${data.subscription.messages_used} / ${data.subscription.messages_limit}</span>
+                            <span class="detail-value">${data.real_messages_count ?? data.subscription.messages_used} / ${data.subscription.messages_limit}</span>
                         </div>
                         <div class="detail-row">
                             <span class="detail-label">Expire le</span>

@@ -256,7 +256,13 @@ class UserRepository(BaseRepository):
                 s.end_date,
                 s.trial_ends_at,
                 s.messages_used,
-                s.messages_limit
+                s.messages_limit,
+                (
+                    SELECT COUNT(msg.id)
+                    FROM conversations c
+                    JOIN messages msg ON msg.conversation_id = c.id
+                    WHERE c.merchant_id = m.id
+                ) as real_messages_count
             FROM merchants m
             LEFT JOIN users u ON u.merchant_id = m.id
             LEFT JOIN subscriptions s ON m.id = s.merchant_id
