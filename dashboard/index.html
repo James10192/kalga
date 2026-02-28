@@ -443,6 +443,11 @@
                     <i class="fas fa-chart-bar"></i>
                     <span>Statistiques</span>
                 </a>
+                <a href="#" class="nav-item" data-section="stock" data-tooltip="Gestion Stock">
+                    <i class="fas fa-boxes"></i>
+                    <span>Stock</span>
+                    <span class="nav-badge nav-badge-danger" id="stock-badge" style="display:none">0</span>
+                </a>
                 <a href="#" class="nav-item" data-section="settings" data-tooltip="Paramètres">
                     <i class="fas fa-cog"></i>
                     <span>Paramètres</span>
@@ -535,6 +540,35 @@
                                 <span class="stat-value" id="stat-revenue">0</span>
                                 <span class="stat-label">FCFA Total</span>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Widget Stock Critique -->
+                    <div class="card stock-critique-widget" id="stock-critique-section" style="display:none">
+                        <div class="card-header stock-critique-header">
+                            <h3><i class="fas fa-exclamation-triangle"></i> Stock Critique</h3>
+                            <a href="#" onclick="showSection('stock')" class="stock-critique-link">Gérer →</a>
+                        </div>
+                        <div class="stock-critique-body">
+                            <div class="stock-critique-kpis">
+                                <div class="stock-kpi stock-kpi-danger" id="sc-out-of-stock">
+                                    <span class="stock-kpi-value" id="sc-out-count">0</span>
+                                    <span class="stock-kpi-label">En rupture</span>
+                                </div>
+                                <div class="stock-kpi stock-kpi-warning" id="sc-low-stock">
+                                    <span class="stock-kpi-value" id="sc-low-count">0</span>
+                                    <span class="stock-kpi-label">Stock bas</span>
+                                </div>
+                                <div class="stock-kpi stock-kpi-info" id="sc-waitlist">
+                                    <span class="stock-kpi-value" id="sc-wait-count">0</span>
+                                    <span class="stock-kpi-label">En attente</span>
+                                </div>
+                                <div class="stock-kpi stock-kpi-revenue" id="sc-lost-revenue">
+                                    <span class="stock-kpi-value" id="sc-lost-value">0 F</span>
+                                    <span class="stock-kpi-label">Revenus perdus (7j)</span>
+                                </div>
+                            </div>
+                            <div class="stock-critique-list" id="sc-product-list"></div>
                         </div>
                     </div>
 
@@ -731,6 +765,85 @@
                                     <p>Aucune donnée</p>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Stock Section -->
+                <section id="section-stock" class="section">
+                    <div class="section-header">
+                        <h2>Gestion du Stock</h2>
+                        <div class="stock-filters">
+                            <button class="filter-tab active" onclick="filterStock('all', this)">Tous</button>
+                            <button class="filter-tab" onclick="filterStock('out', this)">
+                                <span class="dot-danger"></span>Épuisés
+                            </button>
+                            <button class="filter-tab" onclick="filterStock('low', this)">
+                                <span class="dot-warning"></span>Stock bas
+                            </button>
+                            <button class="filter-tab" onclick="filterStock('normal', this)">
+                                <span class="dot-success"></span>Normal
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Config stock -->
+                    <div class="stock-config-bar" id="stock-config-bar">
+                        <div class="stock-config-item">
+                            <label>Alerte après</label>
+                            <div class="stock-config-control">
+                                <input type="number" id="sc-alert-days" value="3" min="1" max="30" style="width:60px">
+                                <span>jours épuisé</span>
+                            </div>
+                        </div>
+                        <div class="stock-config-item">
+                            <label>Seuil stock bas</label>
+                            <div class="stock-config-control">
+                                <input type="number" id="sc-global-threshold" value="5" min="1" max="100" style="width:60px">
+                                <span>unités</span>
+                            </div>
+                        </div>
+                        <div class="stock-config-item">
+                            <label>Alertes WhatsApp</label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="sc-alerts-enabled" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="stock-config-item">
+                            <label>Waitlist clients</label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="sc-waitlist-enabled" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <button class="btn-secondary btn-sm" onclick="saveStockConfig()">
+                            <i class="fas fa-save"></i> Sauvegarder
+                        </button>
+                    </div>
+
+                    <!-- Tableau produits stock -->
+                    <div class="card">
+                        <div class="stock-table-wrapper">
+                            <table class="stock-table" id="stock-table">
+                                <thead>
+                                    <tr>
+                                        <th>Produit</th>
+                                        <th>Statut</th>
+                                        <th>Stock</th>
+                                        <th>Mode rupture</th>
+                                        <th>En attente</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="stock-table-body">
+                                    <tr>
+                                        <td colspan="6" class="table-loading">
+                                            <i class="fas fa-spinner fa-spin"></i> Chargement...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </section>
@@ -1188,5 +1301,8 @@
         }
     });
     </script>
+
+    <!-- Conteneur modal dynamique (stock waitlist / historique) -->
+    <div id="modal-container" style="display:none"></div>
 </body>
 </html>

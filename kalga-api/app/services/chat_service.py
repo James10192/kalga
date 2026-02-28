@@ -10,6 +10,7 @@ from ..database.repositories import MerchantRepository, ProductRepository, Conve
 from ..database.repositories.stats_repo import get_stats_repository
 from ..database.repositories.client_history_repo import get_client_history_repository
 from ..database.repositories.knowledge_repo import KnowledgeBaseRepository
+from ..database.repositories.waitlist_repo import get_waitlist_repository
 from ..models.schemas import IncomingMessage, BotResponse
 from .notification_service import NotificationService
 from .followup_service import get_followup_service
@@ -43,6 +44,7 @@ class ChatService:
         self.stats = get_stats_repository()
         self.followups = get_followup_service()
         self.client_history = get_client_history_repository()
+        self.waitlist = get_waitlist_repository()
 
     async def handle_incoming_message(self, message: IncomingMessage, tracer: Optional[DebugTracer] = None) -> BotResponse:
         """
@@ -126,17 +128,72 @@ class ChatService:
         if is_first_message:
             stock_status = await self.products.check_stock_status(product['id'])
             if stock_status and stock_status.get('is_out_of_stock'):
-                bot_message = (
-                    f"Désolé, le {product['name']} est actuellement en rupture de stock. "
-                    f"Je te contacte dès qu'il est de nouveau disponible!"
-                )
-                await self.conversations.add_message(conversation['id'], bot_message, False)
-                return BotResponse(
-                    message=bot_message,
-                    conversation_id=conversation['id'],
-                    should_notify_merchant=True,
-                    notification_reason=f"Client intéressé par {product['code']} (RUPTURE)"
-                )
+                # Vérifier le mode rupture du produit
+                out_mode = product.get('out_of_stock_mode', 'waitlist')
+
+                if out_mode == 'waitlist':
+                    waitlist_count = await self.waitlist.get_waitlist_count(product['id'])
+                    already_in = await self.waitlist.is_client_in_waitlist(
+                        product['id'], message.client_phone
+                    )
+                    if already_in:
+                        bot_message = (
+                            f"😊 Le *{product['name']}* est toujours en rupture de stock, "
+                            f"mais tu es déjà sur la liste d'attente ! "
+                            f"Je te préviens dès qu'il revient."
+                        )
+                    else:
+                        queue_text = (
+                            f" ({waitlist_count} client{'s' if waitlist_count > 1 else ''} avant toi)"
+                            if waitlist_count > 0 else ""
+                        )
+                        bot_message = (
+                            f"😕 Le *{product['name']}* est momentanément épuisé.\n\n"
+                            f"Souhaites-tu être notifié dès qu'il sera disponible ?{queue_text}\n\n"
+                            f"Réponds *OUI* pour rejoindre la liste prioritaire 🔔"
+                        )
+                    await self.conversations.add_message(conversation['id'], bot_message, False)
+                    # Enregistrer l'événement analytics
+                    try:
+                        await self.stats.log_event(
+                            merchant_id=merchant['id'],
+                            event_type='out_of_stock_inquiry',
+                            product_id=product['id'],
+                            conversation_id=conversation['id'],
+                            client_phone=message.client_phone
+                        )
+                    except Exception:
+                        pass
+                    return BotResponse(
+                        message=bot_message,
+                        conversation_id=conversation['id'],
+                        should_notify_merchant=True,
+                        notification_reason=f"Client intéressé par {product['code']} (RUPTURE)"
+                    )
+                else:
+                    # Mode suspend ou autre : message simple
+                    bot_message = (
+                        f"Désolé, le {product['name']} est actuellement en rupture de stock. "
+                        f"Je te contacte dès qu'il est de nouveau disponible!"
+                    )
+                    await self.conversations.add_message(conversation['id'], bot_message, False)
+                    return BotResponse(
+                        message=bot_message,
+                        conversation_id=conversation['id'],
+                        should_notify_merchant=True,
+                        notification_reason=f"Client intéressé par {product['code']} (RUPTURE)"
+                    )
+
+        # 4.1 Détecter la réponse OUI à la waitlist
+        if not is_first_message:
+            waitlist_response = await self._check_waitlist_reply(
+                message=message,
+                conversation=conversation,
+                product=product,
+                merchant=merchant
+            )
+            if waitlist_response:
+                return waitlist_response
 
         # 4.5 Mémoriser la variante sélectionnée si le client répond à une photo de variante
         # Doit être fait AVANT les cas spéciaux pour que selected_variant_id soit à jour
@@ -674,6 +731,29 @@ class ChatService:
             updated_product = await self.products.decrement_stock(product['id'])
             if updated_product:
                 stock_status = await self.products.check_stock_status(product['id'])
+                new_qty = stock_status['quantity'] if stock_status else 0
+
+                # Journal stock_events (append-only)
+                try:
+                    await self.waitlist.log_stock_event(
+                        merchant_id=merchant['id'],
+                        product_id=product['id'],
+                        event_type='sale',
+                        quantity_delta=-1,
+                        quantity_after=new_qty,
+                        conversation_id=conversation['id']
+                    )
+                    if stock_status and stock_status.get('is_out_of_stock'):
+                        await self.waitlist.log_stock_event(
+                            merchant_id=merchant['id'],
+                            product_id=product['id'],
+                            event_type='out_of_stock',
+                            quantity_delta=0,
+                            quantity_after=0,
+                            conversation_id=conversation['id']
+                        )
+                except Exception as e:
+                    logger.debug(f"stock_events log (non bloquant): {e}")
 
                 # Alerte stock bas
                 if stock_status and stock_status.get('is_low'):
@@ -870,6 +950,62 @@ class ChatService:
             logger.info(f"Auto-apprentissage: deal closé → KB enrichie (merchant {merchant_id})")
         except Exception as e:
             logger.debug(f"Auto-learn deal (non bloquant): {e}")
+
+    async def _check_waitlist_reply(
+        self,
+        message,
+        conversation: dict,
+        product: dict,
+        merchant: dict
+    ):
+        """
+        Détecte si le client répond OUI à une offre de waitlist.
+        Le dernier message bot doit être une question de waitlist.
+        """
+        import re
+        text_lower = message.message.strip().lower()
+        oui_patterns = ['oui', 'yes', 'ok', 'ouais', 'yep', '1', 'o', 'oki', 'dac', "d'accord"]
+        if text_lower not in oui_patterns and not any(p in text_lower for p in oui_patterns[:4]):
+            return None
+
+        # Vérifier que le dernier message bot était une offre de waitlist
+        history = await self.conversations.get_messages(conversation['id'])
+        bot_messages = [m for m in history if not m.get('is_from_client')]
+        if not bot_messages:
+            return None
+        last_bot = bot_messages[-1].get('content', '')
+        if 'liste prioritaire' not in last_bot and 'waitlist' not in last_bot.lower() and 'notifié' not in last_bot:
+            return None
+
+        # Vérifier stock toujours à 0
+        stock_status = await self.products.check_stock_status(product['id'])
+        if not stock_status or not stock_status.get('is_out_of_stock'):
+            return None
+
+        # Enregistrer en waitlist
+        already_in = await self.waitlist.is_client_in_waitlist(product['id'], message.client_phone)
+        if not already_in:
+            await self.waitlist.add_to_waitlist(
+                merchant_id=merchant['id'],
+                product_id=product['id'],
+                client_phone=message.client_phone,
+                client_name=message.client_name or None,
+                conversation_id=conversation['id'],
+                offered_price=conversation.get('current_offer')
+            )
+
+        position = await self.waitlist.get_waitlist_count(product['id'])
+        bot_message = (
+            f"✅ C'est noté ! Tu es sur la liste prioritaire pour *{product['name']}*.\n\n"
+            f"{'Tu es le premier sur la liste !' if position == 1 else f'Tu es {position}e sur la liste.'}\n\n"
+            f"_Je t'enverrai un message WhatsApp dès que le stock revient._ 🔔"
+        )
+        await self.conversations.add_message(conversation['id'], bot_message, False)
+        return BotResponse(
+            message=bot_message,
+            conversation_id=conversation['id'],
+            should_notify_merchant=False
+        )
 
     async def _auto_flag_unanswered(
         self,

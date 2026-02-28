@@ -2,7 +2,7 @@
 Service d'orchestration des commandes marchand
 Point d'entrée unique pour toutes les commandes
 """
-from typing import Optional
+from typing import Optional, Dict
 import re
 import logging
 
@@ -16,6 +16,11 @@ from .handlers import (
     HelpCommandsHandler,
 )
 from ...database import get_db
+from ...database.repositories.waitlist_repo import get_waitlist_repository
+
+# Sessions de dialogue stock marchand (produit épuisé → 3 options)
+# Format: {merchant_phone: {"step": str, "product_id": int, "product_code": str, ...}}
+_stock_sessions: Dict[str, dict] = {}
 
 logger = logging.getLogger("kalga.merchant_commands")
 
@@ -32,6 +37,7 @@ class MerchantCommandService:
         self.edition_handler = ProductEditionHandler()
         self.sales_handler = SalesManagementHandler()
         self.help_handler = HelpCommandsHandler()
+        self.waitlist_repo = get_waitlist_repository()
 
     async def process_command(self, msg: MerchantMessage) -> CommandResponse:
         """
@@ -76,6 +82,17 @@ class MerchantCommandService:
                 return await self._handle_creation_step(
                     session, message, msg.image_path, merchant, db
                 )
+
+        # Session dialogue stock en cours (dialogue proactif 3 options)
+        if merchant['phone'] in _stock_sessions:
+            stock_resp = await self._handle_stock_session(
+                merchant_phone=merchant['phone'],
+                message_lower=message_lower,
+                merchant=merchant,
+                db=db
+            )
+            if stock_resp is not None:
+                return stock_resp
 
         # Pas de session active - traiter comme commande normale
         return await self._handle_command(
@@ -171,6 +188,30 @@ class MerchantCommandService:
         if message_lower in ['aide', 'help', '?', 'menu']:
             return await self.help_handler.handle_help()
 
+        # === COMMANDES STOCK NATURELLES ===
+        # "stock riz 50" / "stock #K001 50"
+        stock_update_match = re.search(
+            r'^stock\s+(.+?)\s+(\d+)$', message_lower
+        )
+        if stock_update_match:
+            return await self._handle_stock_update_command(
+                stock_update_match, merchant, db
+            )
+
+        # "épuisé: attiéké" / "epuise attiéké" / "rupture: riz"
+        epuise_match = re.search(
+            r'^(?:épuisé|epuise|rupture)[:\s]+(.+)$', message_lower
+        )
+        if epuise_match:
+            return await self._handle_mark_out_of_stock(epuise_match, merchant, db)
+
+        # "prix attiéké 500" / "prix #K001 15000"
+        prix_match = re.search(
+            r'^prix\s+(.+?)\s+(\d[\d\s]*)$', message_lower
+        )
+        if prix_match:
+            return await self._handle_price_update_command(prix_match, merchant, db)
+
         # === CRÉATION DE PRODUIT ===
         if message_lower in ['produit', 'nouveau', 'nouveau produit', 'ajouter', 'ajouter produit', '/produit']:
             session_manager.create(
@@ -209,6 +250,298 @@ class MerchantCommandService:
             response="Je n'ai pas compris. Écris *aide* pour voir les commandes disponibles.",
             action=CommandAction.UNKNOWN
         )
+
+    async def _find_product_by_name_or_code(
+        self,
+        query: str,
+        merchant_id: int,
+        db
+    ):
+        """Cherche un produit par code (#K001) ou par nom approximatif"""
+        query = query.strip()
+        # Par code
+        if re.match(r'#?k?\d{3}', query, re.IGNORECASE):
+            code = query.upper()
+            if not code.startswith('#'):
+                code = f"#{code}"
+            if not code.startswith('#K'):
+                code = f"#K{code[1:]}"
+            return await db.get_product_by_code(code)
+        # Par nom (recherche partielle)
+        products = await db.get_products_by_merchant(merchant_id)
+        query_lower = query.lower()
+        for p in products:
+            if query_lower in p['name'].lower():
+                return p
+        return None
+
+    async def _handle_stock_update_command(
+        self,
+        match: re.Match,
+        merchant: dict,
+        db
+    ) -> CommandResponse:
+        """Traite: 'stock [produit] [quantité]'"""
+        product_query = match.group(1).strip()
+        quantity = int(match.group(2))
+
+        product = await self._find_product_by_name_or_code(product_query, merchant['id'], db)
+        if not product or product['merchant_id'] != merchant['id']:
+            return CommandResponse(
+                response=f"❌ Produit '{product_query}' non trouvé. Vérifie le nom ou le code.",
+                action=CommandAction.ERROR
+            )
+
+        # Mettre à jour le stock
+        from ...database.connection import get_connection
+        async with get_connection() as conn:
+            await conn.execute(
+                "UPDATE products SET stock_quantity = ? WHERE id = ?",
+                (quantity, product['id'])
+            )
+            await conn.commit()
+
+        # Logger l'événement stock
+        try:
+            await self.waitlist_repo.log_stock_event(
+                merchant_id=merchant['id'],
+                product_id=product['id'],
+                event_type='restock',
+                quantity_delta=quantity,
+                quantity_after=quantity,
+                notes=f"Commande WhatsApp: stock {product_query} {quantity}"
+            )
+        except Exception:
+            pass
+
+        # Waitlist : notifier si clients en attente
+        waitlist_count = await self.waitlist_repo.get_waitlist_count(product['id'])
+        waitlist_text = ""
+        if waitlist_count > 0 and quantity > 0:
+            waitlist_text = (
+                f"\n\n📢 *{waitlist_count} client{'s' if waitlist_count > 1 else ''} "
+                f"en attente* seront notifiés automatiquement."
+            )
+            # Déclencher le broadcast (non-bloquant)
+            import asyncio
+            from ...services.stock_alert_service import get_stock_alert_service
+            store_name = merchant.get('business_name') or merchant.get('name') or ''
+            asyncio.create_task(
+                get_stock_alert_service().broadcast_waitlist_on_restock(
+                    merchant_id=merchant['id'],
+                    merchant_phone=merchant['phone'],
+                    product_id=product['id'],
+                    product_name=product['name'],
+                    product_code=product['code'],
+                    new_quantity=quantity,
+                    store_name=store_name
+                )
+            )
+
+        return CommandResponse(
+            response=(
+                f"✅ Stock mis à jour!\n\n"
+                f"📦 *{product['name']}* ({product['code']})\n"
+                f"🔢 Nouveau stock: *{quantity}* unité{'s' if quantity > 1 else ''}"
+                f"{waitlist_text}"
+            ),
+            action=CommandAction.PRODUCT_EDITED
+        )
+
+    async def _handle_mark_out_of_stock(
+        self,
+        match: re.Match,
+        merchant: dict,
+        db
+    ) -> CommandResponse:
+        """Traite: 'épuisé: [produit]'"""
+        product_query = match.group(1).strip()
+        product = await self._find_product_by_name_or_code(product_query, merchant['id'], db)
+        if not product or product['merchant_id'] != merchant['id']:
+            return CommandResponse(
+                response=f"❌ Produit '{product_query}' non trouvé.",
+                action=CommandAction.ERROR
+            )
+
+        from ...database.connection import get_connection
+        async with get_connection() as conn:
+            await conn.execute(
+                "UPDATE products SET stock_quantity = 0 WHERE id = ?",
+                (product['id'],)
+            )
+            await conn.commit()
+
+        try:
+            await self.waitlist_repo.log_stock_event(
+                merchant_id=merchant['id'],
+                product_id=product['id'],
+                event_type='out_of_stock',
+                quantity_delta=0,
+                quantity_after=0,
+                notes="Marqué épuisé via WhatsApp marchand"
+            )
+        except Exception:
+            pass
+
+        return CommandResponse(
+            response=(
+                f"✅ *{product['name']}* ({product['code']}) marqué comme épuisé.\n\n"
+                f"Le bot informera les prochains clients et leur proposera la liste d'attente."
+            ),
+            action=CommandAction.PRODUCT_EDITED
+        )
+
+    async def _handle_price_update_command(
+        self,
+        match: re.Match,
+        merchant: dict,
+        db
+    ) -> CommandResponse:
+        """Traite: 'prix [produit] [montant]'"""
+        product_query = match.group(1).strip()
+        price_str = match.group(2).replace(' ', '')
+        try:
+            new_price = float(price_str)
+        except ValueError:
+            return CommandResponse(
+                response="❌ Prix invalide. Exemple: *prix attiéké 1500*",
+                action=CommandAction.ERROR
+            )
+
+        product = await self._find_product_by_name_or_code(product_query, merchant['id'], db)
+        if not product or product['merchant_id'] != merchant['id']:
+            return CommandResponse(
+                response=f"❌ Produit '{product_query}' non trouvé.",
+                action=CommandAction.ERROR
+            )
+
+        from ...database.connection import get_connection
+        async with get_connection() as conn:
+            await conn.execute(
+                "UPDATE products SET price = ? WHERE id = ?",
+                (new_price, product['id'])
+            )
+            await conn.commit()
+
+        return CommandResponse(
+            response=(
+                f"✅ Prix mis à jour!\n\n"
+                f"📦 *{product['name']}* ({product['code']})\n"
+                f"💰 Nouveau prix: *{new_price:,.0f} F*"
+            ),
+            action=CommandAction.PRODUCT_EDITED
+        )
+
+    async def _handle_stock_session(
+        self,
+        merchant_phone: str,
+        message_lower: str,
+        merchant: dict,
+        db
+    ):
+        """
+        Gère le dialogue proactif 3 options pour un produit épuisé.
+        Session créée par StockAlertService._send_merchant_stock_dialogue().
+        """
+        session = _stock_sessions.get(merchant_phone)
+        if not session:
+            return None
+
+        step = session.get('step')
+        product_id = session.get('product_id')
+        product_code = session.get('product_code')
+        product_name = session.get('product_name', 'ce produit')
+
+        if step == 'awaiting_choice':
+            if message_lower in ['1', 'oui', 'yes', 'ok', 'ouais']:
+                # Le stock revient → demander la quantité
+                _stock_sessions[merchant_phone] = {**session, 'step': 'awaiting_quantity'}
+                return CommandResponse(
+                    response=(
+                        f"✅ Super!\n\nQuelle est la nouvelle quantité en stock pour "
+                        f"*{product_name}* ({product_code}) ?"
+                    ),
+                    action=CommandAction.PRODUCT_EDIT_STEP
+                )
+            elif message_lower in ['2', 'non', 'no', 'pas encore', 'nan']:
+                del _stock_sessions[merchant_phone]
+                return CommandResponse(
+                    response="Ok, je te re-sollicite dans quelques jours si c'est toujours épuisé.",
+                    action=CommandAction.IGNORED
+                )
+            elif message_lower in ['3', 'supprimer', 'delete', 'retirer']:
+                del _stock_sessions[merchant_phone]
+                # Désactiver le produit
+                from ...database.connection import get_connection
+                async with get_connection() as conn:
+                    await conn.execute(
+                        "UPDATE products SET is_available = 0 WHERE id = ?", (product_id,)
+                    )
+                    await conn.commit()
+                return CommandResponse(
+                    response=f"✅ *{product_name}* ({product_code}) a été supprimé.",
+                    action=CommandAction.DELETE
+                )
+            else:
+                return CommandResponse(
+                    response="Réponds *1* (oui), *2* (non) ou *3* (supprimer).",
+                    action=CommandAction.ASK_AGAIN
+                )
+
+        elif step == 'awaiting_quantity':
+            try:
+                quantity = int(re.search(r'\d+', message_lower).group())
+            except Exception:
+                return CommandResponse(
+                    response="Envoie juste un nombre. Ex: *50*",
+                    action=CommandAction.ASK_AGAIN
+                )
+
+            del _stock_sessions[merchant_phone]
+
+            # Mettre à jour le stock
+            from ...database.connection import get_connection
+            async with get_connection() as conn:
+                await conn.execute(
+                    "UPDATE products SET stock_quantity = ? WHERE id = ?",
+                    (quantity, product_id)
+                )
+                await conn.commit()
+
+            # Notifier la waitlist
+            waitlist_count = await self.waitlist_repo.get_waitlist_count(product_id)
+            waitlist_text = ""
+            if waitlist_count > 0:
+                import asyncio
+                from ...services.stock_alert_service import get_stock_alert_service
+                store_name = merchant.get('business_name') or merchant.get('name') or ''
+                asyncio.create_task(
+                    get_stock_alert_service().broadcast_waitlist_on_restock(
+                        merchant_id=merchant['id'],
+                        merchant_phone=merchant['phone'],
+                        product_id=product_id,
+                        product_name=product_name,
+                        product_code=product_code,
+                        new_quantity=quantity,
+                        store_name=store_name
+                    )
+                )
+                waitlist_text = (
+                    f"\n\n📢 *{waitlist_count} client{'s' if waitlist_count > 1 else ''} "
+                    f"en attente* seront notifiés!"
+                )
+
+            return CommandResponse(
+                response=(
+                    f"✅ Stock mis à jour!\n\n"
+                    f"📦 *{product_name}* ({product_code})\n"
+                    f"🔢 Nouveau stock: *{quantity}* unité{'s' if quantity > 1 else ''}"
+                    f"{waitlist_text}"
+                ),
+                action=CommandAction.PRODUCT_EDITED
+            )
+
+        return None
 
     async def _start_variant_creation(
         self,
@@ -319,6 +652,24 @@ class MerchantCommandService:
             ),
             action=CommandAction.PRODUCT_EDIT_START
         )
+
+
+def register_stock_dialogue_session(
+    merchant_phone: str,
+    product_id: int,
+    product_code: str,
+    product_name: str
+) -> None:
+    """
+    Enregistre une session de dialogue stock proactif.
+    Appelé par StockAlertService après envoi du message 3 options.
+    """
+    _stock_sessions[merchant_phone] = {
+        'step': 'awaiting_choice',
+        'product_id': product_id,
+        'product_code': product_code,
+        'product_name': product_name
+    }
 
 
 # Instance singleton pour injection de dépendances

@@ -23,7 +23,9 @@ from .routers.admin import router as admin_router
 from .routers.activation import router as activation_router
 from .routers.storefront import router as storefront_router
 from .services.followup_service import get_followup_service
+from .services.stock_alert_service import get_stock_alert_service
 from .database.repositories.user_repo import get_user_repository
+from .routers.stock import router as stock_router
 
 # ========== SYSTÈME DE LOGS AMÉLIORÉ ==========
 LOGS_DIR = os.path.join(os.path.dirname(__file__), "..", "logs")
@@ -127,10 +129,16 @@ async def lifespan(app: FastAPI):
     await followup_service.start_scheduler(interval_seconds=60)
     logger.info("Scheduler de relances démarré")
 
+    # Démarrer le scheduler d'alertes stock
+    stock_alert = get_stock_alert_service()
+    await stock_alert.start_scheduler(interval_seconds=300)
+    logger.info("Scheduler alertes stock démarré")
+
     logger.info("KALGA API prête!")
     yield
     # Shutdown
     followup_service.stop_scheduler()
+    stock_alert.stop_scheduler()
     logger.info("Arrêt KALGA API...")
 
 
@@ -167,6 +175,7 @@ app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(activation_router)
 app.include_router(storefront_router)
+app.include_router(stock_router)
 
 # Servir les images statiques
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")

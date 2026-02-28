@@ -353,6 +353,49 @@ class NotificationService:
         )
         return await self.send_message(merchant_phone, merchant_phone, message)
 
+    async def notify_low_stock_with_suspend_option(
+        self,
+        merchant_phone: str,
+        product_name: str,
+        product_code: str,
+        remaining: int,
+        monthly_orders: int = 0
+    ) -> bool:
+        """Alerte stock bas avec option de suspension des commandes"""
+        orders_text = (
+            f"\n📊 *{monthly_orders}* commande{'s' if monthly_orders > 1 else ''} ce mois."
+            if monthly_orders > 0 else ""
+        )
+        message = (
+            f"⚠️ *STOCK BAS*\n\n"
+            f"📦 {product_name} ({product_code})\n"
+            f"🔢 Plus que *{remaining}* unité{'s' if remaining > 1 else ''} en stock!"
+            f"{orders_text}\n\n"
+            f"Suspendre les commandes ?\n"
+            f"Réponds *OUI* ou *NON*"
+        )
+        return await self.send_message(merchant_phone, merchant_phone, message)
+
+    async def notify_waitlist_registered(
+        self,
+        merchant_phone: str,
+        client_phone: str,
+        product_name: str,
+        position: int
+    ) -> bool:
+        """Confirme l'inscription en waitlist au client"""
+        position_text = (
+            f"Tu es *{position}e* sur la liste." if position > 1
+            else "Tu es *le premier* sur la liste!"
+        )
+        message = (
+            f"✅ C'est noté!\n\n"
+            f"Je te préviens dès que *{product_name}* est de retour. "
+            f"{position_text}\n\n"
+            f"_Tu recevras un message WhatsApp dès le réapprovisionnement._"
+        )
+        return await self.send_message(merchant_phone, client_phone, message)
+
 
 # Instance globale
 _notification_service: Optional[NotificationService] = None

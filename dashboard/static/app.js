@@ -2210,4 +2210,430 @@ showSection = function(section) {
     if (section === 'settings') {
         loadAwaySettings();
     }
+    if (section === 'stock') {
+        loadStockSection();
+        loadStockConfig();
+    }
 };
+
+// ============================================================
+// STOCK MANAGEMENT — Widget + Section complète
+// ============================================================
+
+async function loadStockCritiqueWidget() {
+    const merchant = state.merchantData;
+    if (!merchant || !merchant.id) return;
+
+    const widget = document.getElementById('stock-critique-widget');
+    if (!widget) return;
+
+    try {
+        const resp = await fetch(`${CONFIG.KALGA_API}/stock/merchant/${merchant.id}/critique`);
+        if (!resp.ok) throw new Error('Erreur API stock');
+        const data = await resp.json();
+
+        const hasAlert = data.out_of_stock_count > 0 || data.low_stock_count > 0;
+        widget.style.display = hasAlert ? 'block' : 'none';
+
+        // Mettre à jour le badge nav
+        const badge = document.getElementById('stock-badge');
+        const alertCount = data.out_of_stock_count + data.low_stock_count;
+        if (badge) {
+            badge.textContent = alertCount;
+            badge.style.display = alertCount > 0 ? 'inline-flex' : 'none';
+        }
+
+        if (!hasAlert) return;
+
+        // KPIs
+        const kpiRuptures = document.getElementById('kpi-ruptures');
+        const kpiLow = document.getElementById('kpi-low-stock');
+        const kpiWaitlist = document.getElementById('kpi-waitlist');
+        const kpiRevenue = document.getElementById('kpi-lost-revenue');
+
+        if (kpiRuptures) kpiRuptures.textContent = data.out_of_stock_count;
+        if (kpiLow) kpiLow.textContent = data.low_stock_count;
+        if (kpiWaitlist) kpiWaitlist.textContent = data.total_waitlist;
+        if (kpiRevenue) {
+            const rev = data.lost_revenue_estimate || 0;
+            kpiRevenue.textContent = rev >= 1000
+                ? (rev / 1000).toFixed(1) + 'k F'
+                : rev + ' F';
+        }
+
+        // Liste des produits critiques
+        const list = document.getElementById('stock-critique-list');
+        if (!list) return;
+
+        if (!data.critical_products || data.critical_products.length === 0) {
+            list.innerHTML = '<p class="empty-state-small">Aucun produit critique</p>';
+            return;
+        }
+
+        list.innerHTML = data.critical_products.map(p => {
+            const isOut = p.stock_status === 'out_of_stock';
+            const statusClass = isOut ? 'danger' : 'warning';
+            const statusLabel = isOut ? 'Épuisé' : `${p.stock_quantity} restants`;
+            const waitlistBadge = p.waitlist_count > 0
+                ? `<span class="sc-waitlist">${p.waitlist_count} en attente</span>`
+                : '';
+            return `
+            <div class="sc-item">
+                <div class="sc-info">
+                    <span class="sc-dot dot-${statusClass}"></span>
+                    <div>
+                        <div class="sc-name">${p.name}</div>
+                        <div class="sc-meta">${p.code} · ${statusLabel} ${waitlistBadge}</div>
+                    </div>
+                </div>
+                <button class="btn-restock-small" onclick="quickRestockFromWidget('${p.code}')">
+                    <i class="fas fa-plus"></i> Renouveler
+                </button>
+            </div>`;
+        }).join('');
+
+    } catch (err) {
+        console.error('[Stock] loadStockCritiqueWidget:', err);
+    }
+}
+
+async function quickRestockFromWidget(productCode) {
+    const qty = prompt(`Quantité à ajouter pour ${productCode} ?`);
+    if (!qty || isNaN(parseInt(qty))) return;
+    await doQuickRestock(productCode, parseInt(qty));
+    await loadStockCritiqueWidget();
+}
+
+// ============================================================
+// Section Stock — tableau complet
+// ============================================================
+
+async function loadStockSection() {
+    const merchant = state.merchantData;
+    if (!merchant || !merchant.id) return;
+
+    const tbody = document.getElementById('stock-table-body');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="7" class="loading-cell"><div class="loading-spinner-small"></div></td></tr>';
+
+    try {
+        const resp = await fetch(`${CONFIG.KALGA_API}/stock/merchant/${merchant.id}/overview`);
+        if (!resp.ok) throw new Error('Erreur API stock overview');
+        const products = await resp.json();
+
+        window._stockProducts = products;
+        renderStockTable(products, 'all');
+    } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-muted" style="text-align:center;padding:2rem">Erreur de chargement</td></tr>';
+        console.error('[Stock] loadStockSection:', err);
+    }
+}
+
+function filterStock(filter, btn) {
+    document.querySelectorAll('.stock-filter-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    renderStockTable(window._stockProducts || [], filter);
+}
+
+function renderStockTable(products, filter) {
+    const tbody = document.getElementById('stock-table-body');
+    if (!tbody) return;
+
+    let filtered = products;
+    if (filter === 'out') filtered = products.filter(p => p.stock_status === 'out_of_stock');
+    else if (filter === 'low') filtered = products.filter(p => p.stock_status === 'low_stock');
+    else if (filter === 'ok') filtered = products.filter(p => p.stock_status === 'ok' || p.stock_status === 'unlimited');
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-muted" style="text-align:center;padding:2rem">Aucun produit</td></tr>';
+        return;
+    }
+
+    const modeOptions = [
+        { value: 'waitlist', label: 'Liste attente' },
+        { value: 'alert_only', label: 'Alerte seule' },
+        { value: 'suspend', label: 'Suspendre' },
+        { value: 'preorder', label: 'Précommande' },
+    ];
+
+    tbody.innerHTML = filtered.map(p => {
+        const statusMap = {
+            out_of_stock: ['stock-badge-danger', 'Épuisé'],
+            low_stock: ['stock-badge-warning', 'Stock bas'],
+            ok: ['stock-badge-success', 'Normal'],
+            unlimited: ['stock-badge-info', 'Illimité'],
+        };
+        const [badgeClass, label] = statusMap[p.stock_status] || ['stock-badge-info', p.stock_status];
+        const qtyDisplay = p.stock_quantity === -1 ? '∞' : p.stock_quantity;
+
+        const modeSelect = `
+            <select class="stock-mode-select" onchange="updateStockMode('${p.code}', this.value)">
+                ${modeOptions.map(o => `<option value="${o.value}"${p.out_of_stock_mode === o.value ? ' selected' : ''}>${o.label}</option>`).join('')}
+            </select>`;
+
+        const waitlistCell = p.waitlist_count > 0
+            ? `<span class="waitlist-cell" onclick="showWaitlist(${p.id}, '${p.name.replace("'", "\\'")}')">
+                 <i class="fas fa-users"></i> ${p.waitlist_count}
+               </span>`
+            : '<span class="text-muted">—</span>';
+
+        const restockControl = `
+            <div class="restock-control">
+                <input type="number" class="restock-input" id="restock-${p.code}" min="1" placeholder="Qty" />
+                <button class="btn-restock" onclick="quickRestockRow('${p.code}', ${p.id})">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>`;
+
+        return `
+        <tr>
+            <td>
+                <div class="product-cell-name">${p.name}</div>
+                <div class="product-cell-code">${p.code}</div>
+            </td>
+            <td><span class="stock-status-badge ${badgeClass}">${label}</span></td>
+            <td class="stock-qty-cell">${qtyDisplay}</td>
+            <td>${modeSelect}</td>
+            <td>${waitlistCell}</td>
+            <td>${restockControl}</td>
+            <td>
+                <button class="btn-icon" title="Historique" onclick="showStockHistory(${p.id}, '${p.name.replace("'", "\\'")}')">
+                    <i class="fas fa-chart-line"></i>
+                </button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+async function quickRestockRow(productCode, productId) {
+    const input = document.getElementById(`restock-${productCode}`);
+    const qty = parseInt(input ? input.value : 0);
+    if (!qty || qty < 1) { showToast('Entrez une quantité valide', 'warning'); return; }
+    await doQuickRestock(productCode, qty);
+    input.value = '';
+    await loadStockSection();
+    await loadStockCritiqueWidget();
+}
+
+async function doQuickRestock(productCode, quantity) {
+    const merchant = state.merchantData;
+    if (!merchant || !merchant.id) return;
+
+    try {
+        const resp = await fetch(`${CONFIG.KALGA_API}/stock/product/${productCode}/restock`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                quantity_to_add: quantity,
+                merchant_id: merchant.id,
+                broadcast_waitlist: true,
+                store_name: merchant.business_name || merchant.name || ''
+            })
+        });
+        if (!resp.ok) throw new Error('Erreur restock');
+        const data = await resp.json();
+        const notified = data.waitlist_notified || 0;
+        const msg = notified > 0
+            ? `Stock mis à jour ! ${notified} client(s) notifié(s) 🎉`
+            : 'Stock mis à jour !';
+        showToast(msg, 'success');
+    } catch (err) {
+        showToast('Erreur: ' + err.message, 'error');
+    }
+}
+
+async function updateStockMode(productCode, mode) {
+    const merchant = state.merchantData;
+    if (!merchant || !merchant.id) return;
+
+    try {
+        const resp = await fetch(`${CONFIG.KALGA_API}/stock/product/${productCode}/mode`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode, merchant_id: merchant.id })
+        });
+        if (!resp.ok) throw new Error('Erreur mode');
+        showToast('Mode mis à jour', 'success');
+    } catch (err) {
+        showToast('Erreur: ' + err.message, 'error');
+    }
+}
+
+async function showWaitlist(productId, productName) {
+    const merchant = state.merchantData;
+    if (!merchant || !merchant.id) return;
+
+    try {
+        const resp = await fetch(`${CONFIG.KALGA_API}/stock/product/${productId}/waitlist`);
+        if (!resp.ok) throw new Error('Erreur waitlist');
+        const entries = await resp.json();
+
+        const modal = document.getElementById('modal-container');
+        if (!modal) return;
+
+        const listHtml = entries.length === 0
+            ? '<p class="text-muted">Aucun client en attente.</p>'
+            : entries.map((e, i) => `
+                <div class="waitlist-entry">
+                    <span class="waitlist-pos">${i + 1}</span>
+                    <div>
+                        <div class="waitlist-phone">${e.client_phone}</div>
+                        <div class="waitlist-date text-muted">${new Date(e.created_at).toLocaleDateString('fr-FR')}</div>
+                    </div>
+                </div>`).join('');
+
+        modal.innerHTML = `
+            <div class="modal-overlay" onclick="this.parentElement.innerHTML=''">
+                <div class="modal-box" onclick="event.stopPropagation()">
+                    <div class="modal-header">
+                        <h3>Liste d'attente — ${productName}</h3>
+                        <button class="modal-close" onclick="document.getElementById('modal-container').innerHTML=''">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="waitlist-modal-list">${listHtml}</div>
+                    </div>
+                </div>
+            </div>`;
+        modal.style.display = 'block';
+    } catch (err) {
+        showToast('Erreur: ' + err.message, 'error');
+    }
+}
+
+async function showStockHistory(productId, productName) {
+    try {
+        const resp = await fetch(`${CONFIG.KALGA_API}/stock/product/${productId}/history?days=30`);
+        if (!resp.ok) throw new Error('Erreur historique');
+        const events = await resp.json();
+
+        const modal = document.getElementById('modal-container');
+        if (!modal) return;
+
+        const eventTypeLabel = {
+            sale: 'Vente',
+            restock: 'Réapprovisionnement',
+            manual_update: 'Mise à jour manuelle',
+            out_of_stock: 'Rupture',
+            out_of_stock_inquiry: 'Demande hors stock',
+        };
+
+        const listHtml = events.length === 0
+            ? '<p class="text-muted">Aucun événement récent.</p>'
+            : events.map(e => {
+                const delta = e.quantity_delta > 0 ? `+${e.quantity_delta}` : e.quantity_delta;
+                const deltaClass = e.quantity_delta > 0 ? 'text-success' : 'text-danger';
+                return `
+                <div class="stock-event-entry">
+                    <div>
+                        <div class="stock-event-type">${eventTypeLabel[e.event_type] || e.event_type}</div>
+                        <div class="text-muted" style="font-size:.75rem">${new Date(e.created_at).toLocaleString('fr-FR')}</div>
+                    </div>
+                    <span class="${deltaClass}" style="font-weight:600">${delta}</span>
+                </div>`;
+            }).join('');
+
+        modal.innerHTML = `
+            <div class="modal-overlay" onclick="this.parentElement.innerHTML=''">
+                <div class="modal-box" onclick="event.stopPropagation()">
+                    <div class="modal-header">
+                        <h3>Historique stock — ${productName}</h3>
+                        <button class="modal-close" onclick="document.getElementById('modal-container').innerHTML=''">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="waitlist-modal-list">${listHtml}</div>
+                    </div>
+                </div>
+            </div>`;
+        modal.style.display = 'block';
+    } catch (err) {
+        showToast('Erreur: ' + err.message, 'error');
+    }
+}
+
+// ============================================================
+// Config Stock
+// ============================================================
+
+async function loadStockConfig() {
+    const merchant = state.merchantData;
+    if (!merchant || !merchant.id) return;
+
+    try {
+        const resp = await fetch(`${CONFIG.KALGA_API}/stock/merchant/${merchant.id}/config`);
+        if (!resp.ok) return;
+        const cfg = await resp.json();
+
+        const alertDays = document.getElementById('cfg-alert-days');
+        const threshold = document.getElementById('cfg-low-threshold');
+        const alertsEnabled = document.getElementById('cfg-alerts-enabled');
+        const waitlistEnabled = document.getElementById('cfg-waitlist-enabled');
+
+        if (alertDays) alertDays.value = cfg.stock_alert_days ?? 3;
+        if (threshold) threshold.value = cfg.low_stock_alert_global ?? 5;
+        if (alertsEnabled) alertsEnabled.checked = !!cfg.stock_alerts_enabled;
+        if (waitlistEnabled) waitlistEnabled.checked = !!cfg.waitlist_enabled;
+    } catch (err) {
+        console.error('[Stock] loadStockConfig:', err);
+    }
+}
+
+async function saveStockConfig() {
+    const merchant = state.merchantData;
+    if (!merchant || !merchant.id) return;
+
+    const alertDays = document.getElementById('cfg-alert-days');
+    const threshold = document.getElementById('cfg-low-threshold');
+    const alertsEnabled = document.getElementById('cfg-alerts-enabled');
+    const waitlistEnabled = document.getElementById('cfg-waitlist-enabled');
+
+    const payload = {
+        stock_alert_days: alertDays ? parseInt(alertDays.value) : 3,
+        low_stock_alert_global: threshold ? parseInt(threshold.value) : 5,
+        stock_alerts_enabled: alertsEnabled ? alertsEnabled.checked : true,
+        waitlist_enabled: waitlistEnabled ? waitlistEnabled.checked : true,
+    };
+
+    try {
+        const resp = await fetch(`${CONFIG.KALGA_API}/stock/merchant/${merchant.id}/config`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!resp.ok) throw new Error('Erreur sauvegarde config');
+        showToast('Configuration sauvegardée', 'success');
+    } catch (err) {
+        showToast('Erreur: ' + err.message, 'error');
+    }
+}
+
+// Déclencher le widget Stock Critique au rafraîchissement global
+const _origRefreshData = typeof refreshData === 'function' ? refreshData : null;
+if (_origRefreshData) {
+    refreshData = async function() {
+        await _origRefreshData();
+        await loadStockCritiqueWidget();
+    };
+}
+
+// Init widget au chargement
+document.addEventListener('DOMContentLoaded', () => {
+    // Le widget se charge après init marchand
+    // Attendre que le merchant soit chargé puis déclencher le widget
+    const observer = new MutationObserver(() => {
+        if (state.merchantData && state.merchantData.id) {
+            loadStockCritiqueWidget();
+            observer.disconnect();
+        }
+    });
+    const merchantNameEl = document.getElementById('sidebar-merchant-phone') || document.body;
+    observer.observe(merchantNameEl, { childList: true, subtree: true, characterData: true });
+
+    setTimeout(() => {
+        if (state.merchantData && state.merchantData.id) loadStockCritiqueWidget();
+    }, 2500);
+});

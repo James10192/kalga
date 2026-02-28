@@ -433,6 +433,94 @@ async def init_database():
         except:
             pass
 
+        # ============================================
+        # GESTION DE STOCK INTELLIGENTE (issue #38)
+        # ============================================
+
+        # Table de liste d'attente clients (waitlist)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS product_waitlist (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                merchant_id INTEGER NOT NULL,
+                product_id INTEGER NOT NULL,
+                client_phone TEXT NOT NULL,
+                client_name TEXT,
+                status TEXT DEFAULT 'waiting',
+                conversation_id INTEGER,
+                offered_price REAL,
+                notified_at TIMESTAMP,
+                expires_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (merchant_id) REFERENCES merchants(id),
+                FOREIGN KEY (product_id) REFERENCES products(id)
+            )
+        """)
+
+        # Table des événements de stock (journal d'audit append-only)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS stock_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                merchant_id INTEGER NOT NULL,
+                product_id INTEGER NOT NULL,
+                event_type TEXT NOT NULL,
+                quantity_delta INTEGER NOT NULL,
+                quantity_after INTEGER NOT NULL,
+                conversation_id INTEGER,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (merchant_id) REFERENCES merchants(id),
+                FOREIGN KEY (product_id) REFERENCES products(id)
+            )
+        """)
+
+        # Migration: colonnes stock produits
+        try:
+            await db.execute("ALTER TABLE products ADD COLUMN out_of_stock_mode TEXT DEFAULT 'waitlist'")
+        except:
+            pass
+        try:
+            await db.execute("ALTER TABLE products ADD COLUMN last_stock_alert_at TIMESTAMP")
+        except:
+            pass
+        try:
+            await db.execute("ALTER TABLE products ADD COLUMN stock_quantity INTEGER DEFAULT -1")
+        except:
+            pass
+        try:
+            await db.execute("ALTER TABLE products ADD COLUMN low_stock_threshold INTEGER DEFAULT 5")
+        except:
+            pass
+        try:
+            await db.execute("ALTER TABLE products ADD COLUMN is_available BOOLEAN DEFAULT 1")
+        except:
+            pass
+
+        # Migration: colonnes config stock marchands
+        try:
+            await db.execute("ALTER TABLE merchants ADD COLUMN stock_alert_days INTEGER DEFAULT 3")
+        except:
+            pass
+        try:
+            await db.execute("ALTER TABLE merchants ADD COLUMN stock_alerts_enabled BOOLEAN DEFAULT 1")
+        except:
+            pass
+        try:
+            await db.execute("ALTER TABLE merchants ADD COLUMN waitlist_enabled BOOLEAN DEFAULT 1")
+        except:
+            pass
+        try:
+            await db.execute("ALTER TABLE merchants ADD COLUMN low_stock_alert_global INTEGER DEFAULT 5")
+        except:
+            pass
+
+        # Index stock
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_waitlist_product_status ON product_waitlist(product_id, status)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_waitlist_client ON product_waitlist(client_phone)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_waitlist_merchant ON product_waitlist(merchant_id)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_stock_events_product ON stock_events(product_id, created_at)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_stock_events_merchant ON stock_events(merchant_id, created_at)")
+
         # Index pour authentification
         await db.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_users_merchant ON users(merchant_id)")
