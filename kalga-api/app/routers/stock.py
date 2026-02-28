@@ -47,19 +47,21 @@ async def get_stock_critique(merchant_id: int):
     waitlist_summary = await waitlist_repo.get_merchant_waitlist_summary(merchant_id)
     lost_revenue = await waitlist_repo.get_lost_revenue_estimate(merchant_id, days=7)
 
-    # Enrichir les produits épuisés avec leur count waitlist
+    # Enrichir les produits critiques avec leur count waitlist et stock_status
     waitlist_by_product = {w['product_id']: w['waiting_count'] for w in waitlist_summary}
+
+    critical_products = []
     for p in out_of_stock:
-        p['waitlist_count'] = waitlist_by_product.get(p['id'], 0)
+        critical_products.append({**p, "stock_status": "out_of_stock", "waitlist_count": waitlist_by_product.get(p['id'], 0)})
+    for p in low_stock:
+        critical_products.append({**p, "stock_status": "low_stock", "waitlist_count": waitlist_by_product.get(p['id'], 0)})
 
     return {
-        "out_of_stock": out_of_stock,
         "out_of_stock_count": len(out_of_stock),
-        "low_stock": low_stock,
         "low_stock_count": len(low_stock),
         "total_waitlist": sum(w['waiting_count'] for w in waitlist_summary),
-        "waitlist_by_product": waitlist_summary,
-        "lost_revenue": lost_revenue
+        "lost_revenue_estimate": lost_revenue.get('estimated_lost', 0) if lost_revenue else 0,
+        "critical_products": critical_products
     }
 
 
@@ -74,7 +76,7 @@ async def get_stock_overview(merchant_id: int):
     db = await get_db()
     waitlist_repo = get_waitlist_repository()
 
-    products = await db.get_products_by_merchant(merchant_id, active_only=False)
+    products = await db.get_products_by_merchant(merchant_id)
     waitlist_summary = await waitlist_repo.get_merchant_waitlist_summary(merchant_id)
     waitlist_by_product = {w['product_id']: w for w in waitlist_summary}
 
@@ -87,27 +89,19 @@ async def get_stock_overview(merchant_id: int):
         is_low = not is_unlimited and not is_out and 0 < stock_qty <= threshold
 
         wl_data = waitlist_by_product.get(p['id'], {})
+        stock_status = "out_of_stock" if is_out else ("low_stock" if is_low else ("unlimited" if is_unlimited else "ok"))
         enriched.append({
             **p,
-            "stock_status": "out" if is_out else ("low" if is_low else ("unlimited" if is_unlimited else "normal")),
+            "stock_status": stock_status,
             "waitlist_count": wl_data.get('waiting_count', 0),
             "oldest_wait_date": wl_data.get('oldest_wait_date')
         })
 
-    # Trier : épuisés > stock bas > normal
-    order = {"out": 0, "low": 1, "normal": 2, "unlimited": 3}
+    # Trier : épuisés > stock bas > normal > illimité
+    order = {"out_of_stock": 0, "low_stock": 1, "ok": 2, "unlimited": 3}
     enriched.sort(key=lambda x: (order.get(x['stock_status'], 4), x['name']))
 
-    return {
-        "products": enriched,
-        "summary": {
-            "total": len(enriched),
-            "out_of_stock": sum(1 for p in enriched if p['stock_status'] == 'out'),
-            "low_stock": sum(1 for p in enriched if p['stock_status'] == 'low'),
-            "normal": sum(1 for p in enriched if p['stock_status'] == 'normal'),
-            "unlimited": sum(1 for p in enriched if p['stock_status'] == 'unlimited')
-        }
-    }
+    return enriched
 
 
 @router.get("/product/{product_id}/waitlist")
