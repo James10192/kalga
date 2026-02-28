@@ -51,6 +51,16 @@ class Database:
             except:
                 pass
 
+            # Migration: stock_quantity et low_stock_threshold pour products
+            try:
+                await db.execute("ALTER TABLE products ADD COLUMN stock_quantity INTEGER DEFAULT -1")
+            except:
+                pass
+            try:
+                await db.execute("ALTER TABLE products ADD COLUMN low_stock_threshold INTEGER DEFAULT 5")
+            except:
+                pass
+
             # Index composites supplémentaires
             try:
                 await db.execute("CREATE INDEX IF NOT EXISTS idx_conv_merchant_client ON conversations(merchant_id, client_phone)")

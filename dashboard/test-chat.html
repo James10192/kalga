@@ -362,9 +362,12 @@
     }
     .mem-layer-header {
       padding: 9px 12px; display: flex; align-items: center; gap: 8px;
-      border-bottom: 1px solid var(--border);
+      border-bottom: 1px solid var(--border); cursor: pointer; transition: background .15s;
     }
-    .mem-icon { font-size: 16px; }
+    .mem-layer-header:hover { background: var(--surface3); }
+    .mem-icon { width: 14px; height: 14px; flex-shrink: 0; color: var(--text3); }
+    .mem-chevron { width: 12px; height: 12px; flex-shrink: 0; color: var(--text3); transition: transform .15s; }
+    .mem-chevron.open { transform: rotate(90deg); }
     .mem-title { font-size: 12px; font-weight: 700; flex: 1; }
     .mem-status {
       font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 20px;
@@ -377,6 +380,12 @@
     .mem-row-value { color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 11px; word-break: break-word; }
     .mem-row-value.ok { color: var(--k-green); }
     .mem-row-value.off { color: var(--text3); }
+    .mem-detail { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; }
+    .mem-detail-item { font-size: 11px; color: var(--text2); line-height: 1.4; }
+    .mem-detail-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .4px; margin-top: 4px; margin-bottom: 2px; }
+    .mem-session { background: var(--surface3); border-radius: var(--radius-sm); padding: 6px 8px; margin-top: 4px; }
+    .mem-session-header { font-size: 11px; font-weight: 600; color: var(--text); margin-bottom: 4px; display: flex; gap: 6px; align-items: center; }
+    .mem-session-outcome { font-size: 9px; padding: 1px 5px; border-radius: 10px; background: rgba(74,85,106,.2); color: var(--text3); }
 
     /* LLM pane */
     .llm-card {
@@ -694,45 +703,11 @@
 
       <!-- MEMORY -->
       <div class="debug-pane" id="pane-memory">
-        <div id="memContent" style="display:flex;flex-direction:column;gap:8px">
-          <!-- STM -->
-          <div class="mem-layer">
-            <div class="mem-layer-header">
-              <span class="mem-icon">📋</span>
-              <span class="mem-title">STM — Court terme</span>
-              <span class="mem-status off" id="stmStatus">Inactif</span>
-            </div>
-            <div class="mem-body" id="stmBody">
-              <div class="mem-row"><span class="mem-row-label">Messages</span><span class="mem-row-value off" id="stmMsgs">—</span></div>
-              <div class="mem-row"><span class="mem-row-label">Fenêtre</span><span class="mem-row-value off" id="stmWindow">—</span></div>
-              <div class="mem-row"><span class="mem-row-label">Compressé</span><span class="mem-row-value off" id="stmCompressed">—</span></div>
-            </div>
-          </div>
-          <!-- LTM -->
-          <div class="mem-layer">
-            <div class="mem-layer-header">
-              <span class="mem-icon">🗄️</span>
-              <span class="mem-title">LTM — Long terme</span>
-              <span class="mem-status off" id="ltmStatus">Inactif</span>
-            </div>
-            <div class="mem-body">
-              <div class="mem-row"><span class="mem-row-label">Faits</span><span class="mem-row-value off" id="ltmFacts">—</span></div>
-              <div class="mem-row"><span class="mem-row-label">Résumés</span><span class="mem-row-value off" id="ltmSummaries">—</span></div>
-              <div class="mem-row"><span class="mem-row-label">Extraction</span><span class="mem-row-value off" id="ltmExtracted">—</span></div>
-            </div>
-          </div>
-          <!-- EPISODIC -->
-          <div class="mem-layer">
-            <div class="mem-layer-header">
-              <span class="mem-icon">📖</span>
-              <span class="mem-title">Épisodique</span>
-              <span class="mem-status off" id="episStatus">Inactif</span>
-            </div>
-            <div class="mem-body">
-              <div class="mem-row"><span class="mem-row-label">Sessions</span><span class="mem-row-value off" id="episSessions">—</span></div>
-              <div class="mem-row"><span class="mem-row-label">Faits connus</span><span class="mem-row-value off" id="episFacts">—</span></div>
-              <div class="mem-row"><span class="mem-row-label">Contexte</span><span class="mem-row-value off" id="episContext">—</span></div>
-            </div>
+        <!-- Historique cumulé par tour -->
+        <div id="memHistory" style="display:flex;flex-direction:column;gap:6px">
+          <div class="debug-empty" id="memEmpty">
+            <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+            <span>Envoie un message pour voir la mémoire</span>
           </div>
         </div>
       </div>
@@ -1216,7 +1191,7 @@ async function sendMessage() {
     $('sumFallback').className = `value ${trace.fallback_used ? 'warn' : 'ok'}`;
 
     // Update debug panels
-    updateDebugPanels(trace, latency);
+    updateDebugPanels(trace, latency, state.turnCount);
 
   } catch (e) {
     showTyping(false);
@@ -1274,12 +1249,12 @@ $('btnTakeoverSend').addEventListener('click', async () => {
 });
 
 // ── DEBUG PANELS UPDATE ──
-function updateDebugPanels(trace, latency) {
+function updateDebugPanels(trace, latency, turnNum) {
   if (!trace) return;
   updatePipeline(trace, latency);
-  updateLlm(trace);
-  updateMemory(trace);
-  updateTools(trace);
+  updateLlm(trace, turnNum, latency);
+  updateMemory(trace, turnNum, latency);
+  updateTools(trace, turnNum, latency);
 }
 
 function updatePipeline(trace, latency) {
@@ -1323,100 +1298,231 @@ function toggleEvBody(id) {
   if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
 
-function updateLlm(trace) {
+function toggleMemBody(bodyId, chevronId) {
+  const body = $(bodyId);
+  const chev = $(chevronId);
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  if (chev) chev.classList.toggle('open', !open);
+}
+
+function updateLlm(trace, turnNum, latency) {
   const llm = trace.llm || {};
-  // La trace réelle utilise llm.prompt (array de messages) et llm.raw_response
   const hasData = llm.prompt || llm.messages || llm.raw_response;
-  if (!hasData) { $('llmEmpty').style.display = ''; $('llmContent').style.display = 'none'; return; }
   $('llmEmpty').style.display = 'none';
   const c = $('llmContent');
   c.style.display = 'flex';
   c.style.flexDirection = 'column';
   c.style.gap = '8px';
 
+  // Header de tour
+  const header = document.createElement('div');
+  header.style.cssText = 'font-size:11px;color:var(--text3);padding:4px 0;border-bottom:1px solid var(--border);margin-bottom:2px';
+  header.textContent = `── Tour ${turnNum} · ${latency}ms ──`;
+  c.appendChild(header);
+
+  if (!hasData) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'font-size:11px;padding:4px 8px;font-style:italic';
+    // Déterminer la raison — clé API manquante ou fallback générique
+    const llmError = (trace.events || []).find(e => e.name === 'deepseek_error');
+    if (trace.fallback_used && llmError) {
+      const errMsg = llmError.data?.error || llmError.data?.message || '';
+      const isNoKey = errMsg.toLowerCase().includes('api key') || errMsg.toLowerCase().includes('authentication') || errMsg === '';
+      empty.style.color = 'var(--red)';
+      empty.textContent = isNoKey
+        ? '⚠ Clé API DeepSeek manquante ou invalide — fallback activé'
+        : `⚠ Erreur LLM: ${errMsg} — fallback activé`;
+    } else if (trace.fallback_used) {
+      empty.style.color = 'var(--orange, #f59e0b)';
+      empty.textContent = '⚠ Fallback activé — aucun appel LLM effectué';
+    } else {
+      empty.style.color = 'var(--text3)';
+      empty.textContent = '(pas d\'appel LLM ce tour)';
+    }
+    c.appendChild(empty);
+    $('pane-llm').scrollTop = $('pane-llm').scrollHeight;
+    return;
+  }
+
   const msgs = llm.prompt || llm.messages || [];
-  const latency = llm.latency_ms ? `${Math.round(llm.latency_ms)}ms` : '—';
+  const llmLatency = llm.latency_ms ? `${Math.round(llm.latency_ms)}ms` : '—';
   const msgCount = llm.prompt_msg_count || msgs.length || 0;
   const parsed = llm.parsed || {};
 
-  c.innerHTML = `
-    <div class="llm-card">
-      <div style="padding:8px 12px;border-bottom:1px solid var(--border);display:flex;gap:12px;flex-wrap:wrap;align-items:center">
-        <span style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Latence</span>
-        <span style="font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--k-green)">${latency}</span>
-        <span style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Messages</span>
-        <span style="font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--text)">${msgCount}</span>
-        ${parsed.is_deal !== undefined ? `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:${parsed.is_deal ? 'var(--k-green-bg)' : 'rgba(255,71,87,.1)'};color:${parsed.is_deal ? 'var(--k-green)' : 'var(--red)'};border:1px solid ${parsed.is_deal ? 'rgba(37,211,102,.2)' : 'rgba(255,71,87,.2)'}">DEAL: ${parsed.is_deal ? 'OUI' : 'NON'}</span>` : ''}
-        ${parsed.price_mentioned ? `<span style="font-size:10px;color:var(--yellow)">Prix: ${parsed.price_mentioned.toLocaleString('fr')} F</span>` : ''}
-      </div>
-      ${msgs.length ? `
-      <div style="padding:8px 12px;border-bottom:1px solid var(--border)">
-        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Prompt envoyé (${msgs.length} messages)</div>
-        <div class="llm-prompt">${escHtml(JSON.stringify(msgs, null, 2))}</div>
-      </div>` : ''}
-      ${llm.raw_response ? `
-      <div style="padding:8px 12px">
-        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Réponse brute DeepSeek</div>
-        <div class="llm-prompt" style="color:var(--k-green)">${escHtml(llm.raw_response)}</div>
-      </div>` : ''}
+  const card = document.createElement('div');
+  card.className = 'llm-card';
+  card.innerHTML = `
+    <div style="padding:8px 12px;border-bottom:1px solid var(--border);display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+      <span style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Latence</span>
+      <span style="font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--k-green)">${llmLatency}</span>
+      <span style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Messages</span>
+      <span style="font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--text)">${msgCount}</span>
+      ${parsed.is_deal !== undefined ? `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:${parsed.is_deal ? 'var(--k-green-bg)' : 'rgba(255,71,87,.1)'};color:${parsed.is_deal ? 'var(--k-green)' : 'var(--red)'};border:1px solid ${parsed.is_deal ? 'rgba(37,211,102,.2)' : 'rgba(255,71,87,.2)'}">DEAL: ${parsed.is_deal ? 'OUI' : 'NON'}</span>` : ''}
+      ${parsed.price_mentioned ? `<span style="font-size:10px;color:var(--yellow)">Prix: ${parsed.price_mentioned.toLocaleString('fr')} F</span>` : ''}
     </div>
+    ${msgs.length ? `
+    <div style="padding:8px 12px;border-bottom:1px solid var(--border)">
+      <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Prompt envoyé (${msgs.length} messages)</div>
+      <div class="llm-prompt">${escHtml(JSON.stringify(msgs, null, 2))}</div>
+    </div>` : ''}
+    ${llm.raw_response ? `
+    <div style="padding:8px 12px">
+      <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Réponse brute DeepSeek</div>
+      <div class="llm-prompt" style="color:var(--k-green)">${escHtml(llm.raw_response)}</div>
+    </div>` : ''}
   `;
+  c.appendChild(card);
+  $('pane-llm').scrollTop = $('pane-llm').scrollHeight;
 }
 
-function updateMemory(trace) {
-  // La structure réelle: trace.memory.stm / trace.memory.ltm / trace.memory.episodic
+function updateMemory(trace, turnNum, latency) {
   const mem = trace.memory || {};
   const stm = mem.stm || trace.stm || {};
-  const ltm = mem.ltm || trace.ltm || {};
+  const ltm = mem.ltm || trace.ltm || null;
   const epis = mem.episodic || trace.episodic || null;
 
-  // STM — champs réels: total_messages, compressed, recent_window
+  $('memEmpty').style.display = 'none';
+  const c = $('memHistory');
+
+  // SVG icons
+  const icoStm  = `<svg class="mem-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+  const icoLtm  = `<svg class="mem-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>`;
+  const icoEpis = `<svg class="mem-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+  const icoChev = `<svg class="mem-chevron" id="{cid}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>`;
+
+  function memRow(label, value, ok) {
+    return `<div class="mem-row"><span class="mem-row-label">${label}</span><span class="mem-row-value ${ok ? 'ok' : 'off'}">${escHtml(String(value ?? '—'))}</span></div>`;
+  }
+
+  function makeBlock(icon, title, statusHtml, bodyHtml, expanded) {
+    const uid = `mb-${Math.random().toString(36).slice(2)}`;
+    const cid = `mc-${uid}`;
+    const chev = icoChev.replace('{cid}', cid);
+    const block = document.createElement('div');
+    block.className = 'mem-layer';
+    block.innerHTML = `
+      <div class="mem-layer-header" onclick="toggleMemBody('${uid}','${cid}')">
+        ${icon}${chev}<span class="mem-title">${title}</span>${statusHtml}
+      </div>
+      <div id="${uid}" class="mem-body" style="display:${expanded ? 'block' : 'none'}">${bodyHtml}</div>`;
+    if (expanded) {
+      // Mark chevron open after insertion
+      setTimeout(() => { const ch = $(cid); if (ch) ch.classList.add('open'); }, 0);
+    }
+    return block;
+  }
+
+  // Tour header
+  const header = document.createElement('div');
+  header.style.cssText = 'font-size:11px;color:var(--text3);padding:4px 0;border-bottom:1px solid var(--border);margin-bottom:2px';
+  header.textContent = `── Tour ${turnNum} · ${latency}ms ──`;
+  c.appendChild(header);
+
+  // ── STM ──
   const stmCount = stm.total_messages ?? stm.msg_count;
+  const stmWin   = stm.recent_window ?? stm.window ?? stm.window_size;
   if (stmCount !== undefined) {
-    $('stmStatus').textContent = 'Actif'; $('stmStatus').className = 'mem-status ok';
-    $('stmMsgs').textContent = stmCount; $('stmMsgs').className = 'mem-row-value ok';
-    const win = stm.recent_window ?? stm.window ?? stm.window_size ?? '—';
-    $('stmWindow').textContent = win; $('stmWindow').className = 'mem-row-value ok';
-    $('stmCompressed').textContent = stm.compressed ? 'Oui' : 'Non';
-    $('stmCompressed').className = `mem-row-value ${stm.compressed ? 'ok' : ''}`;
-    $('sumStm').textContent = `${win}msgs`; $('sumStm').className = 'value ok';
+    const stmStatus = `<span class="mem-status ok">Actif</span>`;
+    const stmBody = `
+      ${memRow('Messages', stmCount, true)}
+      ${memRow('Fenêtre', stmWin, true)}
+      ${memRow('Compressé', stm.compressed ? 'Oui' : 'Non', stm.compressed)}`;
+    c.appendChild(makeBlock(icoStm, 'STM — Court terme', stmStatus, stmBody, true));
+    $('sumStm').textContent = `${stmWin ?? '?'}msgs`; $('sumStm').className = 'value ok';
+  } else {
+    const b = document.createElement('div'); b.className = 'mem-layer';
+    b.innerHTML = `<div class="mem-layer-header" style="cursor:default">${icoStm}<span class="mem-title">STM — Court terme</span><span class="mem-status off">non tracé</span></div>`;
+    c.appendChild(b);
   }
 
-  // LTM — champs réels: fact_count, facts, preferences
-  const ltmFc = ltm.fact_count ?? ltm.facts_count;
+  // ── LTM ──
+  const ltmFc = ltm ? (ltm.fact_count ?? ltm.facts_count) : undefined;
   if (ltmFc !== undefined) {
-    $('ltmStatus').textContent = 'Actif'; $('ltmStatus').className = 'mem-status ok';
-    $('ltmFacts').textContent = ltmFc; $('ltmFacts').className = 'mem-row-value ok';
-    const sc = ltm.summary_count ?? ltm.summaries_count ?? 0;
-    $('ltmSummaries').textContent = sc; $('ltmSummaries').className = 'mem-row-value ok';
-    $('ltmExtracted').textContent = ltm.extracted ? 'Oui (async)' : 'Non';
-    $('ltmExtracted').className = `mem-row-value ${ltm.extracted ? 'ok' : ''}`;
+    const ltmStatus = `<span class="mem-status ok">Actif</span>`;
+    const facts = Array.isArray(ltm.facts) ? ltm.facts : [];
+    let factsHtml = '';
+    if (facts.length) {
+      factsHtml = `<div class="mem-detail"><div class="mem-detail-label">Faits extraits</div>${
+        facts.map(f => `<div class="mem-detail-item">· ${escHtml(typeof f === 'string' ? f : JSON.stringify(f))}</div>`).join('')
+      }</div>`;
+    }
+    const ltmBody = `
+      ${memRow('Faits', ltmFc, true)}
+      ${memRow('Extraction async', ltm.extracted ? 'Oui' : 'En attente', ltm.extracted)}
+      ${factsHtml}`;
+    c.appendChild(makeBlock(icoLtm, 'LTM — Long terme', ltmStatus, ltmBody, true));
+  } else {
+    const b = document.createElement('div'); b.className = 'mem-layer';
+    b.innerHTML = `<div class="mem-layer-header" style="cursor:default">${icoLtm}<span class="mem-title">LTM — Long terme</span><span class="mem-status off">non tracé</span></div>`;
+    c.appendChild(b);
   }
 
-  // Episodic
+  // ── EPISODIC ──
   if (epis) {
     const sc = epis.session_count ?? (Array.isArray(epis.sessions) ? epis.sessions.length : 0);
     const fc = epis.fact_count ?? 0;
-    $('episStatus').textContent = 'Actif'; $('episStatus').className = 'mem-status ok';
-    $('episSessions').textContent = sc; $('episSessions').className = 'mem-row-value ok';
-    $('episFacts').textContent = fc; $('episFacts').className = 'mem-row-value ok';
-    $('episContext').textContent = epis.has_context ? 'Injecté' : 'Aucun';
-    $('episContext').className = `mem-row-value ${epis.has_context ? 'ok' : ''}`;
+    const hasCtx = sc > 0 || fc > 0;
+    const episStatus = `<span class="mem-status ok">Actif</span>`;
+    const sessions = Array.isArray(epis.sessions) ? epis.sessions : [];
+    let sessionsHtml = '';
+    if (sessions.length) {
+      sessionsHtml = `<div class="mem-detail"><div class="mem-detail-label">Sessions passées</div>${
+        sessions.map(s => {
+          const facts = Array.isArray(s.key_facts) ? s.key_facts : [];
+          return `<div class="mem-session">
+            <div class="mem-session-header">
+              <span>${escHtml(s.product || '—')}</span>
+              <span class="mem-session-outcome">${escHtml(s.outcome || '?')}</span>
+              <span style="font-size:10px;color:var(--text3);margin-left:auto">${escHtml(s.date || '')}</span>
+            </div>
+            ${s.summary ? `<div class="mem-detail-item" style="color:var(--text3);font-style:italic;margin-bottom:4px">${escHtml(s.summary)}</div>` : ''}
+            ${facts.map(f => `<div class="mem-detail-item">· ${escHtml(f)}</div>`).join('')}
+          </div>`;
+        }).join('')
+      }</div>`;
+    }
+    const episBody = `
+      ${memRow('Sessions', sc, sc > 0)}
+      ${memRow('Faits connus', fc, fc > 0)}
+      ${memRow('Contexte injecté', hasCtx ? 'Oui' : 'Aucun', hasCtx)}
+      ${sessionsHtml}`;
+    c.appendChild(makeBlock(icoEpis, 'Épisodique', episStatus, episBody, true));
   } else {
-    // Episodic null = premier message, normal
-    $('episStatus').textContent = '1er message'; $('episStatus').className = 'mem-status off';
+    const b = document.createElement('div'); b.className = 'mem-layer';
+    b.innerHTML = `<div class="mem-layer-header" style="cursor:default">${icoEpis}<span class="mem-title">Épisodique</span><span class="mem-status off">non tracé</span></div>`;
+    c.appendChild(b);
   }
+
+  $('pane-memory').scrollTop = $('pane-memory').scrollHeight;
 }
 
-function updateTools(trace) {
+function updateTools(trace, turnNum, latency) {
   const tools = trace.tool_calls || [];
-  if (!tools.length) { $('toolsEmpty').style.display = ''; $('toolsContent').style.display = 'none'; return; }
   $('toolsEmpty').style.display = 'none';
   const c = $('toolsContent');
   c.style.display = 'flex';
   c.style.flexDirection = 'column';
   c.style.gap = '8px';
-  $('cntTools').textContent = tools.length;
+
+  // Incrémenter le compteur cumulé
+  const prev = parseInt($('cntTools').textContent) || 0;
+  $('cntTools').textContent = prev + tools.length;
+
+  // Header de tour
+  const header = document.createElement('div');
+  header.style.cssText = 'font-size:11px;color:var(--text3);padding:4px 0;border-bottom:1px solid var(--border);margin-bottom:2px';
+  header.textContent = `── Tour ${turnNum} · ${latency}ms ──`;
+  c.appendChild(header);
+
+  if (!tools.length) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'font-size:11px;color:var(--text3);padding:4px 8px;font-style:italic';
+    empty.textContent = '(aucun outil ce tour)';
+    c.appendChild(empty);
+    return;
+  }
 
   tools.forEach(t => {
     const card = document.createElement('div');
@@ -1438,6 +1544,7 @@ function updateTools(trace) {
     `;
     c.appendChild(card);
   });
+  $('pane-tools').scrollTop = $('pane-tools').scrollHeight;
 }
 
 // ── LOGS ──
@@ -1483,15 +1590,20 @@ $('btnReset').addEventListener('click', () => {
   $('llmContent').innerHTML = ''; $('llmEmpty').style.display = '';
   $('toolsContent').innerHTML = ''; $('toolsEmpty').style.display = '';
   $('logsContent').innerHTML = ''; $('logsEmpty').style.display = '';
+  // Reset memory history
+  const mh = $('memHistory');
+  mh.innerHTML = '';
+  const memEmptyEl = document.createElement('div');
+  memEmptyEl.id = 'memEmpty';
+  memEmptyEl.className = 'debug-empty';
+  memEmptyEl.innerHTML = '<svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><span>Envoie un message pour voir la mémoire</span>';
+  mh.appendChild(memEmptyEl);
   $('cntPipeline').textContent = '0';
   $('cntTools').textContent = '0';
   $('cntLogs').textContent = '0';
   $('sumMode').textContent = '—'; $('sumLatency').textContent = '—';
   $('sumStm').textContent = '—'; $('sumTurns').textContent = '0';
   $('sumFallback').textContent = '—';
-  // Reset memory display
-  ['stmStatus','ltmStatus','episStatus'].forEach(id => { $(id).textContent='Inactif'; $(id).className='mem-status off'; });
-  ['stmMsgs','stmWindow','stmCompressed','ltmFacts','ltmSummaries','ltmExtracted','episSessions','episFacts','episContext'].forEach(id => { $(id).textContent='—'; $(id).className='mem-row-value off'; });
   addLog('info', 'Session réinitialisée');
   toast('Session réinitialisée', 'info');
 });

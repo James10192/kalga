@@ -310,8 +310,6 @@ async def generate_response(
             knowledge_context=knowledge_context,
             conversation_status=conversation_status,
             current_offer=current_offer,
-            has_image=has_image,
-            image_url=image_url
         )
 
         _t0 = time.time()
