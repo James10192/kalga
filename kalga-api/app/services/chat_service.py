@@ -2,6 +2,7 @@
 Service de chat
 Orchestre le flux de conversation entre clients et marchands
 """
+import asyncio
 import logging
 from typing import Optional, List, Dict, Any, Tuple
 
@@ -14,6 +15,8 @@ from .notification_service import NotificationService
 from .followup_service import get_followup_service
 from .conversation_ai import generate_response, extract_product_code, analyze_conversation_health
 from .ai.conversation_ai import is_tool_call, parse_tool_call
+from .ai.memory import ltm as ltm_module
+from .ai.deepseek_client import get_deepseek_client
 from .ai.detectors import detect_other_products_request, detect_same_variant_photo_request
 from .ai.debug_tracer import DebugTracer
 
@@ -209,18 +212,28 @@ class ChatService:
                     min_price=product.get('effective_min_price', product['min_price']),
                     tracer=tracer
                 )
-                # LTM tracée après tool call si conversation terminée
-                if tracer and new_status in ("pending_pickup", "pending_delivery", "ended", "agreed"):
+                # LTM: lancer extraction + tracer après tool call si conversation terminée
+                if new_status in ("pending_pickup", "pending_delivery", "ended", "agreed") or send_location:
                     try:
-                        existing_facts = await self.client_history.get_memory_facts(
-                            merchant['id'], message.client_phone) or []
-                        existing_prefs = await self.client_history.get_preferences(
-                            merchant['id'], message.client_phone)
-                        tracer.set_ltm(facts=existing_facts, preferences=existing_prefs)
-                        tracer.event("MEMORY", "ltm_extraction_scheduled",
-                            history_len=len(history) if history else 0)
-                    except Exception:
-                        pass
+                        asyncio.create_task(ltm_module.extract_and_save(
+                            repo=self.client_history,
+                            merchant_id=merchant['id'],
+                            client_phone=message.client_phone,
+                            history=history,
+                            product=product,
+                            outcome="ended",
+                            deepseek_client=get_deepseek_client()
+                        ))
+                        if tracer:
+                            existing_facts = await self.client_history.get_memory_facts(
+                                merchant['id'], message.client_phone) or []
+                            existing_prefs = await self.client_history.get_preferences(
+                                merchant['id'], message.client_phone)
+                            tracer.set_ltm(facts=existing_facts, preferences=existing_prefs)
+                            tracer.event("MEMORY", "ltm_extraction_scheduled",
+                                history_len=len(history) if history else 0)
+                    except Exception as e:
+                        logger.debug(f"LTM post-tool scheduling skipped: {e}")
 
         # 6. Mettre à jour la conversation
         update_data = {"status": new_status}

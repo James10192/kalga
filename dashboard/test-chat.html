@@ -1496,11 +1496,14 @@ function updateMemory(trace, turnNum, latency) {
       ${memRow('Faits en DB', ltmFc, ltmFc > 0)}
       ${ltmScheduled ? memRow('Nouvelle extraction', 'Schedulée async', false) : memRow('Extraction async', 'En attente', false)}
       ${factsHtml}`;
-    c.appendChild(makeBlock(icoLtm, 'LTM — Long terme', ltmStatus, ltmBody, true));
+    const ltmBlock = makeBlock(icoLtm, 'LTM — Long terme', ltmStatus, ltmBody, true);
+    ltmBlock.dataset.ltmPoll = turnNum;
+    c.appendChild(ltmBlock);
   } else {
     const ltmLabel = ltmScheduled ? 'Extraction en cours…' : 'non tracé';
     const ltmCls = ltmScheduled ? 'style="background:rgba(255,197,61,.1);color:var(--yellow);border:1px solid rgba(255,197,61,.3)"' : 'class="mem-status off"';
     const b = document.createElement('div'); b.className = 'mem-layer';
+    b.dataset.ltmPoll = turnNum;
     b.innerHTML = `<div class="mem-layer-header" style="cursor:default">${icoLtm}<span class="mem-title">LTM — Long terme</span><span class="mem-status" ${ltmCls}>${ltmLabel}</span></div>`;
     c.appendChild(b);
   }
@@ -1542,6 +1545,57 @@ function updateMemory(trace, turnNum, latency) {
   }
 
   $('pane-memory').scrollTop = $('pane-memory').scrollHeight;
+
+  // ── Poll LTM si extraction en cours ──
+  if (ltmScheduled && state.merchantId) {
+    scheduleLtmPoll(turnNum);
+  }
+}
+
+// Rafraîchit le bloc LTM d'un tour une fois l'extraction async terminée.
+// Tente 3 fois (8s, 15s, 25s) puis abandonne.
+function scheduleLtmPoll(turnNum) {
+  const clientPhone = $('clientPhone').value.trim() || '+221770000001';
+  const merchantId  = state.merchantId;
+  const delays = [8000, 15000, 25000];
+  let attempt = 0;
+
+  async function poll() {
+    try {
+      const r = await fetch(`${apiBase()}/api/chat/debug/ltm?merchant_id=${merchantId}&client_phone=${encodeURIComponent(clientPhone)}`);
+      if (!r.ok) return;
+      const data = await r.json();
+      if (!data.fact_count) {
+        // Pas encore de faits — retenter si possible
+        if (++attempt < delays.length) setTimeout(poll, delays[attempt]);
+        return;
+      }
+      // Faits disponibles → mettre à jour le bloc LTM du bon tour
+      const ltmLayer = document.querySelector(`.mem-layer[data-ltm-poll="${turnNum}"]`);
+      if (!ltmLayer) return;
+
+      const facts = Array.isArray(data.facts) ? data.facts : [];
+      const factsHtml = facts.length
+        ? facts.map(f => `<div class="mem-detail-item">· ${escHtml(typeof f === 'string' ? f : (f.fact || JSON.stringify(f)))}</div>`).join('')
+        : '';
+
+      // Mettre à jour le body
+      const body = ltmLayer.querySelector('.mem-body');
+      if (body) body.innerHTML = `
+        <div class="mem-row"><span class="mem-row-label">Faits extraits</span><span class="mem-row-value ok">${data.fact_count}</span></div>
+        <div class="mem-detail"><div class="mem-detail-label">Faits LTM</div>${factsHtml}</div>`;
+
+      // Mettre à jour le badge
+      const badge = ltmLayer.querySelector('.mem-status');
+      if (badge) { badge.className = 'mem-status ok'; badge.textContent = 'Actif'; }
+
+      addLog('info', `LTM rafraîchie: ${data.fact_count} fait(s) extrait(s)`);
+    } catch (_) {
+      if (++attempt < delays.length) setTimeout(poll, delays[attempt]);
+    }
+  }
+
+  setTimeout(poll, delays[0]);
 }
 
 function updateTools(trace, turnNum, latency) {

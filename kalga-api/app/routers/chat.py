@@ -10,6 +10,7 @@ from ..database import get_db
 from ..database.connection import get_connection
 from ..database.repositories.knowledge_repo import KnowledgeBaseRepository
 from ..database.repositories.merchant_repo import MerchantRepository
+from ..database.repositories.client_history_repo import get_client_history_repository
 from ..models.schemas import IncomingMessage, BotResponse, DebugIncomingMessage, DebugBotResponse, MerchantReply
 from ..services.chat_service import ChatService, get_chat_service
 from ..services.ai.debug_tracer import DebugTracer
@@ -456,3 +457,22 @@ async def add_conversation_feedback(conv_id: int, feedback: ConversationFeedback
         result["message"] += " et réponse corrigée ajoutée à la base de connaissances"
 
     return result
+
+
+@router.get("/debug/ltm", tags=["Debug"])
+async def get_ltm_snapshot(
+    merchant_id: int = Query(..., description="ID du marchand"),
+    client_phone: str = Query(..., description="Téléphone du client")
+):
+    """
+    Retourne l'état actuel de la LTM pour un client/marchand donné.
+    Utilisé par le dashboard de debug pour rafraîchir après extraction async.
+    """
+    repo = get_client_history_repository()
+    facts = await repo.get_memory_facts(merchant_id, client_phone) or []
+    prefs = await repo.get_preferences(merchant_id, client_phone)
+    return {
+        "fact_count": len(facts),
+        "facts": facts,
+        "preferences": prefs
+    }
