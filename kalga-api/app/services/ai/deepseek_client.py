@@ -333,7 +333,9 @@ class DeepSeekClient:
         merchant_city: str = None,
         merchant_commune: str = None,
         merchant_quarter: str = None,
-        merchant_persona: Dict = None
+        merchant_persona: Dict = None,
+        has_image: bool = False,
+        image_url: str = None
     ) -> str:
         """
         Brief factuel sur le produit et les règles business.
@@ -412,6 +414,20 @@ class DeepSeekClient:
                 "  → Dans ce cas, mets send_location: false"
             )
 
+        # Section photos
+        if has_image and image_url:
+            photo_section = (
+                f"- Photo disponible: oui — si le client demande une photo, réponds qu'une photo est disponible\n"
+                f"  → Ne promets PAS d'envoyer la photo toi-même (c'est géré automatiquement)"
+            )
+        else:
+            photo_section = (
+                "- Aucune photo configurée pour ce produit\n"
+                "  → Si le client demande une photo: \"Désolé, pas de photo disponible pour l'instant. "
+                "Mais je peux te décrire le produit si tu veux!\"\n"
+                "  → Ne propose JAMAIS de chercher ou d'envoyer une photo inexistante"
+            )
+
         return f"""{persona_section}PRODUIT QUE TU VENDS:
 - Nom: {product_name}
 {desc_line}
@@ -426,6 +442,9 @@ RÈGLES PRIX (absolues):
 
 LOCALISATION DU MAGASIN:
 {location_section}
+
+PHOTOS DU PRODUIT:
+{photo_section}
 
 CE QUE TU NE CONNAIS PAS (réponds honnêtement si on te demande):
 - Les horaires d'ouverture → response: "Pour les horaires, contacte directement le vendeur!"
@@ -508,7 +527,9 @@ Client: "[Répond à: \"Livraison ou tu passes chercher?\"] je vais passer"
         merchant_persona: Dict = None,
         knowledge_context: List[str] = None,
         conversation_status: str = "active",
-        current_offer: Optional[float] = None
+        current_offer: Optional[float] = None,
+        has_image: bool = False,
+        image_url: str = None
     ) -> List[Dict]:
         """
         Assemble le prompt complet pour DeepSeek.
@@ -529,7 +550,9 @@ Client: "[Répond à: \"Livraison ou tu passes chercher?\"] je vais passer"
             merchant_city=merchant_city,
             merchant_commune=merchant_commune,
             merchant_quarter=merchant_quarter,
-            merchant_persona=merchant_persona
+            merchant_persona=merchant_persona,
+            has_image=has_image,
+            image_url=image_url
         )
         examples = self.build_few_shot_examples(product_name, price)
         knowledge_message = f"{brief}\n\n{examples}"

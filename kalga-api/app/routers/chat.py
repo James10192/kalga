@@ -10,8 +10,9 @@ from ..database import get_db
 from ..database.connection import get_connection
 from ..database.repositories.knowledge_repo import KnowledgeBaseRepository
 from ..database.repositories.merchant_repo import MerchantRepository
-from ..models.schemas import IncomingMessage, BotResponse
+from ..models.schemas import IncomingMessage, BotResponse, DebugIncomingMessage, DebugBotResponse, MerchantReply
 from ..services.chat_service import ChatService, get_chat_service
+from ..services.ai.debug_tracer import DebugTracer
 from ..rate_limiter import limiter
 import logging
 
@@ -37,6 +38,24 @@ async def handle_incoming_message(
     Rate limit: 30 requêtes par minute par IP
     """
     return await chat_service.handle_incoming_message(message)
+
+
+@router.post("/test-incoming", response_model=DebugBotResponse, tags=["Debug"])
+async def handle_test_incoming_message(
+    message: DebugIncomingMessage,
+    chat_service: ChatService = Depends(get_chat_service)
+):
+    """
+    Endpoint de test — même flux que /incoming mais avec trace complète du pipeline AI.
+    Pas de rate limit. Usage: développement et debug uniquement.
+    """
+    tracer = DebugTracer()
+    response = await chat_service.handle_incoming_message(message, tracer=tracer)
+    tracer.finalize()
+    return DebugBotResponse(
+        **response.model_dump(),
+        debug_trace=tracer.to_dict()
+    )
 
 
 @router.get("/conversations/{merchant_phone}")
@@ -245,6 +264,41 @@ async def delete_knowledge_entry(entry_id: int, merchant_phone: str = Query(...)
         raise HTTPException(status_code=404, detail="Entrée non trouvée ou accès refusé")
 
     return {"success": True, "message": "Entrée supprimée"}
+
+
+# =============================================================================
+# HUMAN TAKEOVER — Réponse manuelle du marchand
+# =============================================================================
+
+@router.post("/merchant-reply", tags=["Debug"])
+async def merchant_reply(reply: MerchantReply):
+    """
+    Enregistre la réponse manuelle du marchand (human takeover).
+
+    Quand l'IA ne peut pas répondre correctement (ex: localisation non configurée,
+    question hors scope), le marchand prend la main et répond manuellement.
+    Si save_to_kb=True (défaut), la paire Q/R est sauvegardée en KB automatiquement
+    pour que l'IA apprenne à répondre seule aux prochains clients.
+    """
+    kb_entry_id = None
+    if reply.save_to_kb and reply.client_question.strip() and reply.merchant_answer.strip():
+        kb_repo = KnowledgeBaseRepository()
+        kb_entry_id = await kb_repo.save_entry(
+            merchant_id=reply.merchant_id,
+            question=reply.client_question.strip(),
+            answer=reply.merchant_answer.strip(),
+            source="human_reply"
+        )
+        logger.info(
+            f"Human takeover → KB: entrée #{kb_entry_id} pour merchant_id={reply.merchant_id} "
+            f"— Q: {reply.client_question[:50]}"
+        )
+
+    return {
+        "success": True,
+        "kb_entry_id": kb_entry_id,
+        "message": "Réponse enregistrée" + (" et apprise en KB" if kb_entry_id else "")
+    }
 
 
 # =============================================================================

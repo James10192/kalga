@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KALGA — Test Chat IA</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --k-green:    #25D366;
+      --k-green-d:  #128C7E;
+      --k-green-xl: #075E54;
+      --k-green-bg: rgba(37,211,102,.08);
+      --bg:         #06090F;
+      --surface:    #0D1117;
+      --surface2:   #151B26;
+      --surface3:   #1C2333;
+      --border:     #21293A;
+      --border2:    #2D3A50;
+      --text:       #E8EDF5;
+      --text2:      #8B98B0;
+      --text3:      #4A556A;
+      --wa-out:     #0B2F1E;
+      --wa-out-b:   #25D366;
+      --wa-in:      #151B26;
+      --red:        #FF4757;
+      --yellow:     #FFB236;
+      --cyan:       #17BEBB;
+      --purple:     #9B5DE5;
+      --orange:     #FF6B35;
+      --radius:     14px;
+      --radius-sm:  8px;
+      --shadow:     0 8px 32px rgba(0,0,0,.6);
+    }
+
+    html, body { height: 100%; overflow: hidden; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      height: 54px; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px; background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      box-shadow: 0 1px 0 rgba(37,211,102,.06);
+      flex-shrink: 0;
+    }
+    .topbar-brand { display: flex; align-items: center; gap: 10px; }
+    .topbar-logo {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: linear-gradient(135deg, var(--k-green), var(--k-green-d));
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 14px; color: #fff; letter-spacing: -0.5px;
+    }
+    .topbar-title { font-weight: 700; font-size: 16px; letter-spacing: -.3px; }
+    .topbar-title span { color: var(--k-green); }
+    .topbar-badge {
+      font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 20px;
+      background: var(--k-green-bg); color: var(--k-green); border: 1px solid rgba(37,211,102,.2);
+      letter-spacing: .5px;
+    }
+    .topbar-right { display: flex; align-items: center; gap: 12px; }
+    .api-status {
+      display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2);
+    }
+    .api-dot {
+      width: 7px; height: 7px; border-radius: 50%; background: var(--text3);
+      transition: background .3s;
+    }
+    .api-dot.ok { background: var(--k-green); box-shadow: 0 0 6px var(--k-green); }
+    .api-dot.err { background: var(--red); }
+
+    /* ── LAYOUT ── */
+    .app { display: flex; flex: 1; overflow: hidden; height: calc(100vh - 54px); }
+
+    /* ── LEFT PANEL ── */
+    .left-panel {
+      width: 290px; flex-shrink: 0; display: flex; flex-direction: column;
+      border-right: 1px solid var(--border); background: var(--surface);
+    }
+    .panel-tabs {
+      display: flex; border-bottom: 1px solid var(--border);
+    }
+    .panel-tab {
+      flex: 1; padding: 12px 0; text-align: center; font-size: 11px; font-weight: 600;
+      color: var(--text3); cursor: pointer; transition: all .2s;
+      letter-spacing: .4px; text-transform: uppercase; border-bottom: 2px solid transparent;
+    }
+    .panel-tab.active { color: var(--k-green); border-bottom-color: var(--k-green); }
+    .panel-tab:hover:not(.active) { color: var(--text2); }
+
+    .panel-body { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+    .panel-section { display: none; flex-direction: column; gap: 10px; }
+    .panel-section.active { display: flex; }
+
+    /* Config Section */
+    .config-group { display: flex; flex-direction: column; gap: 6px; }
+    .config-label { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .6px; }
+    .config-input {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      color: var(--text); font-size: 13px; padding: 9px 12px; width: 100%; outline: none;
+      transition: border-color .2s; font-family: inherit;
+    }
+    .config-input:focus { border-color: var(--k-green); }
+    .config-select {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      color: var(--text); font-size: 13px; padding: 9px 12px; width: 100%; outline: none;
+      cursor: pointer; transition: border-color .2s;
+    }
+    .config-select:focus { border-color: var(--k-green); }
+
+    /* Merchant/Product Cards */
+    .entity-list { display: flex; flex-direction: column; gap: 6px; }
+    .entity-card {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 10px 12px; cursor: pointer; transition: all .2s;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .entity-card:hover { border-color: var(--border2); background: var(--surface3); }
+    .entity-card.selected { border-color: var(--k-green); background: var(--k-green-bg); }
+    .entity-avatar {
+      width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--k-green-xl), var(--k-green-d));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: #fff;
+    }
+    .entity-avatar.product {
+      background: linear-gradient(135deg, #1a2a4a, #2d3a50);
+      font-size: 16px;
+    }
+    .entity-info { flex: 1; min-width: 0; }
+    .entity-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .entity-meta { font-size: 11px; color: var(--text2); margin-top: 1px; }
+    .entity-badge {
+      font-size: 10px; padding: 2px 6px; border-radius: 20px; font-weight: 600; flex-shrink: 0;
+    }
+    .entity-badge.active { background: var(--k-green-bg); color: var(--k-green); border: 1px solid rgba(37,211,102,.2); }
+
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .5px;
+    }
+    .btn-add {
+      width: 22px; height: 22px; border-radius: 6px;
+      background: var(--k-green-bg); border: 1px solid rgba(37,211,102,.2);
+      color: var(--k-green); cursor: pointer; font-size: 16px; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .2s;
+    }
+    .btn-add:hover { background: rgba(37,211,102,.15); }
+
+    .create-form {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 12px; display: none; flex-direction: column; gap: 8px;
+    }
+    .create-form.open { display: flex; }
+    .create-form .config-input { font-size: 12px; padding: 7px 10px; }
+    .btn-create {
+      padding: 7px 12px; border-radius: var(--radius-sm); border: none; cursor: pointer;
+      background: linear-gradient(135deg, var(--k-green), var(--k-green-d));
+      color: #fff; font-size: 12px; font-weight: 600; transition: opacity .2s;
+    }
+    .btn-create:hover { opacity: .85; }
+    .btn-create:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* ── CENTER CHAT ── */
+    .chat-col {
+      flex: 1; display: flex; flex-direction: column; background: var(--bg); min-width: 0;
+    }
+
+    .chat-header {
+      height: 58px; padding: 0 18px; display: flex; align-items: center; gap: 12px;
+      background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .chat-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--k-green), var(--k-green-d));
+      display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;
+    }
+    .chat-header-info { flex: 1; min-width: 0; }
+    .chat-header-name { font-size: 14px; font-weight: 600; }
+    .chat-header-sub { font-size: 11px; color: var(--text2); margin-top: 1px; }
+    .chat-mode-badge {
+      font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px;
+      background: var(--k-green-bg); color: var(--k-green); border: 1px solid rgba(37,211,102,.2);
+    }
+    .btn-reset {
+      padding: 6px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border2);
+      background: transparent; color: var(--text2); font-size: 12px; cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-reset:hover { border-color: var(--red); color: var(--red); }
+
+    .chat-messages {
+      flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 6px;
+    }
+    .chat-messages::-webkit-scrollbar { width: 4px; }
+    .chat-messages::-webkit-scrollbar-track { background: transparent; }
+    .chat-messages::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+    .msg-wrapper { display: flex; flex-direction: column; max-width: 75%; }
+    .msg-wrapper.out { align-self: flex-end; align-items: flex-end; }
+    .msg-wrapper.in  { align-self: flex-start; align-items: flex-start; }
+
+    .msg-bubble {
+      padding: 9px 13px; border-radius: 16px; font-size: 14px; line-height: 1.55;
+      word-break: break-word; position: relative;
+    }
+    .msg-wrapper.out .msg-bubble {
+      background: linear-gradient(135deg, #1a4a2e, var(--k-green-d));
+      border-bottom-right-radius: 4px;
+      box-shadow: 0 2px 8px rgba(18,140,126,.25);
+    }
+    .msg-wrapper.in .msg-bubble {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.3);
+    }
+    .msg-time { font-size: 10px; color: var(--text3); margin-top: 3px; padding: 0 2px; }
+
+    .msg-debug-strip {
+      margin-top: 4px; padding: 4px 10px; border-radius: 6px;
+      background: rgba(37,211,102,.05); border: 1px solid rgba(37,211,102,.1);
+      font-size: 10px; color: var(--text2); display: flex; gap: 10px; flex-wrap: wrap;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .msg-debug-chip { display: flex; align-items: center; gap: 4px; }
+    .msg-debug-chip .dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+
+    /* System messages */
+    .msg-system {
+      align-self: center; font-size: 11px; color: var(--text3);
+      background: var(--surface2); border: 1px solid var(--border);
+      padding: 4px 12px; border-radius: 20px; max-width: 80%; text-align: center;
+    }
+
+    /* Typing indicator */
+    .typing-indicator {
+      display: none; align-items: center; gap: 5px; padding: 10px 14px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 16px; border-bottom-left-radius: 4px;
+      width: fit-content; margin-bottom: 4px;
+    }
+    .typing-indicator.show { display: flex; }
+    .typing-dot {
+      width: 7px; height: 7px; border-radius: 50%; background: var(--text2);
+      animation: bounce 1.2s infinite;
+    }
+    .typing-dot:nth-child(2) { animation-delay: .2s; }
+    .typing-dot:nth-child(3) { animation-delay: .4s; }
+    @keyframes bounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-5px); } }
+
+    /* Summary strip */
+    .chat-summary {
+      padding: 7px 16px; border-top: 1px solid var(--border);
+      display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+      background: var(--surface); flex-shrink: 0;
+    }
+    .summary-chip {
+      display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text2);
+    }
+    .summary-chip .label { color: var(--text3); font-size: 10px; text-transform: uppercase; letter-spacing: .4px; }
+    .summary-chip .value { font-weight: 600; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+    .summary-chip .value.ok { color: var(--k-green); }
+    .summary-chip .value.warn { color: var(--yellow); }
+    .summary-chip .value.err { color: var(--red); }
+
+    /* Input area */
+    .chat-input-area {
+      padding: 12px 16px; border-top: 1px solid var(--border);
+      display: flex; gap: 10px; background: var(--surface); flex-shrink: 0;
+    }
+    .msg-input {
+      flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 24px;
+      color: var(--text); font-size: 14px; padding: 10px 16px; outline: none;
+      transition: border-color .2s; font-family: inherit; resize: none; min-height: 42px; max-height: 120px;
+      line-height: 1.4;
+    }
+    .msg-input:focus { border-color: var(--k-green); }
+    .msg-input::placeholder { color: var(--text3); }
+    .btn-send {
+      width: 42px; height: 42px; border-radius: 50%; border: none; cursor: pointer;
+      background: linear-gradient(135deg, var(--k-green), var(--k-green-d));
+      color: #fff; font-size: 18px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .2s; box-shadow: 0 2px 8px rgba(37,211,102,.3);
+    }
+    .btn-send:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(37,211,102,.4); }
+    .btn-send:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+    /* ── RIGHT DEBUG PANEL ── */
+    .debug-panel {
+      width: 340px; flex-shrink: 0; display: flex; flex-direction: column;
+      border-left: 1px solid var(--border); background: var(--surface);
+    }
+    .debug-tabs {
+      display: flex; border-bottom: 1px solid var(--border); overflow-x: auto;
+    }
+    .debug-tabs::-webkit-scrollbar { display: none; }
+    .debug-tab {
+      padding: 10px 12px; font-size: 10px; font-weight: 600; color: var(--text3);
+      cursor: pointer; transition: all .2s; white-space: nowrap; letter-spacing: .4px;
+      text-transform: uppercase; border-bottom: 2px solid transparent; flex-shrink: 0;
+    }
+    .debug-tab.active { color: var(--k-green); border-bottom-color: var(--k-green); }
+    .debug-tab:hover:not(.active) { color: var(--text2); }
+    .debug-tab .cnt {
+      display: inline-block; margin-left: 4px; font-size: 9px; padding: 1px 4px;
+      border-radius: 8px; background: var(--surface3); color: var(--text2); vertical-align: middle;
+    }
+    .debug-tab.active .cnt { background: var(--k-green-bg); color: var(--k-green); }
+
+    .debug-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+    .debug-pane { display: none; flex: 1; overflow-y: auto; padding: 12px; flex-direction: column; gap: 8px; }
+    .debug-pane.active { display: flex; }
+    .debug-pane::-webkit-scrollbar { width: 3px; }
+    .debug-pane::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+    .debug-empty {
+      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      color: var(--text3); font-size: 12px; gap: 6px; padding: 40px 20px; text-align: center;
+    }
+    .debug-empty svg { opacity: .3; }
+
+    /* Event cards */
+    .ev-card {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+    .ev-card-header {
+      padding: 8px 10px; display: flex; align-items: center; gap: 8px;
+      border-bottom: 1px solid var(--border); cursor: pointer;
+      transition: background .15s;
+    }
+    .ev-card-header:hover { background: var(--surface3); }
+    .ev-cat {
+      font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px;
+      letter-spacing: .5px; text-transform: uppercase; flex-shrink: 0;
+    }
+    .ev-cat.DETECTOR  { background: rgba(155,93,229,.15); color: #b47aff; border: 1px solid rgba(155,93,229,.2); }
+    .ev-cat.LLM       { background: rgba(23,190,187,.12); color: #17BEBB; border: 1px solid rgba(23,190,187,.2); }
+    .ev-cat.MEMORY    { background: rgba(255,178,54,.1); color: var(--yellow); border: 1px solid rgba(255,178,54,.2); }
+    .ev-cat.FSM       { background: rgba(255,107,53,.1); color: var(--orange); border: 1px solid rgba(255,107,53,.2); }
+    .ev-cat.TOOL      { background: rgba(37,211,102,.1); color: var(--k-green); border: 1px solid rgba(37,211,102,.2); }
+    .ev-cat.CHAT      { background: rgba(255,71,87,.1); color: var(--red); border: 1px solid rgba(255,71,87,.2); }
+    .ev-cat.BUSINESS  { background: rgba(139,152,176,.1); color: var(--text2); border: 1px solid var(--border2); }
+    .ev-cat.KB        { background: rgba(23,190,187,.1); color: var(--cyan); border: 1px solid rgba(23,190,187,.2); }
+
+    .ev-name { font-size: 12px; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ev-ts { font-size: 10px; color: var(--text3); font-family: 'JetBrains Mono', monospace; flex-shrink: 0; }
+    .ev-body { padding: 8px 10px; }
+    .ev-body pre {
+      font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text2);
+      white-space: pre-wrap; word-break: break-all; line-height: 1.5;
+    }
+
+    /* Memory pane */
+    .mem-layer {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+    .mem-layer-header {
+      padding: 9px 12px; display: flex; align-items: center; gap: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .mem-icon { font-size: 16px; }
+    .mem-title { font-size: 12px; font-weight: 700; flex: 1; }
+    .mem-status {
+      font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 20px;
+    }
+    .mem-status.ok  { background: var(--k-green-bg); color: var(--k-green); border: 1px solid rgba(37,211,102,.2); }
+    .mem-status.off { background: rgba(74,85,106,.12); color: var(--text3); border: 1px solid var(--border); }
+    .mem-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+    .mem-row { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; }
+    .mem-row-label { color: var(--text3); min-width: 90px; font-size: 11px; flex-shrink: 0; }
+    .mem-row-value { color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 11px; word-break: break-word; }
+    .mem-row-value.ok { color: var(--k-green); }
+    .mem-row-value.off { color: var(--text3); }
+
+    /* LLM pane */
+    .llm-card {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    }
+    .llm-prompt {
+      padding: 10px 12px; font-size: 11px; font-family: 'JetBrains Mono', monospace;
+      color: var(--text2); line-height: 1.55; white-space: pre-wrap; word-break: break-all;
+      max-height: 200px; overflow-y: auto;
+    }
+    .llm-prompt::-webkit-scrollbar { width: 3px; }
+    .llm-prompt::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+    /* Tools pane */
+    .tool-call-card {
+      background: var(--surface2); border: 1px solid rgba(37,211,102,.15);
+      border-radius: var(--radius-sm); overflow: hidden;
+    }
+    .tool-call-header {
+      padding: 8px 12px; display: flex; align-items: center; gap: 8px;
+      background: rgba(37,211,102,.05);
+    }
+    .tool-call-name { font-size: 13px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--k-green); }
+    .tool-call-status {
+      margin-left: auto; font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 10px;
+    }
+    .tool-call-status.ok { background: var(--k-green-bg); color: var(--k-green); }
+    .tool-call-status.err { background: rgba(255,71,87,.1); color: var(--red); }
+    .tool-call-body { padding: 8px 12px; }
+    .tool-call-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 3px; }
+    .tool-call-pre {
+      font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text2);
+      white-space: pre-wrap; word-break: break-all; line-height: 1.5;
+    }
+
+    /* Logs pane */
+    .log-line {
+      font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text2);
+      padding: 3px 6px; border-radius: 4px; line-height: 1.6; word-break: break-all;
+    }
+    .log-line.info  { color: var(--text2); }
+    .log-line.warn  { color: var(--yellow); background: rgba(255,178,54,.06); }
+    .log-line.error { color: var(--red); background: rgba(255,71,87,.06); }
+    .log-line .log-ts { color: var(--text3); margin-right: 6px; }
+    .log-line .log-level { font-weight: 700; margin-right: 6px; }
+
+    /* Dividers */
+    .divider { height: 1px; background: var(--border); margin: 2px 0; flex-shrink: 0; }
+
+    /* Scrollbars global */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 5px; }
+
+    /* Loading state */
+    .spinner {
+      width: 14px; height: 14px; border: 2px solid var(--border2);
+      border-top-color: var(--k-green); border-radius: 50%;
+      animation: spin .7s linear infinite; flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Human takeover */
+    .human-takeover-banner {
+      display: none; padding: 10px 16px; background: rgba(255,178,54,.08);
+      border-top: 1px solid rgba(255,178,54,.2); flex-shrink: 0;
+    }
+    .human-takeover-banner.show { display: block; }
+    .takeover-header {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+      font-size: 12px; font-weight: 700; color: var(--yellow);
+    }
+    .takeover-form { display: flex; gap: 8px; }
+    .takeover-input {
+      flex: 1; background: var(--surface2); border: 1px solid rgba(255,178,54,.3);
+      border-radius: var(--radius-sm); color: var(--text); font-size: 13px;
+      padding: 8px 12px; outline: none; font-family: inherit;
+    }
+    .takeover-input:focus { border-color: var(--yellow); }
+    .btn-takeover-send {
+      padding: 8px 14px; border-radius: var(--radius-sm); border: none; cursor: pointer;
+      background: rgba(255,178,54,.2); color: var(--yellow); font-size: 12px; font-weight: 600;
+      border: 1px solid rgba(255,178,54,.3); transition: all .2s;
+    }
+    .btn-takeover-send:hover { background: rgba(255,178,54,.3); }
+    .msg-takeover-badge {
+      display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px;
+      border-radius: 10px; background: rgba(255,178,54,.15); color: var(--yellow);
+      border: 1px solid rgba(255,178,54,.25); margin-top: 4px;
+    }
+
+    /* Toast */
+    .toast-container { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 8px; z-index: 9999; }
+    .toast {
+      padding: 10px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500;
+      box-shadow: var(--shadow); animation: slideIn .25s ease;
+      max-width: 300px;
+    }
+    .toast.success { background: #0d2d1a; border: 1px solid rgba(37,211,102,.3); color: var(--k-green); }
+    .toast.error   { background: #2d0d0d; border: 1px solid rgba(255,71,87,.3); color: var(--red); }
+    .toast.info    { background: var(--surface2); border: 1px solid var(--border2); color: var(--text); }
+    @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  </style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-brand">
+    <div class="topbar-logo">K</div>
+    <div class="topbar-title">KAL<span>GA</span></div>
+    <span class="topbar-badge">DEV · AI TEST</span>
+  </div>
+  <div class="topbar-right">
+    <div class="api-status">
+      <div class="api-dot" id="apiDot"></div>
+      <span id="apiStatusText">Connexion…</span>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+
+  <!-- LEFT PANEL -->
+  <div class="left-panel">
+    <div class="panel-tabs">
+      <div class="panel-tab active" data-tab="config">Config</div>
+      <div class="panel-tab" data-tab="merchants">Marchands</div>
+      <div class="panel-tab" data-tab="products">Produits</div>
+    </div>
+    <div class="panel-body">
+
+      <!-- CONFIG -->
+      <div class="panel-section active" id="tab-config">
+        <div class="config-group">
+          <div class="config-label">Téléphone client</div>
+          <input class="config-input" id="clientPhone" value="+221770000001" placeholder="+221770000001">
+        </div>
+        <div class="config-group">
+          <div class="config-label">Code produit</div>
+          <input class="config-input" id="productCode" placeholder="ex: #K001">
+        </div>
+        <div class="config-group">
+          <div class="config-label">Endpoint API</div>
+          <input class="config-input" id="apiBase" value="http://localhost:8001">
+        </div>
+        <div style="height:1px;background:var(--border);margin:4px 0"></div>
+        <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">Config localisation marchand</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <div class="config-group">
+            <div class="config-label">Latitude</div>
+            <input class="config-input" id="cfgLat" placeholder="ex: 5.3047" style="font-size:12px">
+          </div>
+          <div class="config-group">
+            <div class="config-label">Longitude</div>
+            <input class="config-input" id="cfgLng" placeholder="ex: -3.9482" style="font-size:12px">
+          </div>
+        </div>
+        <div class="config-group">
+          <div class="config-label">Adresse</div>
+          <input class="config-input" id="cfgAddress" placeholder="ex: Koumassi Sopim" style="font-size:12px">
+        </div>
+        <button class="btn-create" id="btnSaveLocation" style="font-size:11px;padding:6px">Sauvegarder localisation</button>
+      </div>
+
+      <!-- MARCHANDS -->
+      <div class="panel-section" id="tab-merchants">
+        <div class="section-header">
+          <span>Marchands</span>
+          <button class="btn-add" id="btnToggleMerchantForm" title="Ajouter">+</button>
+        </div>
+        <div class="create-form" id="merchantForm">
+          <input class="config-input" id="mName" placeholder="Nom du marchand">
+          <input class="config-input" id="mPhone" placeholder="Téléphone WhatsApp">
+          <input class="config-input" id="mCity" placeholder="Ville">
+          <button class="btn-create" id="btnCreateMerchant">Créer le marchand</button>
+        </div>
+        <div class="entity-list" id="merchantList">
+          <div class="debug-empty" style="padding:20px 0">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span>Chargement…</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- PRODUITS -->
+      <div class="panel-section" id="tab-products">
+        <div class="section-header">
+          <span>Produits <span id="productsForMerchant" style="color:var(--text3);font-size:10px"></span></span>
+          <button class="btn-add" id="btnToggleProductForm" title="Ajouter">+</button>
+        </div>
+        <div class="create-form" id="productForm">
+          <input class="config-input" id="pName" placeholder="Nom du produit">
+          <input class="config-input" id="pPrice" type="number" placeholder="Prix normal (FCFA)">
+          <input class="config-input" id="pMinPrice" type="number" placeholder="Prix min négociable (FCFA)">
+          <input class="config-input" id="pDesc" placeholder="Description courte">
+          <button class="btn-create" id="btnCreateProduct">Créer le produit</button>
+        </div>
+        <div id="imgUploadBox" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-top:4px">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Photo produit — <span id="imgUploadCode" style="color:var(--k-green)"></span></div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <label style="flex:1;cursor:pointer;background:var(--surface3);border:1px dashed var(--border2);border-radius:var(--radius-sm);padding:8px;text-align:center;font-size:12px;color:var(--text2);transition:border-color .2s" id="imgDropLabel">
+              <input type="file" id="imgFileInput" accept="image/jpeg,image/png,image/webp" style="display:none">
+              📷 Choisir une photo
+            </label>
+            <button class="btn-create" id="btnUploadImg" style="padding:8px 12px;font-size:11px" disabled>Upload</button>
+          </div>
+          <div id="imgPreview" style="display:none;margin-top:8px"><img id="imgPreviewImg" style="max-width:100%;border-radius:6px;max-height:80px;object-fit:cover"></div>
+          <div id="imgUploadStatus" style="font-size:11px;color:var(--text2);margin-top:4px"></div>
+        </div>
+        <div class="entity-list" id="productList">
+          <div class="debug-empty" style="padding:20px 0">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span>Sélectionnez un marchand</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- CENTER CHAT -->
+  <div class="chat-col">
+    <div class="chat-header">
+      <div class="chat-avatar">🤖</div>
+      <div class="chat-header-info">
+        <div class="chat-header-name" id="chatHeaderName">IA KALGA</div>
+        <div class="chat-header-sub" id="chatHeaderSub">Aucun produit sélectionné</div>
+      </div>
+      <div class="chat-mode-badge" id="chatModeBadge">—</div>
+      <button class="btn-reset" id="btnReset">↺ Reset</button>
+    </div>
+
+    <div class="chat-messages" id="chatMessages">
+      <div class="msg-system">Session démarrée — configurez un produit et commencez à discuter</div>
+    </div>
+
+    <div id="typingIndicator" class="typing-indicator" style="margin:0 18px 8px">
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+    </div>
+
+    <div class="chat-summary">
+      <div class="summary-chip">
+        <span class="label">MODE</span>
+        <span class="value" id="sumMode">—</span>
+      </div>
+      <div class="summary-chip">
+        <span class="label">LATENCE</span>
+        <span class="value" id="sumLatency">—</span>
+      </div>
+      <div class="summary-chip">
+        <span class="label">STM</span>
+        <span class="value" id="sumStm">—</span>
+      </div>
+      <div class="summary-chip">
+        <span class="label">TOURS</span>
+        <span class="value" id="sumTurns">0</span>
+      </div>
+      <div class="summary-chip">
+        <span class="label">FALLBACK</span>
+        <span class="value" id="sumFallback">—</span>
+      </div>
+    </div>
+
+    <!-- Human takeover banner -->
+    <div class="human-takeover-banner" id="takeoverBanner">
+      <div class="takeover-header">
+        <span>⚠️</span>
+        <span>Transfert marchand — L'IA ne peut pas répondre. Saisissez la réponse ci-dessous (elle sera apprise en KB).</span>
+      </div>
+      <div class="takeover-form">
+        <input class="takeover-input" id="takeoverInput" placeholder="Réponse du marchand…">
+        <button class="btn-takeover-send" id="btnTakeoverSend">Envoyer & Apprendre</button>
+      </div>
+    </div>
+
+    <div class="chat-input-area">
+      <textarea class="msg-input" id="msgInput" placeholder="Tapez votre message…" rows="1"></textarea>
+      <button class="btn-send" id="btnSend" title="Envoyer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- RIGHT DEBUG PANEL -->
+  <div class="debug-panel">
+    <div class="debug-tabs">
+      <div class="debug-tab active" data-pane="pipeline">Pipeline <span class="cnt" id="cntPipeline">0</span></div>
+      <div class="debug-tab" data-pane="llm">LLM</div>
+      <div class="debug-tab" data-pane="memory">Mémoire</div>
+      <div class="debug-tab" data-pane="tools">Outils <span class="cnt" id="cntTools">0</span></div>
+      <div class="debug-tab" data-pane="logs">Logs <span class="cnt" id="cntLogs">0</span></div>
+    </div>
+    <div class="debug-body">
+
+      <!-- PIPELINE -->
+      <div class="debug-pane active" id="pane-pipeline">
+        <div class="debug-empty" id="pipelineEmpty">
+          <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+          <span>Envoie un message pour voir le pipeline IA</span>
+        </div>
+        <div id="pipelineEvents" style="display:none;display:flex;flex-direction:column;gap:6px"></div>
+      </div>
+
+      <!-- LLM -->
+      <div class="debug-pane" id="pane-llm">
+        <div class="debug-empty" id="llmEmpty">
+          <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>Aucun appel LLM pour l'instant</span>
+        </div>
+        <div id="llmContent" style="display:none;flex-direction:column;gap:8px"></div>
+      </div>
+
+      <!-- MEMORY -->
+      <div class="debug-pane" id="pane-memory">
+        <div id="memContent" style="display:flex;flex-direction:column;gap:8px">
+          <!-- STM -->
+          <div class="mem-layer">
+            <div class="mem-layer-header">
+              <span class="mem-icon">📋</span>
+              <span class="mem-title">STM — Court terme</span>
+              <span class="mem-status off" id="stmStatus">Inactif</span>
+            </div>
+            <div class="mem-body" id="stmBody">
+              <div class="mem-row"><span class="mem-row-label">Messages</span><span class="mem-row-value off" id="stmMsgs">—</span></div>
+              <div class="mem-row"><span class="mem-row-label">Fenêtre</span><span class="mem-row-value off" id="stmWindow">—</span></div>
+              <div class="mem-row"><span class="mem-row-label">Compressé</span><span class="mem-row-value off" id="stmCompressed">—</span></div>
+            </div>
+          </div>
+          <!-- LTM -->
+          <div class="mem-layer">
+            <div class="mem-layer-header">
+              <span class="mem-icon">🗄️</span>
+              <span class="mem-title">LTM — Long terme</span>
+              <span class="mem-status off" id="ltmStatus">Inactif</span>
+            </div>
+            <div class="mem-body">
+              <div class="mem-row"><span class="mem-row-label">Faits</span><span class="mem-row-value off" id="ltmFacts">—</span></div>
+              <div class="mem-row"><span class="mem-row-label">Résumés</span><span class="mem-row-value off" id="ltmSummaries">—</span></div>
+              <div class="mem-row"><span class="mem-row-label">Extraction</span><span class="mem-row-value off" id="ltmExtracted">—</span></div>
+            </div>
+          </div>
+          <!-- EPISODIC -->
+          <div class="mem-layer">
+            <div class="mem-layer-header">
+              <span class="mem-icon">📖</span>
+              <span class="mem-title">Épisodique</span>
+              <span class="mem-status off" id="episStatus">Inactif</span>
+            </div>
+            <div class="mem-body">
+              <div class="mem-row"><span class="mem-row-label">Sessions</span><span class="mem-row-value off" id="episSessions">—</span></div>
+              <div class="mem-row"><span class="mem-row-label">Faits connus</span><span class="mem-row-value off" id="episFacts">—</span></div>
+              <div class="mem-row"><span class="mem-row-label">Contexte</span><span class="mem-row-value off" id="episContext">—</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOOLS -->
+      <div class="debug-pane" id="pane-tools">
+        <div class="debug-empty" id="toolsEmpty">
+          <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          <span>Aucun outil utilisé</span>
+        </div>
+        <div id="toolsContent" style="display:none;flex-direction:column;gap:8px"></div>
+      </div>
+
+      <!-- LOGS -->
+      <div class="debug-pane" id="pane-logs">
+        <div class="debug-empty" id="logsEmpty">
+          <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          <span>Aucun log</span>
+        </div>
+        <div id="logsContent" style="display:none;flex-direction:column;gap:1px"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ── STATE ──
+const state = {
+  merchantId: null,
+  merchantName: null,
+  merchantPhone: null,
+  productCode: null,
+  productName: null,
+  productPrice: null,
+  turnCount: 0,
+  lastTrace: null,
+};
+
+// ── UTILS ──
+const $ = (id) => document.getElementById(id);
+const apiBase = () => $('apiBase').value.replace(/\/$/, '');
+
+function toast(msg, type='info', duration=3000) {
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  $('toastContainer').appendChild(t);
+  setTimeout(() => t.remove(), duration);
+}
+
+function fmt(v) {
+  if (v === null || v === undefined) return '<span style="color:var(--text3)">null</span>';
+  if (typeof v === 'object') return JSON.stringify(v, null, 2);
+  return String(v);
+}
+
+function fmtTs(ts) {
+  if (!ts) return '';
+  // tracer uses unix epoch seconds (time.time()), convert to ms for Date
+  const d = new Date(ts * 1000);
+  return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}:${d.getSeconds().toString().padStart(2,'0')}.${d.getMilliseconds().toString().padStart(3,'0')}`;
+}
+
+function now() {
+  const d = new Date();
+  return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}:${d.getSeconds().toString().padStart(2,'0')}`;
+}
+
+// ── API STATUS ──
+async function checkApi() {
+  try {
+    const r = await fetch(`${apiBase()}/docs`, { method: 'HEAD', signal: AbortSignal.timeout(3000) });
+    $('apiDot').className = 'api-dot ok';
+    $('apiStatusText').textContent = 'API connectée';
+  } catch {
+    $('apiDot').className = 'api-dot err';
+    $('apiStatusText').textContent = 'API hors ligne';
+  }
+}
+checkApi();
+setInterval(checkApi, 15000);
+
+// ── TABS ──
+document.querySelectorAll('.panel-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel-section').forEach(s => s.classList.remove('active'));
+    tab.classList.add('active');
+    $(`tab-${tab.dataset.tab}`).classList.add('active');
+  });
+});
+
+document.querySelectorAll('.debug-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.debug-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.debug-pane').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    $(`pane-${tab.dataset.pane}`).classList.add('active');
+  });
+});
+
+// ── MERCHANTS ──
+async function loadMerchants() {
+  try {
+    const r = await fetch(`${apiBase()}/api/merchants`);
+    if (!r.ok) throw new Error(r.statusText);
+    const data = await r.json();
+    const merchants = Array.isArray(data) ? data : (data.merchants || data.data || []);
+    renderMerchants(merchants);
+  } catch (e) {
+    $('merchantList').innerHTML = `<div class="debug-empty" style="padding:20px 0"><span style="color:var(--red)">${e.message}</span></div>`;
+    addLog('error', `Chargement marchands échoué: ${e.message}`);
+  }
+}
+
+function renderMerchants(merchants) {
+  if (!merchants.length) {
+    $('merchantList').innerHTML = '<div class="debug-empty" style="padding:20px 0"><span>Aucun marchand — créez-en un</span></div>';
+    return;
+  }
+  $('merchantList').innerHTML = merchants.map(m => {
+    const phone = m.phone||m.whatsapp_number||'';
+    const name = m.name||m.business_name||'Marchand #'+m.id;
+    return `
+    <div class="entity-card ${state.merchantId === m.id ? 'selected' : ''}" onclick="selectMerchant(${m.id}, '${name.replace(/'/g,"\\'")}', '${phone}')">
+      <div class="entity-avatar">${name.charAt(0).toUpperCase()}</div>
+      <div class="entity-info">
+        <div class="entity-name">${name}</div>
+        <div class="entity-meta">${phone||'—'}</div>
+      </div>
+      ${state.merchantId === m.id ? '<span class="entity-badge active">Actif</span>' : ''}
+    </div>
+  `}).join('');
+}
+
+function selectMerchant(id, name, phone) {
+  state.merchantId = id;
+  state.merchantName = name;
+  state.merchantPhone = phone || '';
+  $('productsForMerchant').textContent = `— ${name}`;
+  loadMerchants();
+  loadProducts(id);
+  // switch to products tab
+  document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel-section').forEach(s => s.classList.remove('active'));
+  document.querySelector('[data-tab="products"]').classList.add('active');
+  $('tab-products').classList.add('active');
+  toast(`Marchand "${name}" sélectionné`, 'success');
+  addLog('info', `Marchand sélectionné: ${name} (id=${id})`);
+}
+
+$('btnToggleMerchantForm').addEventListener('click', () => {
+  $('merchantForm').classList.toggle('open');
+});
+
+$('btnCreateMerchant').addEventListener('click', async () => {
+  const btn = $('btnCreateMerchant');
+  const name = $('mName').value.trim();
+  const phone = $('mPhone').value.trim();
+  const city = $('mCity').value.trim();
+  if (!name || !phone) { toast('Nom et téléphone requis', 'error'); return; }
+  btn.disabled = true; btn.textContent = 'Création…';
+  try {
+    const r = await fetch(`${apiBase()}/api/merchants`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, whatsapp_number: phone, city })
+    });
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail || r.statusText); }
+    const m = await r.json();
+    $('mName').value = ''; $('mPhone').value = ''; $('mCity').value = '';
+    $('merchantForm').classList.remove('open');
+    toast(`Marchand "${name}" créé`, 'success');
+    addLog('info', `Marchand créé: ${name} (id=${m.id || m.merchant_id})`);
+    loadMerchants();
+  } catch (e) {
+    toast(`Erreur: ${e.message}`, 'error');
+    addLog('error', `Création marchand échouée: ${e.message}`);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Créer le marchand';
+  }
+});
+
+// ── PRODUCTS ──
+async function loadProducts(merchantId) {
+  if (!merchantId) return;
+  try {
+    const r = await fetch(`${apiBase()}/api/merchants/${merchantId}/products`);
+    if (!r.ok) throw new Error(r.statusText);
+    const data = await r.json();
+    const products = Array.isArray(data) ? data : (data.products || data.data || []);
+    renderProducts(products);
+  } catch (e) {
+    $('productList').innerHTML = `<div class="debug-empty" style="padding:20px 0"><span style="color:var(--red)">${e.message}</span></div>`;
+    addLog('error', `Chargement produits échoué: ${e.message}`);
+  }
+}
+
+function renderProducts(products) {
+  if (!products.length) {
+    $('productList').innerHTML = '<div class="debug-empty" style="padding:20px 0"><span>Aucun produit — créez-en un</span></div>';
+    return;
+  }
+  $('productList').innerHTML = products.map(p => {
+    const code = p.code || p.product_code || '';
+    const name = p.name || code;
+    return `
+    <div class="entity-card ${state.productCode === code ? 'selected' : ''}" onclick="selectProduct('${code}', '${name.replace(/'/g,"\\'")}', ${p.price||0})">
+      <div class="entity-avatar product">🛍️</div>
+      <div class="entity-info">
+        <div class="entity-name">${name}</div>
+        <div class="entity-meta">${code} · ${(p.price||0).toLocaleString('fr')} F</div>
+      </div>
+      ${state.productCode === code ? '<span class="entity-badge active">Sélect.</span>' : ''}
+    </div>
+  `}).join('');
+}
+
+function selectProduct(code, name, price) {
+  state.productCode = code;
+  state.productName = name;
+  state.productPrice = price;
+  $('productCode').value = code;
+  loadProducts(state.merchantId);
+  $('chatHeaderSub').textContent = `${name} · ${price.toLocaleString('fr')} FCFA · ${code}`;
+  $('chatHeaderName').textContent = state.merchantName || 'IA KALGA';
+  toast(`Produit "${name}" sélectionné`, 'success');
+  addLog('info', `Produit sélectionné: ${name} (${code}) à ${price} F`);
+  // Show image upload box
+  $('imgUploadCode').textContent = code;
+  $('imgUploadBox').style.display = 'block';
+  $('imgUploadStatus').textContent = '';
+  $('imgPreview').style.display = 'none';
+  $('btnUploadImg').disabled = true;
+  $('imgDropLabel').innerHTML = '<input type="file" id="imgFileInput" accept="image/jpeg,image/png,image/webp" style="display:none"> 📷 Choisir une photo';
+  // Re-attach file input listener after re-create
+  $('imgFileInput').addEventListener('change', function() {
+    const file = this.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => { $('imgPreviewImg').src = e.target.result; $('imgPreview').style.display = 'block'; $('imgDropLabel').childNodes[1].textContent = ' 📷 ' + file.name; };
+    reader.readAsDataURL(file);
+    $('btnUploadImg').disabled = false;
+    $('imgUploadStatus').textContent = '';
+  });
+  // Switch back to config tab
+  document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel-section').forEach(s => s.classList.remove('active'));
+  document.querySelector('[data-tab="config"]').classList.add('active');
+  $('tab-config').classList.add('active');
+}
+
+$('btnToggleProductForm').addEventListener('click', () => {
+  $('productForm').classList.toggle('open');
+});
+
+$('btnCreateProduct').addEventListener('click', async () => {
+  if (!state.merchantId) { toast('Sélectionnez un marchand d\'abord', 'error'); return; }
+  const btn = $('btnCreateProduct');
+  const name = $('pName').value.trim();
+  const price = parseFloat($('pPrice').value);
+  const minPrice = parseFloat($('pMinPrice').value) || price * 0.8;
+  const desc = $('pDesc').value.trim();
+  if (!name || !price) { toast('Nom et prix requis', 'error'); return; }
+  btn.disabled = true; btn.textContent = 'Création…';
+  try {
+    const r = await fetch(`${apiBase()}/api/products/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ merchant_id: state.merchantId, name, price, min_price: minPrice, description: desc })
+    });
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail || r.statusText); }
+    $('pName').value = ''; $('pMinPrice').value = ''; $('pPrice').value = ''; $('pDesc').value = '';
+    $('productForm').classList.remove('open');
+    const prod = await r.json();
+    const newCode = prod.product?.code || prod.code || '';
+    toast(`Produit "${name}" créé`, 'success');
+    addLog('info', `Produit créé: ${name} (${newCode})`);
+    loadProducts(state.merchantId);
+  } catch (e) {
+    toast(`Erreur: ${e.message}`, 'error');
+    addLog('error', `Création produit échouée: ${e.message}`);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Créer le produit';
+  }
+});
+
+// ── IMAGE UPLOAD ──
+$('imgFileInput').addEventListener('change', function() {
+  const file = this.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    $('imgPreviewImg').src = e.target.result;
+    $('imgPreview').style.display = 'block';
+    $('imgDropLabel').textContent = '📷 ' + file.name;
+  };
+  reader.readAsDataURL(file);
+  $('btnUploadImg').disabled = false;
+  $('imgUploadStatus').textContent = '';
+});
+
+$('btnUploadImg').addEventListener('click', async () => {
+  const file = $('imgFileInput').files[0];
+  const code = state.productCode;
+  if (!file || !code) return;
+  $('btnUploadImg').disabled = true;
+  $('imgUploadStatus').textContent = 'Upload en cours…';
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const encodedCode = encodeURIComponent(code);
+    const r = await fetch(`${apiBase()}/api/products/${encodedCode}/upload-image`, { method: 'POST', body: fd });
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail || r.statusText); }
+    const d = await r.json();
+    $('imgUploadStatus').textContent = '✓ Image uploadée: ' + d.image_url;
+    $('imgUploadStatus').style.color = 'var(--k-green)';
+    toast(`Image uploadée pour ${code}`, 'success');
+    addLog('info', `Image uploadée: ${d.image_url}`);
+  } catch (e) {
+    $('imgUploadStatus').textContent = '✗ ' + e.message;
+    $('imgUploadStatus').style.color = 'var(--red)';
+    toast(`Erreur upload: ${e.message}`, 'error');
+  } finally {
+    $('btnUploadImg').disabled = false;
+  }
+});
+
+// ── LOCATION SAVE ──
+$('btnSaveLocation').addEventListener('click', async () => {
+  if (!state.merchantId) { toast('Sélectionnez un marchand d\'abord', 'error'); return; }
+  const lat = parseFloat($('cfgLat').value);
+  const lng = parseFloat($('cfgLng').value);
+  const address = $('cfgAddress').value.trim();
+  if (isNaN(lat) || isNaN(lng)) { toast('Latitude et longitude requises', 'error'); return; }
+  const btn = $('btnSaveLocation');
+  btn.disabled = true; btn.textContent = 'Sauvegarde…';
+  try {
+    const r = await fetch(`${apiBase()}/api/merchants/${state.merchantId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ latitude: lat, longitude: lng, address })
+    });
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail || r.statusText); }
+    toast('Localisation sauvegardée', 'success');
+    addLog('info', `Localisation mise à jour: ${lat}, ${lng}`);
+  } catch (e) {
+    toast(`Erreur: ${e.message}`, 'error');
+    addLog('error', `Localisation échec: ${e.message}`);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Sauvegarder localisation';
+  }
+});
+
+// ── CHAT ──
+function appendMsg(content, dir, debugStrip=null) {
+  const wrapper = document.createElement('div');
+  wrapper.className = `msg-wrapper ${dir}`;
+
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  bubble.textContent = content;
+
+  const time = document.createElement('div');
+  time.className = 'msg-time';
+  time.textContent = now();
+
+  wrapper.appendChild(bubble);
+  wrapper.appendChild(time);
+
+  if (debugStrip) {
+    const strip = document.createElement('div');
+    strip.className = 'msg-debug-strip';
+    strip.innerHTML = debugStrip;
+    wrapper.appendChild(strip);
+  }
+
+  $('chatMessages').appendChild(wrapper);
+  $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
+  return wrapper;
+}
+
+function appendSystem(msg) {
+  const el = document.createElement('div');
+  el.className = 'msg-system';
+  el.textContent = msg;
+  $('chatMessages').appendChild(el);
+  $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
+}
+
+function showTyping(show) {
+  $('typingIndicator').classList.toggle('show', show);
+  $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
+}
+
+async function sendMessage() {
+  const input = $('msgInput');
+  const msg = input.value.trim();
+  if (!msg) return;
+
+  const clientPhone = $('clientPhone').value.trim() || '+221770000001';
+  const productCode = $('productCode').value.trim() || state.productCode;
+
+  if (!productCode) { toast('Configurez un code produit', 'error'); return; }
+  if (!state.merchantId) { toast('Sélectionnez un marchand', 'error'); return; }
+
+  state._lastMsg = msg;
+  input.value = '';
+  input.style.height = 'auto';
+  $('btnSend').disabled = true;
+
+  appendMsg(msg, 'out');
+  showTyping(true);
+  addLog('info', `→ Envoi: "${msg.substring(0,60)}${msg.length>60?'…':''}"`);
+
+  const t0 = performance.now();
+  try {
+    const r = await fetch(`${apiBase()}/api/chat/test-incoming`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        merchant_id: state.merchantId,
+        merchant_phone: state.merchantPhone,
+        client_phone: clientPhone,
+        message: msg,
+        product_code: productCode,
+        debug: true
+      })
+    });
+
+    const latency = Math.round(performance.now() - t0);
+
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ detail: r.statusText }));
+      const detail = Array.isArray(err.detail)
+        ? err.detail.map(e => `${e.loc?.slice(-1)[0]}: ${e.msg}`).join(', ')
+        : (err.detail || r.statusText);
+      throw new Error(detail);
+    }
+
+    const data = await r.json();
+    showTyping(false);
+
+    state.turnCount++;
+    state.lastTrace = data.debug_trace;
+
+    // Build debug strip for message
+    const trace = data.debug_trace || {};
+    const stmInfo = (trace.memory || {}).stm || {};
+    const strip = `
+      <span class="msg-debug-chip"><span class="dot" style="background:var(--k-green)"></span>${latency}ms</span>
+      <span class="msg-debug-chip"><span class="dot" style="background:var(--yellow)"></span>${trace.mode||'—'}</span>
+      <span class="msg-debug-chip"><span class="dot" style="background:var(--purple)"></span>STM:${stmInfo.total_messages||0}msgs</span>
+      ${trace.fallback_used ? '<span class="msg-debug-chip"><span class="dot" style="background:var(--red)"></span>FALLBACK</span>' : ''}
+      ${data.human_takeover ? '<span class="msg-debug-chip"><span class="dot" style="background:var(--yellow)"></span>TAKEOVER</span>' : ''}
+    `;
+
+    const botMsg = appendMsg(data.message || data.response || '(vide)', 'in', strip);
+    // Human takeover badge
+    if (data.human_takeover) {
+      const badge = document.createElement('span');
+      badge.className = 'msg-takeover-badge';
+      badge.textContent = '⚠️ Transfert marchand';
+      botMsg.appendChild(badge);
+      showTakeover(true, $('msgInput').value || state._lastMsg || '');
+    } else {
+      showTakeover(false);
+    }
+    addLog('info', `← Réponse: "${(data.message||data.response||'').substring(0,60)}…" (${latency}ms)`);
+
+    // Update summary
+    $('sumMode').textContent = trace.mode || '—';
+    $('sumMode').className = `value ${trace.mode ? 'ok' : ''}`;
+    $('sumLatency').textContent = `${latency}ms`;
+    $('sumLatency').className = `value ${latency > 3000 ? 'warn' : 'ok'}`;
+    $('sumTurns').textContent = state.turnCount;
+    $('sumFallback').textContent = trace.fallback_used ? 'OUI' : 'NON';
+    $('sumFallback').className = `value ${trace.fallback_used ? 'warn' : 'ok'}`;
+
+    // Update debug panels
+    updateDebugPanels(trace, latency);
+
+  } catch (e) {
+    showTyping(false);
+    appendSystem(`Erreur: ${e.message}`);
+    addLog('error', `Erreur: ${e.message}`);
+    toast(e.message, 'error');
+  } finally {
+    $('btnSend').disabled = false;
+    input.focus();
+  }
+}
+
+// ── HUMAN TAKEOVER ──
+function showTakeover(show, clientQuestion='') {
+  $('takeoverBanner').classList.toggle('show', show);
+  if (show) {
+    $('takeoverInput').value = '';
+    $('takeoverInput').focus();
+    state._takeoverQuestion = clientQuestion;
+  }
+}
+
+$('btnTakeoverSend').addEventListener('click', async () => {
+  const answer = $('takeoverInput').value.trim();
+  if (!answer) { toast('Saisissez une réponse', 'error'); return; }
+  if (!state.merchantId) { toast('Aucun marchand sélectionné', 'error'); return; }
+  const btn = $('btnTakeoverSend');
+  btn.disabled = true; btn.textContent = 'Envoi…';
+  try {
+    const r = await fetch(`${apiBase()}/api/chat/merchant-reply`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        merchant_id: state.merchantId,
+        conversation_id: 0,
+        client_phone: $('clientPhone').value.trim() || '+221770000001',
+        client_question: state._takeoverQuestion || '',
+        merchant_answer: answer,
+        save_to_kb: true
+      })
+    });
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail || r.statusText); }
+    const d = await r.json();
+    const kbInfo = d.kb_entry_id ? ` (KB#${d.kb_entry_id} appris)` : '';
+    appendSystem(`Marchand: "${answer}"${kbInfo}`);
+    toast(`Réponse enregistrée${kbInfo}`, 'success');
+    addLog('info', `Takeover: réponse marchand enregistrée${kbInfo}`);
+    showTakeover(false);
+  } catch (e) {
+    toast(`Erreur: ${e.message}`, 'error');
+    addLog('error', `Takeover échoué: ${e.message}`);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Envoyer & Apprendre';
+  }
+});
+
+// ── DEBUG PANELS UPDATE ──
+function updateDebugPanels(trace, latency) {
+  if (!trace) return;
+  updatePipeline(trace, latency);
+  updateLlm(trace);
+  updateMemory(trace);
+  updateTools(trace);
+}
+
+function updatePipeline(trace, latency) {
+  const events = trace.events || [];
+  const container = $('pipelineEvents');
+  $('pipelineEmpty').style.display = 'none';
+  container.style.display = 'flex';
+  container.style.flexDirection = 'column';
+  container.style.gap = '6px';
+
+  // Add turn header
+  const header = document.createElement('div');
+  header.style.cssText = 'font-size:11px;color:var(--text3);padding:4px 0;border-bottom:1px solid var(--border);margin-bottom:2px';
+  header.textContent = `── Tour ${state.turnCount} · ${latency}ms ──`;
+  container.appendChild(header);
+
+  events.forEach(ev => {
+    const card = document.createElement('div');
+    card.className = 'ev-card';
+    const bodyId = `ev-body-${Math.random().toString(36).slice(2)}`;
+    card.innerHTML = `
+      <div class="ev-card-header" onclick="toggleEvBody('${bodyId}')">
+        <span class="ev-cat ${ev.category}">${ev.category}</span>
+        <span class="ev-name">${ev.name}</span>
+        <span class="ev-ts">${fmtTs(ev.ts)}</span>
+      </div>
+      <div class="ev-body" id="${bodyId}" style="display:none">
+        <pre>${syntaxHL(ev.data)}</pre>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+
+  $('cntPipeline').textContent = events.length;
+  container.scrollTop = container.scrollHeight;
+  $('pane-pipeline').scrollTop = $('pane-pipeline').scrollHeight;
+}
+
+function toggleEvBody(id) {
+  const el = $(id);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function updateLlm(trace) {
+  const llm = trace.llm || {};
+  // La trace réelle utilise llm.prompt (array de messages) et llm.raw_response
+  const hasData = llm.prompt || llm.messages || llm.raw_response;
+  if (!hasData) { $('llmEmpty').style.display = ''; $('llmContent').style.display = 'none'; return; }
+  $('llmEmpty').style.display = 'none';
+  const c = $('llmContent');
+  c.style.display = 'flex';
+  c.style.flexDirection = 'column';
+  c.style.gap = '8px';
+
+  const msgs = llm.prompt || llm.messages || [];
+  const latency = llm.latency_ms ? `${Math.round(llm.latency_ms)}ms` : '—';
+  const msgCount = llm.prompt_msg_count || msgs.length || 0;
+  const parsed = llm.parsed || {};
+
+  c.innerHTML = `
+    <div class="llm-card">
+      <div style="padding:8px 12px;border-bottom:1px solid var(--border);display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Latence</span>
+        <span style="font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--k-green)">${latency}</span>
+        <span style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Messages</span>
+        <span style="font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--text)">${msgCount}</span>
+        ${parsed.is_deal !== undefined ? `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:${parsed.is_deal ? 'var(--k-green-bg)' : 'rgba(255,71,87,.1)'};color:${parsed.is_deal ? 'var(--k-green)' : 'var(--red)'};border:1px solid ${parsed.is_deal ? 'rgba(37,211,102,.2)' : 'rgba(255,71,87,.2)'}">DEAL: ${parsed.is_deal ? 'OUI' : 'NON'}</span>` : ''}
+        ${parsed.price_mentioned ? `<span style="font-size:10px;color:var(--yellow)">Prix: ${parsed.price_mentioned.toLocaleString('fr')} F</span>` : ''}
+      </div>
+      ${msgs.length ? `
+      <div style="padding:8px 12px;border-bottom:1px solid var(--border)">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Prompt envoyé (${msgs.length} messages)</div>
+        <div class="llm-prompt">${escHtml(JSON.stringify(msgs, null, 2))}</div>
+      </div>` : ''}
+      ${llm.raw_response ? `
+      <div style="padding:8px 12px">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Réponse brute DeepSeek</div>
+        <div class="llm-prompt" style="color:var(--k-green)">${escHtml(llm.raw_response)}</div>
+      </div>` : ''}
+    </div>
+  `;
+}
+
+function updateMemory(trace) {
+  // La structure réelle: trace.memory.stm / trace.memory.ltm / trace.memory.episodic
+  const mem = trace.memory || {};
+  const stm = mem.stm || trace.stm || {};
+  const ltm = mem.ltm || trace.ltm || {};
+  const epis = mem.episodic || trace.episodic || null;
+
+  // STM — champs réels: total_messages, compressed, recent_window
+  const stmCount = stm.total_messages ?? stm.msg_count;
+  if (stmCount !== undefined) {
+    $('stmStatus').textContent = 'Actif'; $('stmStatus').className = 'mem-status ok';
+    $('stmMsgs').textContent = stmCount; $('stmMsgs').className = 'mem-row-value ok';
+    const win = stm.recent_window ?? stm.window ?? stm.window_size ?? '—';
+    $('stmWindow').textContent = win; $('stmWindow').className = 'mem-row-value ok';
+    $('stmCompressed').textContent = stm.compressed ? 'Oui' : 'Non';
+    $('stmCompressed').className = `mem-row-value ${stm.compressed ? 'ok' : ''}`;
+    $('sumStm').textContent = `${win}msgs`; $('sumStm').className = 'value ok';
+  }
+
+  // LTM — champs réels: fact_count, facts, preferences
+  const ltmFc = ltm.fact_count ?? ltm.facts_count;
+  if (ltmFc !== undefined) {
+    $('ltmStatus').textContent = 'Actif'; $('ltmStatus').className = 'mem-status ok';
+    $('ltmFacts').textContent = ltmFc; $('ltmFacts').className = 'mem-row-value ok';
+    const sc = ltm.summary_count ?? ltm.summaries_count ?? 0;
+    $('ltmSummaries').textContent = sc; $('ltmSummaries').className = 'mem-row-value ok';
+    $('ltmExtracted').textContent = ltm.extracted ? 'Oui (async)' : 'Non';
+    $('ltmExtracted').className = `mem-row-value ${ltm.extracted ? 'ok' : ''}`;
+  }
+
+  // Episodic
+  if (epis) {
+    const sc = epis.session_count ?? (Array.isArray(epis.sessions) ? epis.sessions.length : 0);
+    const fc = epis.fact_count ?? 0;
+    $('episStatus').textContent = 'Actif'; $('episStatus').className = 'mem-status ok';
+    $('episSessions').textContent = sc; $('episSessions').className = 'mem-row-value ok';
+    $('episFacts').textContent = fc; $('episFacts').className = 'mem-row-value ok';
+    $('episContext').textContent = epis.has_context ? 'Injecté' : 'Aucun';
+    $('episContext').className = `mem-row-value ${epis.has_context ? 'ok' : ''}`;
+  } else {
+    // Episodic null = premier message, normal
+    $('episStatus').textContent = '1er message'; $('episStatus').className = 'mem-status off';
+  }
+}
+
+function updateTools(trace) {
+  const tools = trace.tool_calls || [];
+  if (!tools.length) { $('toolsEmpty').style.display = ''; $('toolsContent').style.display = 'none'; return; }
+  $('toolsEmpty').style.display = 'none';
+  const c = $('toolsContent');
+  c.style.display = 'flex';
+  c.style.flexDirection = 'column';
+  c.style.gap = '8px';
+  $('cntTools').textContent = tools.length;
+
+  tools.forEach(t => {
+    const card = document.createElement('div');
+    card.className = 'tool-call-card';
+    const toolName = t.tool || t.tool_name || t.name || '?';
+    const args = t.args || t.params || t.arguments;
+    card.innerHTML = `
+      <div class="tool-call-header">
+        <span class="tool-call-name">${toolName}</span>
+        ${t.reason ? `<span style="font-size:10px;color:var(--text3);flex:1;margin-left:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(t.reason)}</span>` : ''}
+        <span class="tool-call-status ${t.error ? 'err' : 'ok'}">${t.error ? 'ERREUR' : 'OK'}</span>
+      </div>
+      <div class="tool-call-body">
+        <div class="tool-call-label">Args</div>
+        <pre class="tool-call-pre">${syntaxHL(args)}</pre>
+        ${t.result !== undefined ? `<div class="tool-call-label" style="margin-top:6px">Résultat</div><pre class="tool-call-pre">${syntaxHL(t.result)}</pre>` : ''}
+        ${t.error ? `<div class="tool-call-label" style="margin-top:6px;color:var(--red)">Erreur</div><pre class="tool-call-pre" style="color:var(--red)">${escHtml(String(t.error))}</pre>` : ''}
+      </div>
+    `;
+    c.appendChild(card);
+  });
+}
+
+// ── LOGS ──
+const logLines = [];
+function addLog(level, msg) {
+  logLines.push({ level, msg, ts: now() });
+  $('logsEmpty').style.display = 'none';
+  const c = $('logsContent');
+  c.style.display = 'flex';
+  c.style.flexDirection = 'column';
+  c.style.gap = '1px';
+  const el = document.createElement('div');
+  el.className = `log-line ${level}`;
+  el.innerHTML = `<span class="log-ts">${now()}</span><span class="log-level">${level.toUpperCase()}</span>${escHtml(msg)}`;
+  c.appendChild(el);
+  $('cntLogs').textContent = logLines.length;
+  $('pane-logs').scrollTop = $('pane-logs').scrollHeight;
+}
+
+// ── HELPERS ──
+function escHtml(s) {
+  if (s === null || s === undefined) return 'null';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function syntaxHL(data) {
+  let str;
+  if (typeof data === 'object') str = JSON.stringify(data, null, 2);
+  else str = String(data ?? 'null');
+  return escHtml(str)
+    .replace(/"([^"]+)":/g, '<span style="color:#79b8ff">"$1":</span>')
+    .replace(/: "([^"]*)"/g, ': <span style="color:#9ecbff">"$1"</span>')
+    .replace(/: (true|false)/g, ': <span style="color:#f97583">$1</span>')
+    .replace(/: (\d+\.?\d*)/g, ': <span style="color:#f8c555">$1</span>');
+}
+
+// ── RESET ──
+$('btnReset').addEventListener('click', () => {
+  state.turnCount = 0; state.lastTrace = null; state._lastMsg = null;
+  showTakeover(false);
+  $('chatMessages').innerHTML = '<div class="msg-system">Session réinitialisée</div>';
+  $('pipelineEvents').innerHTML = ''; $('pipelineEmpty').style.display = '';
+  $('llmContent').innerHTML = ''; $('llmEmpty').style.display = '';
+  $('toolsContent').innerHTML = ''; $('toolsEmpty').style.display = '';
+  $('logsContent').innerHTML = ''; $('logsEmpty').style.display = '';
+  $('cntPipeline').textContent = '0';
+  $('cntTools').textContent = '0';
+  $('cntLogs').textContent = '0';
+  $('sumMode').textContent = '—'; $('sumLatency').textContent = '—';
+  $('sumStm').textContent = '—'; $('sumTurns').textContent = '0';
+  $('sumFallback').textContent = '—';
+  // Reset memory display
+  ['stmStatus','ltmStatus','episStatus'].forEach(id => { $(id).textContent='Inactif'; $(id).className='mem-status off'; });
+  ['stmMsgs','stmWindow','stmCompressed','ltmFacts','ltmSummaries','ltmExtracted','episSessions','episFacts','episContext'].forEach(id => { $(id).textContent='—'; $(id).className='mem-row-value off'; });
+  addLog('info', 'Session réinitialisée');
+  toast('Session réinitialisée', 'info');
+});
+
+// ── INPUT HANDLING ──
+$('msgInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+$('msgInput').addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
+$('btnSend').addEventListener('click', sendMessage);
+
+// ── INIT ──
+loadMerchants();
+addLog('info', 'Interface KALGA Test Chat initialisée');
+addLog('info', `API: ${apiBase()}`);
+</script>
+</body>
+</html>

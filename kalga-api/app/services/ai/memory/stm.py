@@ -71,10 +71,10 @@ async def _summarize(messages: List[Dict], deepseek_client) -> Optional[str]:
         user_prompt = f"Résume cette conversation:\n\n{history_text}"
 
         summary = await deepseek_client.chat_completion(
-            system_prompt=system_prompt,
-            user_message=user_prompt,
+            messages=[{"role": "user", "content": user_prompt}],
             temperature=0.3,
-            max_tokens=200
+            max_tokens=200,
+            system_prompt=system_prompt
         )
 
         if summary:

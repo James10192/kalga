@@ -105,10 +105,10 @@ async def _extract_from_conversation(
         )
 
         response = await deepseek_client.chat_completion(
-            system_prompt=_EXTRACTION_SYSTEM_PROMPT,
-            user_message=user_prompt,
+            messages=[{"role": "user", "content": user_prompt}],
             temperature=0.1,
-            max_tokens=400
+            max_tokens=400,
+            system_prompt=_EXTRACTION_SYSTEM_PROMPT
         )
 
         if not response:

@@ -176,6 +176,11 @@ STOREFRONT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "storefront
 if os.path.exists(STOREFRONT_DIR):
     app.mount("/boutique", StaticFiles(directory=STOREFRONT_DIR, html=True), name="storefront")
 
+# Servir le dashboard (test chat + dashboard marchand)
+DASHBOARD_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "dashboard")
+if os.path.exists(DASHBOARD_DIR):
+    app.mount("/dashboard", StaticFiles(directory=DASHBOARD_DIR, html=True), name="dashboard")
+
 
 @app.get("/")
 async def root():

@@ -1,8 +1,12 @@
-from fastapi import APIRouter, HTTPException
+import os
+import uuid
+from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from ..database import get_db
 from ..models.schemas import ProductCreate
 from typing import List, Optional
+
+UPLOADS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "uploads")
 
 router = APIRouter(prefix="/products", tags=["Produits"])
 
@@ -185,6 +189,52 @@ async def update_product_stock(code: str, stock: StockUpdate):
         "success": True,
         "message": f"Stock mis à jour: {stock.quantity}" + (" (illimité)" if stock.quantity == -1 else " unités"),
         "product_code": code
+    }
+
+
+@router.post("/{code}/upload-image")
+async def upload_product_image(code: str, file: UploadFile = File(...)):
+    """
+    Upload une image pour un produit.
+    Accepte JPG, PNG, WEBP. Max 5MB.
+    Stocke dans /uploads/ et met à jour image_path du produit.
+    """
+    db = await get_db()
+
+    if not code.startswith("#"):
+        code = f"#{code}"
+
+    product = await db.get_product_by_code(code)
+    if not product:
+        raise HTTPException(status_code=404, detail=f"Produit {code} non trouvé")
+
+    # Validation type
+    allowed = {"image/jpeg", "image/png", "image/webp"}
+    if file.content_type not in allowed:
+        raise HTTPException(status_code=400, detail="Format non supporté. Utilise JPG, PNG ou WEBP.")
+
+    # Lecture et limite taille (5MB)
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Image trop lourde. Maximum 5MB.")
+
+    # Générer un nom unique
+    ext = file.filename.rsplit(".", 1)[-1] if "." in file.filename else "jpg"
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    filepath = os.path.join(UPLOADS_DIR, filename)
+    os.makedirs(UPLOADS_DIR, exist_ok=True)
+
+    with open(filepath, "wb") as f:
+        f.write(content)
+
+    # Mettre à jour image_path en base
+    await db.products.update(product['id'], image_path=filename)
+
+    return {
+        "success": True,
+        "product_code": code,
+        "image_path": filename,
+        "image_url": f"/uploads/{filename}"
     }
 
 

@@ -16,7 +16,8 @@ from .conversation_ai import (
     generate_response, extract_product_code, analyze_conversation_health,
     is_tool_call, parse_tool_call
 )
-from .ai.detectors import detect_other_products_request
+from .ai.detectors import detect_other_products_request, detect_same_variant_photo_request
+from .ai.debug_tracer import DebugTracer
 
 logger = logging.getLogger("kalga.chat")
 
@@ -42,7 +43,7 @@ class ChatService:
         self.followups = get_followup_service()
         self.client_history = get_client_history_repository()
 
-    async def handle_incoming_message(self, message: IncomingMessage) -> BotResponse:
+    async def handle_incoming_message(self, message: IncomingMessage, tracer: Optional[DebugTracer] = None) -> BotResponse:
         """
         Traite un message entrant depuis WhatsApp.
         Point d'entrée principal du flux de chat.
@@ -50,6 +51,13 @@ class ChatService:
         logger.info(f"=== MESSAGE ENTRANT ===")
         logger.info(f"Marchand: {message.merchant_phone} | Client: {message.client_phone}")
         logger.info(f"Message: {message.message[:80]}...")
+        if tracer:
+            tracer.event("CHAT", "message_received",
+                merchant_phone=message.merchant_phone,
+                client_phone=message.client_phone,
+                message_len=len(message.message),
+                product_code=message.product_code
+            )
 
         # 1. Identifier le marchand
         merchant = await self.merchants.get_by_phone(message.merchant_phone)
@@ -161,6 +169,13 @@ class ChatService:
             product=product
         )
 
+        if tracer:
+            tracer.event("CHAT", "ai_generate_start",
+                conversation_status=current_status,
+                history_len=len(history),
+                has_negotiation_context=bool(negotiation_context)
+            )
+
         bot_response, price_offer, deal_accepted, new_status, send_location = await generate_response(
             client_message=message.message,
             product=product,
@@ -168,10 +183,18 @@ class ChatService:
             current_offer=conversation.get('current_offer'),
             conversation_status=current_status,
             negotiation_context=negotiation_context,
-            merchant_data=merchant
+            merchant_data=merchant,
+            tracer=tracer,
+            client_phone=message.client_phone
         )
 
         logger.info(f"Réponse IA: {bot_response[:80] if bot_response else 'NONE'}... | Status: {new_status} | Location: {send_location}")
+        if tracer:
+            tracer.event("CHAT", "ai_generate_done",
+                new_status=new_status,
+                send_location=send_location,
+                response_len=len(bot_response) if bot_response else 0
+            )
 
         # 6.1 Dispatcher le tool_call si DeepSeek a choisi une action
         images_to_send = None
@@ -243,6 +266,7 @@ class ChatService:
 
         # Construire les données de localisation à passer au bridge
         merchant_location = None
+        human_takeover = False
         if send_location:
             latitude = merchant.get('latitude')
             longitude = merchant.get('longitude')
@@ -261,6 +285,8 @@ class ChatService:
             else:
                 logger.warning(f"[LOCATION] Aucune donnée de localisation disponible pour {message.merchant_phone}")
                 send_location = False
+                # Localisation demandée mais non configurée → human takeover
+                human_takeover = True
 
         # 7.6 Préparer le message de fin de transaction (sera envoyé par le bridge APRÈS la réponse principale)
         is_transaction_end = (
@@ -308,6 +334,7 @@ class ChatService:
             send_location=send_location,
             merchant_location=merchant_location,
             goodbye_message=goodbye_message,
+            human_takeover=human_takeover,
             images_to_send=images_to_send
         )
 

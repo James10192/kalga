@@ -156,6 +156,28 @@ class BotResponse(BaseModel):
     send_location: bool = False  # Si True, le bridge envoie la localisation APRÈS le texte
     merchant_location: Optional[dict] = None  # Données localisation {latitude, longitude, name, address}
     goodbye_message: Optional[str] = None  # Message de fin envoyé APRÈS tout le reste (deal conclu)
+    human_takeover: bool = False  # Si True, l'IA passe la main au marchand humain
+
+
+class MerchantReply(BaseModel):
+    """Réponse manuelle du marchand pour une conversation (human takeover)"""
+    merchant_id: int
+    conversation_id: int
+    client_phone: str
+    client_question: str   # La question du client à laquelle on répond
+    merchant_answer: str   # La réponse du marchand
+    save_to_kb: bool = True  # Sauvegarder automatiquement en KB
+
+
+# === DEBUG / TEST CHAT ===
+class DebugIncomingMessage(IncomingMessage):
+    """Message entrant avec flag debug pour l'endpoint de test"""
+    debug: bool = True
+
+
+class DebugBotResponse(BotResponse):
+    """Réponse étendue avec trace complète du pipeline AI"""
+    debug_trace: Optional[dict] = None  # DebugTracer.to_dict()
 
 
 # === VITRINE PUBLIQUE ===

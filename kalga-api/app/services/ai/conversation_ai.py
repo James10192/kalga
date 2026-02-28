@@ -10,15 +10,22 @@ DeepSeek agentique (function calling) comme chef d'orchestre:
 4. Fallback sur conversation_engine si DeepSeek est indisponible
 """
 
+import asyncio
 import json
 import logging
+import time
 from typing import Optional, List, Dict, Tuple
 
 from ...database.repositories.knowledge_repo import KnowledgeBaseRepository
+from ...database.repositories.client_history_repo import get_client_history_repository
 
 from .conversation_engine import get_conversation_engine
 from .deepseek_client import get_deepseek_client, CORRECTION_SYSTEM_PROMPT
 from .fallback_responses import FallbackResponses
+from .debug_tracer import DebugTracer
+from .memory import stm as stm_module
+from .memory import ltm as ltm_module
+from .memory import episodic as episodic_module
 from .tools import TOOLS, TOOL_NAMES
 from .detectors import (
     detect_delivery_request,
@@ -63,7 +70,9 @@ async def generate_response(
     current_offer: Optional[float] = None,
     conversation_status: str = "active",
     negotiation_context: Optional[Dict] = None,
-    merchant_data: Optional[Dict] = None
+    merchant_data: Optional[Dict] = None,
+    tracer: Optional[DebugTracer] = None,
+    client_phone: Optional[str] = None
 ) -> Tuple[Optional[str], Optional[float], bool, str, bool]:
     """
     Génère une réponse via DeepSeek.
@@ -85,21 +94,41 @@ async def generate_response(
     # === PRIORITÉ 1: Conversation terminée ===
     if conversation_status == "ended":
         logger.info("Conversation terminée, pas de réponse")
+        if tracer:
+            tracer.set_mode("ended")
+            tracer.event("CHAT", "conversation_ended", reason="status=ended")
         return None, current_offer, True, conversation_status, False
 
     # === PRIORITÉ 2: États pending (déterministes, pas d'IA nécessaire) ===
     if conversation_status == "pending_pickup":
+        if tracer:
+            tracer.set_mode("pending_pickup")
         resp, offer, accepted, status = _handle_pending_pickup(client_message, current_offer)
         resend_location = detect_location_request(client_message)
         return resp, offer, accepted, status, resend_location
 
     if conversation_status == "pending_delivery":
+        if tracer:
+            tracer.set_mode("pending_delivery")
         resp, offer, accepted, status = _handle_pending_delivery(client_message, current_offer)
         return resp, offer, accepted, status, False
 
+    # === DÉTECTEURS (trace avant priorité 3) ===
+    _end_conv = detect_end_conversation(client_message) and not is_first_message
+    _correction = detect_correction_signal(client_message) and not is_first_message
+    if tracer:
+        tracer.set_detector("detect_end_conversation", _end_conv)
+        tracer.set_detector("detect_correction_signal", _correction)
+        tracer.set_detector("detect_delivery_request", detect_delivery_request(client_message))
+        tracer.set_detector("detect_pickup_request", detect_pickup_request(client_message))
+        tracer.set_detector("detect_location_request", detect_location_request(client_message))
+        tracer.set_detector("is_first_message", is_first_message)
+
     # === PRIORITÉ 3: Fin de conversation explicite ===
-    if detect_end_conversation(client_message) and not is_first_message:
+    if _end_conv:
         logger.info(f"Fin de conversation détectée: {client_message[:30]}")
+        if tracer:
+            tracer.set_mode("end_conversation")
         return None, current_offer, False, "ended", False
 
     # === AJUSTEMENT FIDÉLITÉ (règle business) ===
@@ -114,6 +143,17 @@ async def generate_response(
 
     # === BASE DE CONNAISSANCES ===
     knowledge_context = await _get_knowledge_context(merchant_data, client_message)
+    if tracer:
+        tracer.set_kb_results(knowledge_context)
+        tracer.add_tool_call(
+            "kb_search",
+            reason="knowledge base lookup before LLM call",
+            args={
+                "query": client_message[:100],
+                "merchant_id": merchant_data.get('id') if merchant_data else None,
+                "results_found": len(knowledge_context) if knowledge_context else 0
+            }
+        )
 
     # === DONNÉES MARCHAND ===
     merchant_address = None
@@ -140,7 +180,7 @@ async def generate_response(
 
     # === PRIORITÉ 4: Signal de correction client ===
     # Le client dit explicitement que le bot a répondu à côté → mode correction
-    if detect_correction_signal(client_message) and not is_first_message:
+    if _correction:
         # Guard anti-boucle : max 2 corrections consécutives, puis redirection marchand
         recent_bot = [m for m in conversation_history[-6:] if not m.get('is_from_client')]
         correction_attempts = sum(
@@ -156,6 +196,8 @@ async def generate_response(
             )
 
         logger.info(f"Signal de correction détecté: {client_message[:50]}")
+        if tracer:
+            tracer.set_mode("correction")
         deepseek = get_deepseek_client()
         try:
             correction_messages = deepseek.build_correction_messages(
@@ -204,10 +246,53 @@ async def generate_response(
             current_offer, False, conversation_status, False
         )
 
-    # === APPEL DEEPSEEK AGENTIQUE ===
+    # === STM: compression historique ===
+    merchant_id = merchant_data.get('id') if merchant_data else None
     deepseek = get_deepseek_client()
 
+    stm_summary, stm_recent = await stm_module.build_context(
+        history=conversation_history,
+        deepseek_client=deepseek
+    )
+    stm_compressed = stm_summary is not None
+    if tracer:
+        tracer.set_stm(
+            msg_count=len(conversation_history),
+            compressed=stm_compressed,
+            window=len(stm_recent)
+        )
+    if stm_compressed:
+        logger.info(f"STM: {len(conversation_history)} msgs compressés, fenêtre={len(stm_recent)}")
+
+    # === EPISODIC: contexte inter-sessions ===
+    episodic_context = None
+    if client_phone and merchant_id and not is_first_message:
+        try:
+            client_history_repo = get_client_history_repository()
+            episodic_context = await episodic_module.get_episodic_context(
+                repo=client_history_repo,
+                merchant_id=merchant_id,
+                client_phone=client_phone,
+                product_name=product.get('name', '')
+            )
+            if tracer:
+                facts = await client_history_repo.get_memory_facts(merchant_id, client_phone) or []
+                summaries = await client_history_repo.get_conversation_summaries(merchant_id, client_phone) or []
+                tracer.set_episodic(sessions=summaries[:3], fact_count=len(facts))
+                if episodic_context:
+                    tracer.event("MEMORY", "episodic_injected", sessions=len(summaries))
+        except Exception as e:
+            logger.debug(f"Episodic context skipped: {e}")
+
+    # === APPEL DEEPSEEK ===
+    if tracer:
+        tracer.set_mode("deepseek")
+
     try:
+        image_path = product.get('image_path')
+        has_image = bool(image_path)
+        image_url = f"/uploads/{image_path}" if image_path else None
+
         system_prompt, user_message = deepseek.build_agentic_messages(
             product_name=product['name'],
             price=product['price'],
@@ -224,9 +309,12 @@ async def generate_response(
             merchant_persona=merchant_persona,
             knowledge_context=knowledge_context,
             conversation_status=conversation_status,
-            current_offer=current_offer
+            current_offer=current_offer,
+            has_image=has_image,
+            image_url=image_url
         )
 
+        _t0 = time.time()
         agentic_result = await deepseek.agentic_completion(
             system_prompt=system_prompt,
             user_message=user_message,
@@ -234,14 +322,27 @@ async def generate_response(
             temperature=0.7,
             max_tokens=500
         )
+        _latency = (time.time() - _t0) * 1000
+
+        if tracer:
+            tracer.set_llm_call(
+                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_message}],
+                raw_response=str(agentic_result) if agentic_result else None,
+                parsed=agentic_result,
+                latency_ms=_latency
+            )
 
     except Exception as e:
         logger.warning(f"Erreur appel DeepSeek agentique: {e}")
+        if tracer:
+            tracer.event("LLM", "deepseek_error", error=str(e))
         agentic_result = None
 
     # === FALLBACK si DeepSeek échoue ===
     if not agentic_result:
         logger.info("DeepSeek indisponible — fallback sur conversation_engine")
+        if tracer:
+            tracer.set_fallback("deepseek_unavailable")
         return await _fallback_to_engine(
             client_message=client_message,
             product=product,
@@ -308,6 +409,41 @@ async def generate_response(
         new_status = "negotiating"
     else:
         new_status = conversation_status
+
+    if tracer:
+        tracer.event(
+            "BUSINESS", "status_determined",
+            old_status=conversation_status,
+            new_status=new_status
+        )
+
+    # === LTM: extraction faits à la fin de conversation (non-bloquant) ===
+    conversation_ended = new_status in ("pending_delivery", "pending_pickup", "ended", "agreed")
+    if conversation_ended and client_phone and merchant_id and conversation_history:
+        try:
+            client_history_repo = get_client_history_repository()
+            asyncio.create_task(ltm_module.extract_and_save(
+                repo=client_history_repo,
+                merchant_id=merchant_id,
+                client_phone=client_phone,
+                history=conversation_history,
+                product=product,
+                outcome="ended",
+                deepseek_client=deepseek
+            ))
+            if tracer:
+                tracer.event("MEMORY", "ltm_extraction_scheduled",
+                    history_len=len(conversation_history))
+        except Exception as e:
+            logger.debug(f"LTM scheduling skipped: {e}")
+    elif tracer and client_phone and merchant_id:
+        try:
+            client_history_repo = get_client_history_repository()
+            existing_facts = await client_history_repo.get_memory_facts(merchant_id, client_phone) or []
+            existing_prefs = await client_history_repo.get_preferences(merchant_id, client_phone)
+            tracer.set_ltm(facts=existing_facts, preferences=existing_prefs)
+        except Exception as e:
+            logger.debug(f"LTM snapshot skipped: {e}")
 
     return response, current_offer, False, new_status, False
 
