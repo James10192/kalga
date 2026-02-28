@@ -12,10 +12,8 @@ from ..database.repositories.knowledge_repo import KnowledgeBaseRepository
 from ..models.schemas import IncomingMessage, BotResponse
 from .notification_service import NotificationService
 from .followup_service import get_followup_service
-from .conversation_ai import (
-    generate_response, extract_product_code, analyze_conversation_health,
-    is_tool_call, parse_tool_call
-)
+from .conversation_ai import generate_response, extract_product_code, analyze_conversation_health
+from .ai.conversation_ai import is_tool_call, parse_tool_call
 from .ai.detectors import detect_other_products_request, detect_same_variant_photo_request
 from .ai.debug_tracer import DebugTracer
 
