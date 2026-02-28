@@ -249,13 +249,16 @@ class DeepSeekClient:
         merchant_persona: Dict = None,
         knowledge_context: List[str] = None,
         conversation_status: str = "active",
-        current_offer: float = None
+        current_offer: float = None,
+        episodic_context: str = None,
+        stm_summary: str = None,
+        stm_recent: List[Dict] = None
     ):
         """
         Construit (system_prompt, user_message) pour agentic_completion().
 
         system_prompt = brief produit + TOOL_DECISION_GUIDE
-        user_message  = historique + message client + état négociation
+        user_message  = [mémoire épisodique] + [résumé STM] + [msgs récents] + message client + état
         """
         from .tools import TOOL_DECISION_GUIDE
 
@@ -282,18 +285,30 @@ class DeepSeekClient:
         system_prompt += f"\n\n{TOOL_DECISION_GUIDE}"
 
         # --- User message : historique + message client ---
-        recent_history = conversation_history[-45:] if len(conversation_history) > 45 else conversation_history
+        # Si STM a compressé, on utilise stm_recent (fenêtre verbatim) ;
+        # sinon on prend les 45 derniers messages bruts.
+        history_source = stm_recent if stm_summary is not None and stm_recent is not None \
+            else (conversation_history[-45:] if len(conversation_history) > 45 else conversation_history)
+
         history_lines = []
-        for msg in recent_history:
+        for msg in history_source:
             role = "Client" if msg.get('is_from_client') else "Toi"
             history_lines.append(f"{role}: {msg.get('content', '')}")
         history_text = "\n".join(history_lines)
 
         parts = []
+        # 1. Mémoire épisodique (sessions passées + faits LTM)
+        if not is_first_message and episodic_context:
+            parts.append(episodic_context)
+        # 2. Résumé STM des anciens messages compressés
+        if not is_first_message and stm_summary:
+            parts.append(f"[RÉSUMÉ DES ÉCHANGES PRÉCÉDENTS]\n{stm_summary}")
         if is_first_message:
             parts.append("C'est le PREMIER message de ce client. Commence par saluer et présente le prix.")
+        # 3. Messages récents verbatim
         if history_text:
-            parts.append(f"CONVERSATION EN COURS:\n{history_text}")
+            label = "[DERNIERS MESSAGES]" if stm_summary else "CONVERSATION EN COURS:"
+            parts.append(f"{label}\n{history_text}")
 
         parts.append(f'\nLe client dit maintenant: "{client_message}"')
 

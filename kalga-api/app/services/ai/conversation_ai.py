@@ -314,6 +314,9 @@ async def generate_response(
             knowledge_context=knowledge_context,
             conversation_status=conversation_status,
             current_offer=current_offer,
+            episodic_context=episodic_context,
+            stm_summary=stm_summary,
+            stm_recent=stm_recent,
         )
 
         _t0 = time.time()
