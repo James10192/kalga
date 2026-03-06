@@ -56,14 +56,6 @@ class MessageService {
             }
 
             try {
-                await simulateHumanBehavior(
-                    sock,
-                    message.key,
-                    senderJid,
-                    merchantPhone,
-                    () => whatsappService.isClientReady(merchantPhone)
-                );
-
                 const response = await kalgaApiService.sendIncomingMedia({
                     merchantPhone,
                     clientPhone: senderPhone,
@@ -76,6 +68,15 @@ class MessageService {
                 try { require('fs').unlinkSync(voiceData.filepath); } catch (_) {}
 
                 if (response && !response.no_response) {
+                    const presenceType = response.audio_base64 ? 'recording' : 'composing';
+                    await simulateHumanBehavior(
+                        sock,
+                        message.key,
+                        senderJid,
+                        merchantPhone,
+                        () => whatsappService.isClientReady(merchantPhone),
+                        presenceType
+                    );
                     await this._sendBotResponse(merchantPhone, sock, senderJid, message, response);
                 }
             } catch (error) {
@@ -91,14 +92,6 @@ class MessageService {
             if (imageName) {
                 const fullPath = require('path').join(require('../config').config.uploadsDir, imageName);
                 try {
-                    await simulateHumanBehavior(
-                        sock,
-                        message.key,
-                        senderJid,
-                        merchantPhone,
-                        () => whatsappService.isClientReady(merchantPhone)
-                    );
-
                     const response = await kalgaApiService.sendIncomingMedia({
                         merchantPhone,
                         clientPhone: senderPhone,
@@ -111,6 +104,15 @@ class MessageService {
                     try { require('fs').unlinkSync(fullPath); } catch (_) {}
 
                     if (response && !response.no_response) {
+                        const presenceType = response.audio_base64 ? 'recording' : 'composing';
+                        await simulateHumanBehavior(
+                            sock,
+                            message.key,
+                            senderJid,
+                            merchantPhone,
+                            () => whatsappService.isClientReady(merchantPhone),
+                            presenceType
+                        );
                         await this._sendBotResponse(merchantPhone, sock, senderJid, message, response);
                     }
                 } catch (error) {
@@ -168,19 +170,26 @@ class MessageService {
                 return;
             }
 
-            // Simuler comportement humain
+            // Simuler comportement humain (vocal → 'recording', texte → 'composing')
+            const presenceType = response.audio_base64 ? 'recording' : 'composing';
             await simulateHumanBehavior(
                 sock,
                 message.key,
                 senderJid,
                 merchantPhone,
-                () => whatsappService.isClientReady(merchantPhone)
+                () => whatsappService.isClientReady(merchantPhone),
+                presenceType
             );
 
-            // Envoyer le texte EN PREMIER
-            const sent = await whatsappService.sendMessage(merchantPhone, senderJid, botResponse);
-            if (sent) {
-                logger.info('RÉPONSE ENVOYÉE', { to: senderJid });
+            // Envoyer vocal PTT ou texte EN PREMIER
+            let sent = false;
+            if (response.audio_base64) {
+                const audioBuffer = Buffer.from(response.audio_base64, 'base64');
+                sent = await whatsappService.sendVoiceNote(merchantPhone, senderJid, audioBuffer);
+                if (sent) logger.info('RÉPONSE VOCALE ENVOYÉE', { to: senderJid, bytes: audioBuffer.length });
+            } else {
+                sent = await whatsappService.sendMessage(merchantPhone, senderJid, botResponse);
+                if (sent) logger.info('RÉPONSE ENVOYÉE', { to: senderJid });
             }
 
             // Envoyer les images si présentes (variantes)
@@ -221,7 +230,7 @@ class MessageService {
     }
 
     /**
-     * Envoie la réponse du bot (texte + images + localisation + goodbye)
+     * Envoie la réponse du bot (texte ou vocal PTT + images + localisation + goodbye)
      * Utilisé par les flux texte, vocal et visuel
      */
     async _sendBotResponse(merchantPhone, sock, senderJid, message, response) {
@@ -231,8 +240,16 @@ class MessageService {
             return;
         }
 
-        const sent = await whatsappService.sendMessage(merchantPhone, senderJid, botResponse);
-        if (sent) logger.info('RÉPONSE ENVOYÉE', { to: senderJid });
+        let sent = false;
+        if (response.audio_base64) {
+            // Envoyer comme note vocale PTT
+            const audioBuffer = Buffer.from(response.audio_base64, 'base64');
+            sent = await whatsappService.sendVoiceNote(merchantPhone, senderJid, audioBuffer);
+            if (sent) logger.info('RÉPONSE VOCALE ENVOYÉE', { to: senderJid, bytes: audioBuffer.length });
+        } else {
+            sent = await whatsappService.sendMessage(merchantPhone, senderJid, botResponse);
+            if (sent) logger.info('RÉPONSE ENVOYÉE', { to: senderJid });
+        }
 
         if (response.images_to_send && response.images_to_send.length > 0) {
             await this._sendImages(merchantPhone, senderJid, response.images_to_send);

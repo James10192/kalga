@@ -157,6 +157,7 @@ class BotResponse(BaseModel):
     merchant_location: Optional[dict] = None  # Données localisation {latitude, longitude, name, address}
     goodbye_message: Optional[str] = None  # Message de fin envoyé APRÈS tout le reste (deal conclu)
     human_takeover: bool = False  # Si True, l'IA passe la main au marchand humain
+    audio_base64: Optional[str] = None  # OGG/Opus en base64 — PTT WhatsApp (si use_voice: true)
 
 
 class MerchantReply(BaseModel):

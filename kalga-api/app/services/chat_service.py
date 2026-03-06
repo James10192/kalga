@@ -234,7 +234,7 @@ class ChatService:
                 has_negotiation_context=bool(negotiation_context)
             )
 
-        bot_response, price_offer, deal_accepted, new_status, send_location = await generate_response(
+        bot_response, price_offer, deal_accepted, new_status, send_location, use_voice = await generate_response(
             client_message=message.message,
             product=product,
             conversation_history=history,
@@ -407,6 +407,28 @@ class ChatService:
             new_status=new_status
         )
 
+        # 9. TTS — générer le vocal si use_voice demandé par l'IA
+        audio_base64 = None
+        if use_voice and bot_response:
+            try:
+                import base64
+                from .tts_service import text_to_ogg
+                # Détecter la langue depuis le message client ou utiliser 'fr' par défaut
+                lang = "fr"
+                if message.message and "[🎤 Vocal transcrit" in message.message:
+                    import re as _re
+                    m = _re.search(r"\[🎤 Vocal transcrit \((\w+)\)\]", message.message)
+                    if m:
+                        lang = m.group(1)
+                ogg_bytes = await text_to_ogg(bot_response, lang=lang)
+                if ogg_bytes:
+                    audio_base64 = base64.b64encode(ogg_bytes).decode("utf-8")
+                    logger.info(f"TTS vocal généré: {len(ogg_bytes)} bytes OGG (lang={lang})")
+                else:
+                    logger.warning("TTS: génération OGG échouée — réponse texte envoyée")
+            except Exception as e:
+                logger.error(f"Erreur TTS dans chat_service: {e}")
+
         return BotResponse(
             message=bot_response,
             conversation_id=conversation['id'],
@@ -416,7 +438,8 @@ class ChatService:
             merchant_location=merchant_location,
             goodbye_message=goodbye_message,
             human_takeover=human_takeover,
-            images_to_send=images_to_send
+            images_to_send=images_to_send,
+            audio_base64=audio_base64,
         )
 
     async def _get_or_create_conversation(

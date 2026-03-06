@@ -24,9 +24,12 @@ async function randomDelay(min, max) {
  * @param {string} merchantPhone - Numéro du marchand (optionnel)
  * @param {function} isClientReady - Fonction pour vérifier si le client est prêt
  */
-async function simulateHumanBehavior(sock, messageKey, jid, merchantPhone = null, isClientReady = () => true) {
+/**
+ * @param {string} presenceType - 'composing' (texte) ou 'recording' (vocal PTT)
+ */
+async function simulateHumanBehavior(sock, messageKey, jid, merchantPhone = null, isClientReady = () => true, presenceType = 'composing') {
     try {
-        logger.debug('Simulation comportement humain...', { jid });
+        logger.debug('Simulation comportement humain...', { jid, presenceType });
 
         // 1. Marquer le message comme lu (ignorer les erreurs)
         try {
@@ -36,15 +39,15 @@ async function simulateHumanBehavior(sock, messageKey, jid, merchantPhone = null
             // Ignorer silencieusement
         }
 
-        // 2. Petit délai avant de commencer à "taper"
+        // 2. Petit délai avant de commencer à "taper" / "enregistrer"
         await randomDelay(config.initialDelay, config.initialDelay * 2);
 
-        // 3. Envoyer "en train d'écrire"
+        // 3. Envoyer le statut de présence ('composing' ou 'recording')
         try {
             if (!merchantPhone || isClientReady(merchantPhone)) {
                 await sock.presenceSubscribe(jid);
-                await sock.sendPresenceUpdate('composing', jid);
-                logger.debug('Statut "en train d\'écrire" envoyé');
+                await sock.sendPresenceUpdate(presenceType, jid);
+                logger.debug(`Statut "${presenceType}" envoyé`);
             }
         } catch (presErr) {
             // Ignorer silencieusement

@@ -73,7 +73,7 @@ async def generate_response(
     merchant_data: Optional[Dict] = None,
     tracer: Optional[DebugTracer] = None,
     client_phone: Optional[str] = None
-) -> Tuple[Optional[str], Optional[float], bool, str, bool]:
+) -> Tuple[Optional[str], Optional[float], bool, str, bool, bool]:
     """
     Génère une réponse via DeepSeek.
 
@@ -82,11 +82,12 @@ async def generate_response(
     - Quel prix a été mentionné ?
     - Faut-il envoyer la localisation ?
     - Quelle réponse envoyer ?
+    - Faut-il répondre en vocal (PTT) ?
 
     Le code valide uniquement: prix mentionné >= prix minimum.
 
     Returns:
-        (response_message, new_offer, deal_accepted, new_status, send_location)
+        (response_message, new_offer, deal_accepted, new_status, send_location, use_voice)
     """
     is_first_message = len(conversation_history) <= 1
     min_price = product.get('effective_min_price', product['min_price'])
@@ -97,7 +98,7 @@ async def generate_response(
         if tracer:
             tracer.set_mode("ended")
             tracer.event("CHAT", "conversation_ended", reason="status=ended")
-        return None, current_offer, True, conversation_status, False
+        return None, current_offer, True, conversation_status, False, False
 
     # === PRIORITÉ 2: États pending (déterministes, pas d'IA nécessaire) ===
     if conversation_status == "pending_pickup":
@@ -107,7 +108,7 @@ async def generate_response(
                            window=min(len(conversation_history), 8))
         resp, offer, accepted, status = _handle_pending_pickup(client_message, current_offer)
         resend_location = detect_location_request(client_message)
-        return resp, offer, accepted, status, resend_location
+        return resp, offer, accepted, status, resend_location, False
 
     if conversation_status == "pending_delivery":
         if tracer:
@@ -115,7 +116,7 @@ async def generate_response(
             tracer.set_stm(msg_count=len(conversation_history), compressed=False,
                            window=min(len(conversation_history), 8))
         resp, offer, accepted, status = _handle_pending_delivery(client_message, current_offer)
-        return resp, offer, accepted, status, False
+        return resp, offer, accepted, status, False, False
 
     # === DÉTECTEURS (trace avant priorité 3) ===
     _end_conv = detect_end_conversation(client_message) and not is_first_message
@@ -133,7 +134,7 @@ async def generate_response(
         logger.info(f"Fin de conversation détectée: {client_message[:30]}")
         if tracer:
             tracer.set_mode("end_conversation")
-        return None, current_offer, False, "ended", False
+        return None, current_offer, False, "ended", False, False
 
     # === AJUSTEMENT FIDÉLITÉ (règle business) ===
     if negotiation_context:
@@ -247,7 +248,7 @@ async def generate_response(
         # Fallback correction si DeepSeek échoue
         return (
             "Pardon pour la confusion! Dis-moi ta question plus précisément et je te réponds correctement.",
-            current_offer, False, conversation_status, False
+            current_offer, False, conversation_status, False, False
         )
 
     # === STM: compression historique ===
@@ -387,15 +388,15 @@ async def generate_response(
                 min_f = f"{int(min_price):,}".replace(",", " ")
                 price_f = f"{int(offered):,}".replace(",", " ")
                 counter_msg = f"{price_f} F c'est un peu bas! Je peux faire {min_f} F, c'est mon dernier prix."
-                return counter_msg, offered, False, "negotiating", False
+                return counter_msg, offered, False, "negotiating", False, False
 
         # Retourner le tool_call encodé — chat_service dispatch et exécute
         encoded = f"{_TOOL_PREFIX}{name}:{json.dumps(args, ensure_ascii=False)}"
-        return encoded, current_offer, False, conversation_status, False
+        return encoded, current_offer, False, conversation_status, False, False
 
     # === TEXTE LIBRE : réponse normale de négociation ===
-    response = agentic_result.get("content", "").strip()
-    if not response:
+    raw_content = agentic_result.get("content", "").strip()
+    if not raw_content:
         logger.warning("DeepSeek agentic a retourné un texte vide — fallback")
         return await _fallback_to_engine(
             client_message=client_message,
@@ -407,7 +408,32 @@ async def generate_response(
             merchant_data=merchant_data
         )
 
-    logger.info(f"DeepSeek text: {response[:80]}...")
+    # Tenter de parser le JSON (IDENTITY_PROMPT demande un JSON avec "response" + "use_voice")
+    # Si le parsing échoue (fallback ou ancienne version), on utilise le texte brut
+    use_voice = False
+    parsed = deepseek.parse_json_response(raw_content)
+    if parsed:
+        response = parsed["response"]
+        use_voice = parsed.get("use_voice", False)
+        # Propager send_location depuis le JSON si non déjà détecté
+        if parsed.get("send_location") and not detect_location_request(client_message):
+            pass  # send_location sera False dans le retour — géré par l'IA via tool
+    else:
+        response = raw_content
+
+    if not response:
+        logger.warning("DeepSeek: champ 'response' vide après parsing — fallback")
+        return await _fallback_to_engine(
+            client_message=client_message,
+            product=product,
+            conversation_history=conversation_history,
+            current_offer=current_offer,
+            conversation_status=conversation_status,
+            is_first_message=is_first_message,
+            merchant_data=merchant_data
+        )
+
+    logger.info(f"DeepSeek text: {response[:80]}... (voice={use_voice})")
 
     # Statut : progresser si une offre est mentionnée dans la réponse
     if conversation_status in ("active", "negotiating"):
@@ -453,7 +479,7 @@ async def generate_response(
         except Exception as e:
             logger.debug(f"LTM snapshot skipped: {e}")
 
-    return response, current_offer, False, new_status, False
+    return response, current_offer, False, new_status, False, use_voice
 
 
 # =============================================================================
@@ -530,7 +556,7 @@ async def _fallback_to_engine(
             product_description=product.get('description')
         )
         send_location = detect_location_request(client_message)
-        return response, offer, accepted, status, send_location
+        return response, offer, accepted, status, send_location, False
 
 
 def _handle_pending_pickup(

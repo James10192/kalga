@@ -384,6 +384,47 @@ class WhatsAppService {
     }
 
     /**
+     * Envoie un message vocal PTT (Push-To-Talk)
+     * @param {string} merchantPhone
+     * @param {string} to - JID destinataire
+     * @param {Buffer} audioBuffer - audio OGG/Opus
+     * @returns {Promise<boolean>}
+     */
+    async sendVoiceNote(merchantPhone, to, audioBuffer) {
+        const jid = this.resolveJid(merchantPhone, to);
+
+        try {
+            const sock = this.clients.get(merchantPhone);
+            if (!sock || !this.isClientReady(merchantPhone)) {
+                logger.error('Client non prêt pour envoi vocal PTT');
+                return false;
+            }
+
+            // Waveform synthétique réaliste: 64 valeurs uint8 en courbe sinusoïdale + bruit
+            const waveform = Buffer.alloc(64);
+            for (let i = 0; i < 64; i++) {
+                const sine = Math.sin((i / 64) * Math.PI * 3) * 50 + 50;
+                const noise = (Math.random() - 0.5) * 20;
+                waveform[i] = Math.max(0, Math.min(255, Math.round(sine + noise)));
+            }
+
+            await sock.sendMessage(jid, {
+                audio: audioBuffer,
+                mimetype: 'audio/ogg; codecs=opus',
+                ptt: true,
+                waveform,
+            });
+
+            logger.info('Vocal PTT envoyé', { to: jid, bytes: audioBuffer.length });
+            return true;
+
+        } catch (error) {
+            logger.error('Erreur envoi vocal PTT', { error: error.message });
+            return false;
+        }
+    }
+
+    /**
      * Envoie une image
      */
     async sendImage(merchantPhone, to, imagePath, caption = '') {

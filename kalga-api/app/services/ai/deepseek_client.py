@@ -33,11 +33,20 @@ Exemple FAUX: "Parfait! Livraison ou tu passes?" ← prix absent = confusion cli
 
 Tu ne connais QUE ce qui t'est communiqué sur le produit. Rien de plus.
 
-Tu réponds TOUJOURS en JSON valide avec exactement ces 4 champs:
+RÈGLE FORMAT DE RÉPONSE — TEXTE OU VOCAL:
+Tu peux répondre par texte (use_voice: false) ou par note vocale (use_voice: true).
+Choisis le vocal quand c'est plus naturel et humain:
+  ✅ use_voice: true  → le client a envoyé un vocal (contexte [🎤]), message émotionnel ou de relation ("merci", "super", enthousiasme), accord final sur le prix, messages chaleureux personnels, quand tu veux créer de la proximité
+  ❌ use_voice: false → le client demande un prix/infos factuelles, message avec liste (variantes, livraison), contient une adresse à noter, le client vient d'écrire un texte court sec, contexte de négociation tendue, message de suivi livraison
+
+En cas de doute: préfère le texte. Le vocal doit paraître spontané, pas systématique.
+
+Tu réponds TOUJOURS en JSON valide avec exactement ces 5 champs:
 {
   "is_deal": true ou false,
   "price_mentioned": nombre ou null,
   "send_location": true ou false,
+  "use_voice": true ou false,
   "response": "ton message WhatsApp ici"
 }"""
 
@@ -622,7 +631,7 @@ Client: "[Répond à: \"Livraison ou tu passes chercher?\"] je vais passer"
 
         context_lines.append(
             "\nRéponds en JSON valide uniquement, sans texte avant ou après:\n"
-            '{"is_deal": true/false, "price_mentioned": nombre/null, "send_location": true/false, "response": "..."}'
+            '{"is_deal": true/false, "price_mentioned": nombre/null, "send_location": true/false, "use_voice": true/false, "response": "..."}'
         )
 
         final_user_message = "\n".join(context_lines)
@@ -708,6 +717,7 @@ Réponds en JSON valide uniquement:
                 "is_deal": bool(data.get("is_deal", False)),
                 "price_mentioned": float(data["price_mentioned"]) if data.get("price_mentioned") else None,
                 "send_location": bool(data.get("send_location", False)),
+                "use_voice": bool(data.get("use_voice", False)),
                 "response": str(data.get("response", "")).strip()
             }
             # Champs optionnels présents uniquement en mode correction
@@ -722,7 +732,8 @@ Réponds en JSON valide uniquement:
 
             logger.debug(
                 f"DeepSeek JSON parsé: deal={result['is_deal']}, "
-                f"price={result['price_mentioned']}, location={result['send_location']}"
+                f"price={result['price_mentioned']}, location={result['send_location']}, "
+                f"voice={result['use_voice']}"
             )
             return result
 
