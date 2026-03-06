@@ -73,34 +73,43 @@ def blob_to_embedding(blob: bytes) -> np.ndarray:
 
 def find_similar_products(
     query_embedding: np.ndarray,
-    product_embeddings: List[Tuple[int, str, Optional[bytes]]],
+    product_embeddings: list,
     top_k: int = 3,
     threshold: float = SIMILARITY_THRESHOLD,
-) -> List[Tuple[str, float]]:
+) -> list:
     """
     Retourne les top_k produits les plus similaires à l'image query.
 
     Args:
-        query_embedding: Embedding de l'image client (512-dim normalisé)
-        product_embeddings: Liste de (product_id, product_code, embedding_blob)
+        query_embedding: Embedding de l'image client (768-dim normalisé)
+        product_embeddings: Liste de (product_id, product_code, embedding_blob, name, price, description)
         top_k: Nombre max de résultats
         threshold: Score minimum (0-1) pour inclure un produit
 
     Returns:
-        Liste de (product_code, similarity_score) triée par score décroissant
+        Liste de dicts {code, score, name, price, description} triée par score décroissant
     """
     if not product_embeddings:
         return []
 
     scores = []
-    for _product_id, product_code, blob in product_embeddings:
+    for row in product_embeddings:
+        _product_id, product_code, blob = row[0], row[1], row[2]
+        name = row[3] if len(row) > 3 else ""
+        price = row[4] if len(row) > 4 else None
+        description = row[5] if len(row) > 5 else ""
         if not blob:
             continue
         prod_emb = blob_to_embedding(blob)
-        # Cosine similarity = dot product (embeddings normalisés)
         score = float(np.dot(query_embedding, prod_emb))
         if score >= threshold:
-            scores.append((product_code, score))
+            scores.append({
+                "code": product_code,
+                "score": score,
+                "name": name or "",
+                "price": price,
+                "description": description or "",
+            })
 
-    scores.sort(key=lambda x: x[1], reverse=True)
+    scores.sort(key=lambda x: x["score"], reverse=True)
     return scores[:top_k]

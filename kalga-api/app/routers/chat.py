@@ -82,15 +82,35 @@ async def handle_incoming_media(
         query_emb = await loop.run_in_executor(None, compute_image_embedding, file_bytes)
 
         if query_emb is None:
-            message_text = "[📸 Le client a envoyé une photo mais elle n'a pas pu être analysée. Demande-lui de décrire le produit.]"
+            message_text = "[📸 Le client a envoyé une photo. Présente-lui les produits disponibles ou demande-lui de décrire ce qu'il cherche.]"
         else:
             product_embeddings = await product_repo.get_all_with_embeddings(merchant["id"])
             matches = find_similar_products(query_emb, product_embeddings)
             if matches:
-                codes_str = ", ".join(f"{code} ({score:.0%})" for code, score in matches)
-                message_text = f"[📸 Recherche visuelle — produits similaires: {codes_str}]"
+                best = matches[0]
+                if len(matches) == 1 or best["score"] - matches[1]["score"] >= 0.08:
+                    # Un seul match clair — présenter directement ce produit
+                    price_str = f"{int(best['price']):,} F".replace(",", " ") if best["price"] else "prix à demander"
+                    desc_str = f" — {best['description'][:80]}" if best["description"] else ""
+                    message_text = (
+                        f"[📸 Recherche visuelle — produit identifié: {best['code']} \"{best['name']}\" "
+                        f"à {price_str}{desc_str}. Présente ce produit au client et propose-le-lui directement.]"
+                    )
+                else:
+                    # Plusieurs candidats proches — donner tous les détails pour que l'IA choisisse
+                    lines = []
+                    for m in matches:
+                        price_str = f"{int(m['price']):,} F".replace(",", " ") if m["price"] else "prix ?"
+                        desc_str = f", {m['description'][:60]}" if m["description"] else ""
+                        lines.append(f"  • {m['code']} \"{m['name']}\" à {price_str}{desc_str} (similarité {m['score']:.0%})")
+                    message_text = (
+                        "[📸 Recherche visuelle — plusieurs produits similaires trouvés:\n"
+                        + "\n".join(lines)
+                        + f"\nChoisis le plus probable selon les descriptions et présente-le directement au client. "
+                        f"Ne demande pas de clarification — le meilleur match visuel est {matches[0]['code']}.]"
+                    )
             else:
-                message_text = "[📸 Le client a envoyé une photo. Aucun produit similaire trouvé dans le catalogue.]"
+                message_text = "[📸 Le client a envoyé une photo d'un produit introuvable dans le catalogue. Explique-lui poliment que tu n'as pas ce produit et propose les alternatives disponibles.]"
     else:
         raise HTTPException(status_code=400, detail=f"media_type '{media_type}' non supporté")
 

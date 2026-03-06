@@ -151,14 +151,14 @@ class ProductRepository(BaseRepository):
     # === EMBEDDINGS CLIP (recherche visuelle) ===
 
     async def get_all_with_embeddings(self, merchant_id: int) -> list:
-        """Retourne (product_id, product_code, embedding_blob) pour tous les produits actifs."""
+        """Retourne (product_id, product_code, embedding_blob, name, price, description) pour tous les produits actifs."""
         async with get_connection() as db:
             cursor = await db.execute(
-                "SELECT id, code, embedding FROM products WHERE merchant_id=? AND is_active=1",
+                "SELECT id, code, embedding, name, price, description FROM products WHERE merchant_id=? AND is_active=1",
                 (merchant_id,)
             )
             rows = await cursor.fetchall()
-            return [(row[0], row[1], row[2]) for row in rows]
+            return [(row[0], row[1], row[2], row[3], row[4], row[5]) for row in rows]
 
     async def save_embedding(self, product_id: int, embedding_blob: bytes) -> bool:
         """Sauvegarde l'embedding CLIP d'un produit."""
