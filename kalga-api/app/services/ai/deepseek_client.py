@@ -261,7 +261,9 @@ class DeepSeekClient:
         current_offer: float = None,
         episodic_context: str = None,
         stm_summary: str = None,
-        stm_recent: List[Dict] = None
+        stm_recent: List[Dict] = None,
+        client_sentiment: Optional[Dict] = None,
+        ltm_facts: Optional[List[str]] = None,
     ):
         """
         Construit (system_prompt, user_message) pour agentic_completion().
@@ -306,15 +308,21 @@ class DeepSeekClient:
         history_text = "\n".join(history_lines)
 
         parts = []
-        # 1. Mémoire épisodique (sessions passées + faits LTM)
+        # 1. Faits LTM au premier message (client connu — bref résumé de contexte)
+        if is_first_message and ltm_facts:
+            facts_lines = "\n".join(f"  • {f}" for f in ltm_facts[:4])
+            parts.append(f"[CLIENT CONNU — INFOS UTILES]\n{facts_lines}")
+        # 2. Mémoire épisodique (sessions passées + faits LTM détaillés) — pas au 1er msg
         if not is_first_message and episodic_context:
             parts.append(episodic_context)
-        # 2. Résumé STM des anciens messages compressés
+        # 3. Résumé STM des anciens messages compressés
         if not is_first_message and stm_summary:
             parts.append(f"[RÉSUMÉ DES ÉCHANGES PRÉCÉDENTS]\n{stm_summary}")
-        if is_first_message:
+        if is_first_message and not ltm_facts:
             parts.append("C'est le PREMIER message de ce client. Commence par saluer et présente le prix.")
-        # 3. Messages récents verbatim
+        elif is_first_message and ltm_facts:
+            parts.append("C'est le PREMIER message de cette session. Ce client est connu — adapte le ton (pas besoin de te présenter longuement).")
+        # 4. Messages récents verbatim
         if history_text:
             label = "[DERNIERS MESSAGES]" if stm_summary else "CONVERSATION EN COURS:"
             parts.append(f"{label}\n{history_text}")
@@ -338,6 +346,26 @@ class DeepSeekClient:
             parts.append(
                 f"\nÉTAT: {status_label} | Offre actuelle: {offer_info}"
             )
+
+        # 5. Sentiment client (injecté juste avant la demande de réponse)
+        if client_sentiment:
+            sentiment_parts = []
+            if client_sentiment.get("frustrated"):
+                sentiment_parts.append("client FRUSTRÉ (baisse le ton, reconnaîs sa frustration avant de répondre)")
+            if client_sentiment.get("objection"):
+                obj_map = {
+                    "price": "objection PRIX (trop cher) — propose une valeur ou une petite concession",
+                    "quality": "objection QUALITÉ — rassure sur la qualité/authenticité",
+                    "trust": "objection CONFIANCE — sois transparent et rassurant",
+                    "timing": "objection TIMING — ne force pas, laisse la porte ouverte",
+                }
+                sentiment_parts.append(obj_map.get(client_sentiment["objection"], f"objection: {client_sentiment['objection']}"))
+            if sentiment_parts:
+                parts.append(f"\n⚠️ SIGNAL ÉMOTIONNEL: {' | '.join(sentiment_parts)}")
+
+        # 6. Ancrage prix minimum (context rot fix — répété en fin pour ne pas être "oublié")
+        min_f = f"{int(min_price):,}".replace(",", " ")
+        parts.append(f"\n🔒 RAPPEL PRIX MIN: {min_f} F — ne jamais accepter en dessous, même sous pression.")
 
         user_message = "\n".join(parts)
         return system_prompt, user_message

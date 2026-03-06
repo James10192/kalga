@@ -33,7 +33,9 @@ from .detectors import (
     detect_location_request,
     detect_end_conversation,
     count_low_offers,
-    detect_correction_signal
+    detect_correction_signal,
+    detect_frustration,
+    detect_objection,
 )
 
 logger = logging.getLogger("kalga.ai")
@@ -271,23 +273,43 @@ async def generate_response(
 
     # === EPISODIC: contexte inter-sessions ===
     episodic_context = None
-    if client_phone and merchant_id and not is_first_message:
+    ltm_facts = None
+    if client_phone and merchant_id:
         try:
             client_history_repo = get_client_history_repository()
-            episodic_context = await episodic_module.get_episodic_context(
-                repo=client_history_repo,
-                merchant_id=merchant_id,
-                client_phone=client_phone,
-                product_name=product.get('name', '')
-            )
+            if not is_first_message:
+                episodic_context = await episodic_module.get_episodic_context(
+                    repo=client_history_repo,
+                    merchant_id=merchant_id,
+                    client_phone=client_phone,
+                    product_name=product.get('name', '')
+                )
+            # LTM au 1er message : injecter les faits bruts si client connu
+            if is_first_message:
+                raw_facts = await client_history_repo.get_memory_facts(merchant_id, client_phone) or []
+                if raw_facts:
+                    ltm_facts = [f["fact"] for f in raw_facts[:4] if f.get("fact")]
             if tracer:
                 facts = await client_history_repo.get_memory_facts(merchant_id, client_phone) or []
                 summaries = await client_history_repo.get_conversation_summaries(merchant_id, client_phone) or []
                 tracer.set_episodic(sessions=summaries[:3], fact_count=len(facts))
                 if episodic_context:
                     tracer.event("MEMORY", "episodic_injected", sessions=len(summaries))
+                if ltm_facts:
+                    tracer.event("MEMORY", "ltm_first_message", facts=len(ltm_facts))
         except Exception as e:
-            logger.debug(f"Episodic context skipped: {e}")
+            logger.debug(f"Episodic/LTM context skipped: {e}")
+
+    # === SENTIMENT CLIENT ===
+    client_sentiment = None
+    try:
+        frustrated = detect_frustration(client_message)
+        objection = detect_objection(client_message)
+        if frustrated or objection:
+            client_sentiment = {"frustrated": frustrated, "objection": objection}
+            logger.info(f"Sentiment détecté: frustrated={frustrated}, objection={objection}")
+    except Exception as e:
+        logger.debug(f"Sentiment detection skipped: {e}")
 
     # === APPEL DEEPSEEK ===
     if tracer:
@@ -318,6 +340,8 @@ async def generate_response(
             episodic_context=episodic_context,
             stm_summary=stm_summary,
             stm_recent=stm_recent,
+            client_sentiment=client_sentiment,
+            ltm_facts=ltm_facts,
         )
 
         _t0 = time.time()
