@@ -1,6 +1,6 @@
 /**
  * Service de gestion des médias
- * Téléchargement et sauvegarde des images WhatsApp
+ * Téléchargement et sauvegarde des images et notes vocales WhatsApp
  */
 const fs = require('fs');
 const path = require('path');
@@ -106,6 +106,57 @@ class MediaService {
     imageExists(filename) {
         const fullPath = path.join(config.uploadsDir, filename);
         return fs.existsSync(fullPath);
+    }
+
+    /**
+     * Télécharge une note vocale WhatsApp (OGG/Opus)
+     * IMPORTANT: utilise le mode 'stream' car 'buffer' retourne 0 octets pour l'audio (bug Baileys)
+     * @param {object} sock - Socket WhatsApp
+     * @param {object} message - Message contenant l'audio
+     * @returns {Promise<{filename, filepath, buffer, mimetype}|null>}
+     */
+    async downloadVoiceNote(sock, message) {
+        try {
+            const audioMsg = message.message?.audioMessage;
+            if (!audioMsg) return null;
+
+            logger.info('Téléchargement note vocale...', {
+                ptt: audioMsg.ptt,
+                seconds: audioMsg.seconds,
+            });
+
+            // Mode 'stream' obligatoire — 'buffer' est cassé pour l'audio dans Baileys
+            const stream = await downloadMediaMessage(
+                message,
+                'stream',
+                {},
+                { logger: console, reuploadRequest: sock.updateMediaMessage }
+            );
+
+            const chunks = [];
+            for await (const chunk of stream) {
+                chunks.push(chunk);
+            }
+            const buffer = Buffer.concat(chunks);
+
+            if (!buffer || buffer.length === 0) {
+                logger.warn('Buffer vide pour note vocale');
+                return null;
+            }
+
+            const timestamp = Date.now();
+            const randomId = Math.random().toString(36).substring(2, 8);
+            const filename = `voice_${timestamp}_${randomId}.ogg`;
+            const filepath = path.join(config.uploadsDir, filename);
+
+            fs.writeFileSync(filepath, buffer);
+            logger.info('Note vocale sauvegardée', { filename, bytes: buffer.length });
+
+            return { filename, filepath, buffer, mimetype: 'audio/ogg; codecs=opus' };
+        } catch (err) {
+            logger.error('Erreur téléchargement vocal', { error: err.message });
+            return null;
+        }
     }
 }
 

@@ -148,6 +148,28 @@ class ProductRepository(BaseRepository):
             next_num = (row[0] or 0) + 1
             return f"#K{next_num:03d}"
 
+    # === EMBEDDINGS CLIP (recherche visuelle) ===
+
+    async def get_all_with_embeddings(self, merchant_id: int) -> list:
+        """Retourne (product_id, product_code, embedding_blob) pour tous les produits actifs."""
+        async with get_connection() as db:
+            cursor = await db.execute(
+                "SELECT id, code, embedding FROM products WHERE merchant_id=? AND is_active=1",
+                (merchant_id,)
+            )
+            rows = await cursor.fetchall()
+            return [(row[0], row[1], row[2]) for row in rows]
+
+    async def save_embedding(self, product_id: int, embedding_blob: bytes) -> bool:
+        """Sauvegarde l'embedding CLIP d'un produit."""
+        async with get_connection() as db:
+            cursor = await db.execute(
+                "UPDATE products SET embedding=? WHERE id=?",
+                (embedding_blob, product_id)
+            )
+            await db.commit()
+            return cursor.rowcount > 0
+
     # === GESTION DU STOCK ===
 
     async def update_stock(self, product_id: int, quantity: int) -> bool:

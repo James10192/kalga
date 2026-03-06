@@ -98,6 +98,12 @@ async def init_database():
         except:
             pass
 
+        # Migration: colonne embedding CLIP pour recherche visuelle par photo
+        try:
+            await db.execute("ALTER TABLE products ADD COLUMN embedding BLOB")
+        except:
+            pass
+
         # Table des produits
         await db.execute("""
             CREATE TABLE IF NOT EXISTS products (

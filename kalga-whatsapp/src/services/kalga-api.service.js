@@ -77,6 +77,46 @@ class KalgaApiService {
     }
 
     /**
+     * Envoie un média (note vocale ou image client) à l'API pour traitement
+     * @param {object} params
+     * @returns {Promise<object>} Réponse de l'API (même format que sendIncomingMessage)
+     */
+    async sendIncomingMedia({ merchantPhone, clientPhone, clientName, mediaPath, mediaType }) {
+        try {
+            logger.info('Envoi média à KALGA API', { merchantPhone, clientPhone, mediaType });
+
+            const FormData = require('form-data');
+            const fs = require('fs');
+            const path = require('path');
+
+            const form = new FormData();
+            form.append('merchant_phone', merchantPhone);
+            form.append('client_phone', clientPhone);
+            form.append('client_name', clientName || '');
+            form.append('media_type', mediaType);
+
+            const mimeType = mediaType === 'audio' ? 'audio/ogg' : 'image/jpeg';
+            form.append('file', fs.createReadStream(mediaPath), {
+                filename: path.basename(mediaPath),
+                contentType: mimeType,
+            });
+
+            const response = await this.client.post('/api/chat/incoming-media', form, {
+                headers: form.getHeaders(),
+                timeout: 60000, // 60s — transcription peut prendre du temps
+            });
+
+            return response.data;
+        } catch (error) {
+            logger.error('Erreur API chat/incoming-media', {
+                error: error.message,
+                status: error.response?.status,
+            });
+            throw error;
+        }
+    }
+
+    /**
      * Vérifie la santé de l'API
      * @returns {Promise<boolean>}
      */

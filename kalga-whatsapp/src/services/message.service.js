@@ -40,10 +40,22 @@ class MessageService {
         const senderPhone = whatsappService.resolvePhone(senderPhoneRaw);
         const messageText = this._extractMessageText(message);
 
-        // Ignorer les messages vocaux sauf s'ils répondent à un produit
+        // Traiter les notes vocales via transcription
         if (message.message?.audioMessage) {
-            const hasProductCode = this._checkQuotedProductCode(message.message?.audioMessage?.contextInfo);
-            if (hasProductCode) {
+            const isPtt = message.message.audioMessage.ptt === true;
+            if (!isPtt) return; // Ignorer l'audio non-PTT (musique, etc.)
+
+            const voiceData = await mediaService.downloadVoiceNote(sock, message);
+            if (!voiceData) {
+                await whatsappService.sendMessage(
+                    merchantPhone,
+                    senderJid,
+                    "Je n'ai pas pu écouter ton vocal, écris-moi stp 🙏"
+                );
+                return;
+            }
+
+            try {
                 await simulateHumanBehavior(
                     sock,
                     message.key,
@@ -51,11 +63,60 @@ class MessageService {
                     merchantPhone,
                     () => whatsappService.isClientReady(merchantPhone)
                 );
-                await whatsappService.sendMessage(
+
+                const response = await kalgaApiService.sendIncomingMedia({
                     merchantPhone,
-                    senderJid,
-                    "Désolé, je ne peux pas écouter les vocaux. Écris-moi en texte stp"
-                );
+                    clientPhone: senderPhone,
+                    clientName: message.pushName || '',
+                    mediaPath: voiceData.filepath,
+                    mediaType: 'audio',
+                });
+
+                // Nettoyer le fichier temporaire après envoi
+                try { require('fs').unlinkSync(voiceData.filepath); } catch (_) {}
+
+                if (response && !response.no_response) {
+                    await this._sendBotResponse(merchantPhone, sock, senderJid, message, response);
+                }
+            } catch (error) {
+                logger.error('Erreur traitement vocal', { error: error.message });
+                try { require('fs').unlinkSync(voiceData.filepath); } catch (_) {}
+            }
+            return;
+        }
+
+        // Traiter les images client sans légende (recherche visuelle de produit)
+        if (message.message?.imageMessage && !messageText) {
+            const imageName = await mediaService.downloadAndSaveImage(sock, message, senderPhone);
+            if (imageName) {
+                const fullPath = require('path').join(require('../config').config.uploadsDir, imageName);
+                try {
+                    await simulateHumanBehavior(
+                        sock,
+                        message.key,
+                        senderJid,
+                        merchantPhone,
+                        () => whatsappService.isClientReady(merchantPhone)
+                    );
+
+                    const response = await kalgaApiService.sendIncomingMedia({
+                        merchantPhone,
+                        clientPhone: senderPhone,
+                        clientName: message.pushName || '',
+                        mediaPath: fullPath,
+                        mediaType: 'image',
+                    });
+
+                    // Nettoyer l'image de recherche client après envoi
+                    try { require('fs').unlinkSync(fullPath); } catch (_) {}
+
+                    if (response && !response.no_response) {
+                        await this._sendBotResponse(merchantPhone, sock, senderJid, message, response);
+                    }
+                } catch (error) {
+                    logger.error('Erreur recherche visuelle', { error: error.message });
+                    try { require('fs').unlinkSync(fullPath); } catch (_) {}
+                }
             }
             return;
         }
@@ -156,6 +217,47 @@ class MessageService {
 
         } catch (error) {
             logger.error('Erreur traitement message client', { error: error.message });
+        }
+    }
+
+    /**
+     * Envoie la réponse du bot (texte + images + localisation + goodbye)
+     * Utilisé par les flux texte, vocal et visuel
+     */
+    async _sendBotResponse(merchantPhone, sock, senderJid, message, response) {
+        const botResponse = response.message;
+        if (!botResponse || botResponse.trim() === '') {
+            logger.warn('MESSAGE VIDE reçu de l\'API', { senderJid });
+            return;
+        }
+
+        const sent = await whatsappService.sendMessage(merchantPhone, senderJid, botResponse);
+        if (sent) logger.info('RÉPONSE ENVOYÉE', { to: senderJid });
+
+        if (response.images_to_send && response.images_to_send.length > 0) {
+            await this._sendImages(merchantPhone, senderJid, response.images_to_send);
+        }
+
+        if (response.send_location && response.merchant_location) {
+            const loc = response.merchant_location;
+            if (loc.latitude && loc.longitude) {
+                await whatsappService.sendLocation(merchantPhone, senderJid, {
+                    latitude: loc.latitude,
+                    longitude: loc.longitude,
+                    name: loc.name || 'Ma boutique',
+                    address: loc.address || '',
+                });
+            } else if (loc.address) {
+                await whatsappService.sendMessage(
+                    merchantPhone, senderJid,
+                    `📍 Voici l'adresse de la boutique:\n\n${loc.address}`
+                );
+            }
+        }
+
+        if (response.goodbye_message) {
+            await new Promise(resolve => setTimeout(resolve, 800));
+            await whatsappService.sendMessage(merchantPhone, senderJid, response.goodbye_message);
         }
     }
 

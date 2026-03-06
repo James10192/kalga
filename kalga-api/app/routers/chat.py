@@ -2,7 +2,7 @@
 Routes de chat pour KALGA
 Gère les conversations entre clients et marchands via WhatsApp
 """
-from fastapi import APIRouter, HTTPException, Query, Request, Depends
+from fastapi import APIRouter, HTTPException, Query, Request, Depends, UploadFile, File, Form
 from pydantic import BaseModel
 from typing import Optional, List
 
@@ -10,6 +10,7 @@ from ..database import get_db
 from ..database.connection import get_connection
 from ..database.repositories.knowledge_repo import KnowledgeBaseRepository
 from ..database.repositories.merchant_repo import MerchantRepository
+from ..database.repositories.product_repo import ProductRepository
 from ..database.repositories.client_history_repo import get_client_history_repository
 from ..models.schemas import IncomingMessage, BotResponse, DebugIncomingMessage, DebugBotResponse, MerchantReply
 from ..services.chat_service import ChatService, get_chat_service
@@ -39,6 +40,67 @@ async def handle_incoming_message(
     Rate limit: 30 requêtes par minute par IP
     """
     return await chat_service.handle_incoming_message(message)
+
+
+@router.post("/incoming-media")
+@limiter.limit("20/minute")
+async def handle_incoming_media(
+    request: Request,
+    merchant_phone: str = Form(...),
+    client_phone: str = Form(...),
+    client_name: str = Form(""),
+    media_type: str = Form(...),
+    file: UploadFile = File(...),
+    chat_service: ChatService = Depends(get_chat_service),
+):
+    """
+    Traite un message média (note vocale ou image) depuis WhatsApp.
+    - audio: transcription via faster-whisper → pipeline texte
+    - image: recherche visuelle CLIP → pipeline texte
+    """
+    file_bytes = await file.read()
+
+    if media_type == "audio":
+        from ..services.transcription_service import transcribe_voice_note
+        text, lang = await transcribe_voice_note(file_bytes)
+        if not text or len(text.split()) < 2:
+            message_text = "[🎤 Vocal incompréhensible. Demande gentiment au client de réécrire en texte.]"
+        else:
+            message_text = f"[🎤 Vocal transcrit ({lang})]: {text}"
+
+    elif media_type == "image":
+        import asyncio
+        from ..services.visual_search_service import compute_image_embedding, find_similar_products
+        merchant_repo = MerchantRepository()
+        merchant = await merchant_repo.get_by_phone(merchant_phone)
+        if not merchant:
+            raise HTTPException(status_code=404, detail="Marchand introuvable")
+
+        product_repo = ProductRepository()
+        # Exécuter en thread pool — CLIP est synchrone et bloquant
+        loop = asyncio.get_running_loop()
+        query_emb = await loop.run_in_executor(None, compute_image_embedding, file_bytes)
+
+        if query_emb is None:
+            message_text = "[📸 Le client a envoyé une photo mais elle n'a pas pu être analysée. Demande-lui de décrire le produit.]"
+        else:
+            product_embeddings = await product_repo.get_all_with_embeddings(merchant["id"])
+            matches = find_similar_products(query_emb, product_embeddings)
+            if matches:
+                codes_str = ", ".join(f"{code} ({score:.0%})" for code, score in matches)
+                message_text = f"[📸 Recherche visuelle — produits similaires: {codes_str}]"
+            else:
+                message_text = "[📸 Le client a envoyé une photo. Aucun produit similaire trouvé dans le catalogue.]"
+    else:
+        raise HTTPException(status_code=400, detail=f"media_type '{media_type}' non supporté")
+
+    incoming = IncomingMessage(
+        merchant_phone=merchant_phone,
+        client_phone=client_phone,
+        client_name=client_name or None,
+        message=message_text,
+    )
+    return await chat_service.handle_incoming_message(incoming)
 
 
 @router.post("/test-incoming", response_model=DebugBotResponse, tags=["Debug"])
