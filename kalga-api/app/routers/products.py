@@ -1,10 +1,16 @@
+import asyncio
+import logging
 import os
 import uuid
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from ..database import get_db
+from ..database.repositories.product_repo import ProductRepository
 from ..models.schemas import ProductCreate
+from ..services.visual_search_service import compute_image_embedding, embedding_to_blob
 from typing import List, Optional
+
+logger = logging.getLogger("kalga.products")
 
 UPLOADS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "uploads")
 
@@ -230,11 +236,27 @@ async def upload_product_image(code: str, file: UploadFile = File(...)):
     # Mettre à jour image_path en base
     await db.products.update(product['id'], image_path=filename)
 
+    # Générer et stocker l'embedding CLIP en arrière-plan (non-bloquant)
+    embedding_stored = False
+    try:
+        loop = asyncio.get_running_loop()
+        embedding = await loop.run_in_executor(None, compute_image_embedding, content)
+        if embedding is not None:
+            product_repo = ProductRepository()
+            await product_repo.save_embedding(product['id'], embedding_to_blob(embedding))
+            embedding_stored = True
+            logger.info(f"Embedding CLIP généré pour {code} ({filename})")
+        else:
+            logger.warning(f"Impossible de générer l'embedding pour {code} (image invalide ou CLIP non dispo)")
+    except Exception as e:
+        logger.error(f"Erreur génération embedding {code}: {e}")
+
     return {
         "success": True,
         "product_code": code,
         "image_path": filename,
-        "image_url": f"/uploads/{filename}"
+        "image_url": f"/uploads/{filename}",
+        "embedding_generated": embedding_stored,
     }
 
 
