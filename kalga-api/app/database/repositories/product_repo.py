@@ -6,11 +6,25 @@ from .base import BaseRepository
 from ..connection import get_connection
 
 
+def _row_to_dict(row) -> Dict[str, Any]:
+    """Convertit une row SQLite en dict en excluant le champ embedding (BLOB non-sérialisable)."""
+    d = dict(row)
+    d.pop("embedding", None)
+    return d
+
+
 class ProductRepository(BaseRepository):
     """Gère les opérations CRUD pour les produits"""
 
     def __init__(self):
         super().__init__("products")
+
+    async def get_by_id(self, id: int):
+        """Override: exclut le champ embedding (BLOB) non-sérialisable en JSON."""
+        async with get_connection() as db:
+            cursor = await db.execute("SELECT * FROM products WHERE id = ?", (id,))
+            row = await cursor.fetchone()
+            return _row_to_dict(row) if row else None
 
     async def get_by_code(self, code: str) -> Optional[Dict[str, Any]]:
         """Récupère un produit par son code (#K001, etc.)"""
@@ -20,7 +34,7 @@ class ProductRepository(BaseRepository):
                 (code.upper(),)
             )
             row = await cursor.fetchone()
-            return dict(row) if row else None
+            return _row_to_dict(row) if row else None
 
     async def create(
         self,
@@ -67,7 +81,7 @@ class ProductRepository(BaseRepository):
                 (product_id,)
             )
             row = await cursor.fetchone()
-            return dict(row)
+            return _row_to_dict(row) if row else None
 
     async def update(self, product_id: int, **kwargs) -> bool:
         """Met à jour un produit avec les champs fournis"""
@@ -93,14 +107,18 @@ class ProductRepository(BaseRepository):
     ) -> List[Dict[str, Any]]:
         """Récupère tous les produits d'un marchand"""
         async with get_connection() as db:
-            query = "SELECT * FROM products WHERE merchant_id = ?"
+            query = (
+                "SELECT id, merchant_id, name, code, price, min_price, description, "
+                "image_path, group_id, variant_name, stock_quantity, low_stock_threshold, "
+                "is_available, created_at FROM products WHERE merchant_id = ?"
+            )
             if active_only:
                 query += " AND is_available = 1"
             query += " ORDER BY created_at DESC"
 
             cursor = await db.execute(query, (merchant_id,))
             rows = await cursor.fetchall()
-            return [dict(row) for row in rows]
+            return [_row_to_dict(row) for row in rows]
 
     async def get_other_variants(
         self,
@@ -118,7 +136,7 @@ class ProductRepository(BaseRepository):
                 (group_id, product_id)
             )
             rows = await cursor.fetchall()
-            return [dict(row) for row in rows]
+            return [_row_to_dict(row) for row in rows]
 
     async def get_all_in_group(self, group_id: str) -> List[Dict[str, Any]]:
         """Récupère TOUTES les variantes d'un groupe, y compris le produit courant"""
@@ -132,7 +150,7 @@ class ProductRepository(BaseRepository):
                 (group_id,)
             )
             rows = await cursor.fetchall()
-            return [dict(row) for row in rows]
+            return [_row_to_dict(row) for row in rows]
 
     async def deactivate(self, product_id: int) -> bool:
         """Désactive un produit (soft delete)"""
@@ -154,7 +172,7 @@ class ProductRepository(BaseRepository):
         """Retourne (product_id, product_code, embedding_blob, name, price, description) pour tous les produits actifs."""
         async with get_connection() as db:
             cursor = await db.execute(
-                "SELECT id, code, embedding, name, price, description FROM products WHERE merchant_id=? AND is_active=1",
+                "SELECT id, code, embedding, name, price, description FROM products WHERE merchant_id=? AND is_available=1",
                 (merchant_id,)
             )
             rows = await cursor.fetchall()
@@ -191,7 +209,7 @@ class ProductRepository(BaseRepository):
             if not row:
                 return None
 
-            product = dict(row)
+            product = _row_to_dict(row)
             current_stock = product.get('stock_quantity', -1)
 
             # Si stock illimité, ne rien faire
@@ -254,7 +272,7 @@ class ProductRepository(BaseRepository):
                 (merchant_id,)
             )
             rows = await cursor.fetchall()
-            return [dict(row) for row in rows]
+            return [_row_to_dict(row) for row in rows]
 
     async def get_out_of_stock_products(self, merchant_id: int) -> List[Dict[str, Any]]:
         """Récupère les produits en rupture de stock"""
@@ -270,4 +288,4 @@ class ProductRepository(BaseRepository):
                 (merchant_id,)
             )
             rows = await cursor.fetchall()
-            return [dict(row) for row in rows]
+            return [_row_to_dict(row) for row in rows]
