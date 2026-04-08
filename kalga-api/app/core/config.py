@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     # === WhatsApp Bridge ===
     whatsapp_bridge_url: str = "http://localhost:3001"
     whatsapp_request_timeout: int = 10
+    internal_api_key: str = ""
 
     # === Database ===
     database_path: str = "kalga.db"

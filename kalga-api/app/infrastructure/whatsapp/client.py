@@ -28,11 +28,15 @@ class WhatsAppBridgeClient:
         url = f"{self.base_url}{endpoint}"
 
         try:
+            headers = kwargs.pop("headers", {})
+            if settings.internal_api_key:
+                headers["X-Internal-Key"] = settings.internal_api_key
             async with httpx.AsyncClient() as client:
                 response = await client.request(
                     method,
                     url,
                     timeout=self.timeout,
+                    headers=headers,
                     **kwargs
                 )
                 response.raise_for_status()

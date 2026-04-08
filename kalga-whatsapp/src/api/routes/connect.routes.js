@@ -10,13 +10,28 @@ const { logger } = require('../../utils/logger');
 const router = express.Router();
 
 /**
+ * Valide qu'un numéro de téléphone ne contient que des chiffres (8-15 digits)
+ */
+function isValidPhone(phone) {
+    return /^\d{8,15}$/.test(phone);
+}
+
+/**
+ * Échappe le HTML pour éviter les XSS
+ */
+function escapeHtml(text) {
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return String(text).replace(/[&<>"']/g, (c) => map[c]);
+}
+
+/**
  * POST /connect - Connecter un marchand
  */
 router.post('/connect', async (req, res) => {
     const { merchant_phone } = req.body;
 
-    if (!merchant_phone) {
-        return res.status(400).json({ error: 'merchant_phone requis' });
+    if (!merchant_phone || !isValidPhone(merchant_phone)) {
+        return res.status(400).json({ error: 'merchant_phone requis (8-15 chiffres)' });
     }
 
     try {
@@ -24,7 +39,7 @@ router.post('/connect', async (req, res) => {
 
         res.json({
             success: true,
-            message: `Client WhatsApp initialisé pour ${merchant_phone}`,
+            message: `Client WhatsApp initialisé pour ${escapeHtml(merchant_phone)}`,
             status: whatsappService.getClientStatus(merchant_phone),
         });
     } catch (error) {
@@ -49,10 +64,10 @@ router.get('/qr/:merchant_phone', (req, res) => {
     if (status.ready) {
         res.send(`
             <html>
-            <head><title>KALGA - ${merchant_phone}</title></head>
+            <head><title>KALGA - ${escapeHtml(merchant_phone)}</title></head>
             <body style="font-family: Arial; text-align: center; margin: 50px;">
                 <h1 style="color: #25d366;">✅ Déjà connecté!</h1>
-                <p>WhatsApp pour ${merchant_phone} est prêt.</p>
+                <p>WhatsApp pour ${escapeHtml(merchant_phone)} est prêt.</p>
             </body>
             </html>
         `);
@@ -67,7 +82,7 @@ router.get('/qr/:merchant_phone', (req, res) => {
         res.send(`
             <html>
             <head>
-                <title>KALGA QR - ${merchant_phone}</title>
+                <title>KALGA QR - ${escapeHtml(merchant_phone)}</title>
                 <meta http-equiv="refresh" content="10">
                 <style>
                     body { font-family: Arial; text-align: center; margin: 20px; }
@@ -76,7 +91,7 @@ router.get('/qr/:merchant_phone', (req, res) => {
             </head>
             <body>
                 <h1 style="color: #25d366;">Scanner le QR Code</h1>
-                <p>Marchand: ${merchant_phone}</p>
+                <p>Marchand: ${escapeHtml(merchant_phone)}</p>
                 <pre class="qr">${qrAscii}</pre>
                 <p>Page auto-refresh toutes les 10s</p>
             </body>
@@ -86,12 +101,12 @@ router.get('/qr/:merchant_phone', (req, res) => {
         res.send(`
             <html>
             <head>
-                <title>KALGA - ${merchant_phone}</title>
+                <title>KALGA - ${escapeHtml(merchant_phone)}</title>
                 <meta http-equiv="refresh" content="5">
             </head>
             <body style="font-family: Arial; text-align: center; margin: 50px;">
                 <h1>⏳ Chargement...</h1>
-                <p>QR Code en cours de génération pour ${merchant_phone}</p>
+                <p>QR Code en cours de génération pour ${escapeHtml(merchant_phone)}</p>
             </body>
             </html>
         `);
