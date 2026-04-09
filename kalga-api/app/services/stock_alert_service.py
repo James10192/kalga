@@ -137,7 +137,7 @@ class StockAlertService:
         # Enregistrer la session pour capturer la réponse du marchand
         try:
             from ..modules.merchant_commands.service import register_stock_dialogue_session
-            register_stock_dialogue_session(
+            await register_stock_dialogue_session(
                 merchant_phone=merchant_phone,
                 product_id=product['id'],
                 product_code=product['code'],
