@@ -14,9 +14,14 @@ class Settings(BaseSettings):
 
     # WhatsApp Bridge
     whatsapp_bridge_url: str = "http://localhost:3001"
+    whatsapp_request_timeout: int = 10
 
     # Storefront (vitrine en ligne)
     storefront_base_url: str = "http://localhost:8001"
+
+    # CORS — comma-separated list (e.g. "https://kalga.trycloudflare.com,http://localhost:8001")
+    # Empty by default in prod (same-origin only). In debug, falls back to "*".
+    allowed_origins: str = ""
 
     # Conversation settings
     conversation_expiry_days: int = 7

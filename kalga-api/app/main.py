@@ -22,6 +22,7 @@ from .routers.auth import router as auth_router
 from .routers.admin import router as admin_router
 from .routers.activation import router as activation_router
 from .routers.storefront import router as storefront_router
+from .routers.wa_bridge import router as wa_bridge_router
 from .services.followup_service import get_followup_service
 from .services.stock_alert_service import get_stock_alert_service
 from .database.repositories.user_repo import get_user_repository
@@ -154,10 +155,12 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# CORS
+# CORS — parsed from settings.allowed_origins; falls back to "*" in debug, else same-origin only
+_origins_cfg = [o.strip() for o in (settings.allowed_origins or "").split(",") if o.strip()]
+_cors_origins = _origins_cfg if _origins_cfg else (["*"] if settings.debug else [])
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -177,6 +180,7 @@ app.include_router(admin_router)
 app.include_router(activation_router)
 app.include_router(storefront_router)
 app.include_router(stock_router)
+app.include_router(wa_bridge_router)
 
 # Servir les images statiques
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
