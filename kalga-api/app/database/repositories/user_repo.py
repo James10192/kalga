@@ -5,6 +5,9 @@ import hashlib
 import secrets
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
+
+import bcrypt
+
 from .base import BaseRepository
 from ..connection import get_connection
 
@@ -16,19 +19,40 @@ class UserRepository(BaseRepository):
         super().__init__("users")
 
     def _hash_password(self, password: str) -> str:
-        """Hash un mot de passe avec SHA256 + salt"""
-        salt = secrets.token_hex(16)
-        hashed = hashlib.sha256(f"{salt}{password}".encode()).hexdigest()
-        return f"{salt}:{hashed}"
+        """Hash un mot de passe avec bcrypt (cost factor 12)"""
+        hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12))
+        return hashed.decode("utf-8")
+
+    def _is_legacy_hash(self, password_hash: str) -> bool:
+        """Détecte un ancien hash SHA-256 (format salt:hash)"""
+        return ":" in password_hash and not password_hash.startswith("$2")
 
     def _verify_password(self, password: str, password_hash: str) -> bool:
-        """Vérifie un mot de passe contre son hash"""
+        """Vérifie un mot de passe (bcrypt ou legacy SHA-256)"""
         try:
-            salt, hashed = password_hash.split(":")
-            check_hash = hashlib.sha256(f"{salt}{password}".encode()).hexdigest()
-            return check_hash == hashed
-        except ValueError:
+            if self._is_legacy_hash(password_hash):
+                salt, hashed = password_hash.split(":")
+                check_hash = hashlib.sha256(
+                    f"{salt}{password}".encode()
+                ).hexdigest()
+                return check_hash == hashed
+            return bcrypt.checkpw(
+                password.encode("utf-8"),
+                password_hash.encode("utf-8"),
+            )
+        except (ValueError, Exception):
             return False
+
+    async def _rehash_if_legacy(self, user_id: int, password: str, password_hash: str):
+        """Migre un hash SHA-256 vers bcrypt de manière transparente"""
+        if self._is_legacy_hash(password_hash):
+            new_hash = self._hash_password(password)
+            async with get_connection() as db:
+                await db.execute(
+                    "UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?",
+                    (new_hash, datetime.now().isoformat(), user_id),
+                )
+                await db.commit()
 
     async def get_by_email(self, email: str) -> Optional[Dict[str, Any]]:
         """Récupère un utilisateur par email"""
@@ -101,6 +125,9 @@ class UserRepository(BaseRepository):
 
         if not self._verify_password(password, user['password_hash']):
             return None
+
+        # Migrer le hash legacy SHA-256 → bcrypt si nécessaire
+        await self._rehash_if_legacy(user['id'], password, user['password_hash'])
 
         # Mettre à jour last_login
         async with get_connection() as db:

@@ -199,7 +199,7 @@ async def generate_response(
             logger.info(f"Anti-boucle correction: {correction_attempts} tentatives, redirection marchand")
             return (
                 "Pour toute autre question, n'hésite pas à contacter directement le vendeur!",
-                current_offer, False, conversation_status, False
+                current_offer, False, conversation_status, False, False
             )
 
         logger.info(f"Signal de correction détecté: {client_message[:50]}")
@@ -243,7 +243,8 @@ async def generate_response(
                         current_offer,
                         False,
                         conversation_status,
-                        result.get('send_location', False)
+                        result.get('send_location', False),
+                        False
                     )
         except Exception as e:
             logger.warning(f"Erreur mode correction: {e}")
@@ -563,7 +564,8 @@ async def _fallback_to_engine(
             result["new_offer"],
             result["deal_accepted"],
             result["new_state"],
-            result["send_location"]
+            result["send_location"],
+            False
         )
     except Exception as e:
         logger.error(f"Fallback engine aussi en erreur: {e}")

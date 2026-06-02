@@ -6,6 +6,17 @@ const API_URL = (location.hostname === 'localhost' || location.hostname === '127
     ? 'http://localhost:8001'
     : location.origin;
 
+// ============================================
+// SECURITY UTILS
+// ============================================
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 // State
 const state = {
     token: localStorage.getItem('kalga_admin_token'),
@@ -363,8 +374,8 @@ function renderExpiringSoon(subscriptions) {
         return `
             <tr>
                 <td>
-                    <div class="exp-merchant-name">${s.name || '—'}</div>
-                    <div class="exp-merchant-phone">${s.phone || ''}</div>
+                    <div class="exp-merchant-name">${escapeHtml(s.name || '—')}</div>
+                    <div class="exp-merchant-phone">${escapeHtml(s.phone || '')}</div>
                 </td>
                 <td><span class="status-badge ${s.plan || 'trial'}">${planLabels[s.plan] || s.plan || 'trial'}</span></td>
                 <td><span class="exp-date-chip"><i class="fas fa-hourglass-half"></i>${expiresDate}</span></td>
@@ -478,8 +489,8 @@ function renderMerchantsList(container, merchants, total) {
                     <div class="mc-identity">
                         <div class="mc-avatar av--${waKey}">${initial}</div>
                         <div class="mc-name-block">
-                            <span class="mc-name">${m.name || 'Marchand inconnu'}</span>
-                            <span class="mc-biz">${m.business_name || m.phone || '—'}</span>
+                            <span class="mc-name">${escapeHtml(m.name || 'Marchand inconnu')}</span>
+                            <span class="mc-biz">${escapeHtml(m.business_name || m.phone || '—')}</span>
                         </div>
                     </div>
                     <div class="mc-badges">
@@ -494,7 +505,7 @@ function renderMerchantsList(container, merchants, total) {
                 <div class="mc-meta">
                     <div class="mc-meta-row">
                         <i class="fas fa-phone"></i>
-                        <span>${m.phone || '—'}</span>
+                        <span>${escapeHtml(m.phone || '—')}</span>
                     </div>
                     <div class="mc-meta-row">
                         <i class="fas fa-tag"></i>
@@ -763,8 +774,8 @@ async function loadWhatsAppStatus() {
                     <div class="wa-card-left">
                         <div class="wa-card-avatar ${statusClass}">${initial}</div>
                         <div class="wa-card-info">
-                            <span class="wa-card-name">${s.name}</span>
-                            <span class="wa-card-phone"><i class="fas fa-phone-alt"></i>${s.phone}</span>
+                            <span class="wa-card-name">${escapeHtml(s.name)}</span>
+                            <span class="wa-card-phone"><i class="fas fa-phone-alt"></i>${escapeHtml(s.phone)}</span>
                         </div>
                     </div>
                     <div class="wa-card-right">
@@ -820,10 +831,10 @@ async function loadAuditLogs() {
                 try {
                     const d = typeof log.details === 'string' ? JSON.parse(log.details) : log.details;
                     detailsHtml = Object.entries(d).map(([k, v]) =>
-                        `<span class="audit-detail-pill"><span class="audit-detail-key">${k}</span><span class="audit-detail-val">${v}</span></span>`
+                        `<span class="audit-detail-pill"><span class="audit-detail-key">${escapeHtml(String(k))}</span><span class="audit-detail-val">${escapeHtml(String(v))}</span></span>`
                     ).join('');
                 } catch {
-                    detailsHtml = `<span class="audit-detail-pill"><span class="audit-detail-val">${log.details}</span></span>`;
+                    detailsHtml = `<span class="audit-detail-pill"><span class="audit-detail-val">${escapeHtml(String(log.details))}</span></span>`;
                 }
             }
             return `
@@ -832,7 +843,7 @@ async function loadAuditLogs() {
                 <td>
                     <span class="audit-admin">
                         <span class="audit-avatar">${initial}</span>
-                        <span class="audit-email">${log.admin_email}</span>
+                        <span class="audit-email">${escapeHtml(log.admin_email)}</span>
                     </span>
                 </td>
                 <td><span class="audit-action-badge ${actionClass}">${actionLabel}</span></td>
@@ -911,8 +922,8 @@ async function loadAdmins() {
             <div class="admin-row">
                 <div class="admin-row-avatar"><i class="fas fa-user-shield"></i></div>
                 <div class="admin-row-info">
-                    <span class="admin-row-name">${a.name || 'Admin'}</span>
-                    <span class="admin-row-email">${a.email}</span>
+                    <span class="admin-row-name">${escapeHtml(a.name || 'Admin')}</span>
+                    <span class="admin-row-email">${escapeHtml(a.email)}</span>
                 </div>
             </div>
         `).join('');
@@ -1050,8 +1061,8 @@ async function loadPendingActivations() {
                 <div class="ac-right">
                     <div class="ac-top-row">
                         <div class="ac-identity">
-                            <h3 class="ac-name">${name}</h3>
-                            <div class="ac-phone"><i class="fas fa-phone-alt"></i><span>${formatPhone(m.phone)}</span></div>
+                            <h3 class="ac-name">${escapeHtml(name)}</h3>
+                            <div class="ac-phone"><i class="fas fa-phone-alt"></i><span>${escapeHtml(formatPhone(m.phone))}</span></div>
                         </div>
                         <div class="ac-registered">
                             <i class="fas fa-calendar-plus"></i>

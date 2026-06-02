@@ -3,6 +3,7 @@ Service d'orchestration des commandes marchand
 Point d'entrée unique pour toutes les commandes
 """
 from typing import Optional, Dict
+import asyncio
 import re
 import logging
 
@@ -21,6 +22,7 @@ from ...database.repositories.waitlist_repo import get_waitlist_repository
 # Sessions de dialogue stock marchand (produit épuisé → 3 options)
 # Format: {merchant_phone: {"step": str, "product_id": int, "product_code": str, ...}}
 _stock_sessions: Dict[str, dict] = {}
+_stock_sessions_lock = asyncio.Lock()
 
 logger = logging.getLogger("kalga.merchant_commands")
 
@@ -84,15 +86,16 @@ class MerchantCommandService:
                 )
 
         # Session dialogue stock en cours (dialogue proactif 3 options)
-        if merchant['phone'] in _stock_sessions:
-            stock_resp = await self._handle_stock_session(
-                merchant_phone=merchant['phone'],
-                message_lower=message_lower,
-                merchant=merchant,
-                db=db
-            )
-            if stock_resp is not None:
-                return stock_resp
+        async with _stock_sessions_lock:
+            if merchant['phone'] in _stock_sessions:
+                stock_resp = await self._handle_stock_session(
+                    merchant_phone=merchant['phone'],
+                    message_lower=message_lower,
+                    merchant=merchant,
+                    db=db
+                )
+                if stock_resp is not None:
+                    return stock_resp
 
         # Pas de session active - traiter comme commande normale
         return await self._handle_command(
@@ -654,7 +657,7 @@ class MerchantCommandService:
         )
 
 
-def register_stock_dialogue_session(
+async def register_stock_dialogue_session(
     merchant_phone: str,
     product_id: int,
     product_code: str,
@@ -664,12 +667,13 @@ def register_stock_dialogue_session(
     Enregistre une session de dialogue stock proactif.
     Appelé par StockAlertService après envoi du message 3 options.
     """
-    _stock_sessions[merchant_phone] = {
-        'step': 'awaiting_choice',
-        'product_id': product_id,
-        'product_code': product_code,
-        'product_name': product_name
-    }
+    async with _stock_sessions_lock:
+        _stock_sessions[merchant_phone] = {
+            'step': 'awaiting_choice',
+            'product_id': product_id,
+            'product_code': product_code,
+            'product_name': product_name
+        }
 
 
 # Instance singleton pour injection de dépendances

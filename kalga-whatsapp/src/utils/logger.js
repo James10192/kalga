@@ -1,5 +1,5 @@
 /**
- * Système de logging structuré
+ * Système de logging structuré (non-bloquant)
  * Écrit dans la console et dans des fichiers de log quotidiens
  */
 const fs = require('fs');
@@ -21,7 +21,7 @@ function getLogFileName() {
 }
 
 /**
- * Écrit une entrée de log
+ * Écrit une entrée de log (async — ne bloque pas l'event loop)
  */
 function log(level, message, data = null) {
     const now = new Date();
@@ -35,12 +35,12 @@ function log(level, message, data = null) {
     // Afficher dans la console
     console.log(logLine);
 
-    // Écrire dans le fichier
-    try {
-        fs.appendFileSync(getLogFileName(), logLine + '\n');
-    } catch (err) {
-        console.error('Erreur écriture log:', err.message);
-    }
+    // Écrire dans le fichier (async — ne bloque pas l'event loop)
+    fs.appendFile(getLogFileName(), logLine + '\n', (err) => {
+        if (err) {
+            console.error('Erreur écriture log:', err.message);
+        }
+    });
 }
 
 // API de logging

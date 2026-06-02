@@ -155,9 +155,8 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# CORS — parsed from settings.allowed_origins; falls back to "*" in debug, else same-origin only
-_origins_cfg = [o.strip() for o in (settings.allowed_origins or "").split(",") if o.strip()]
-_cors_origins = _origins_cfg if _origins_cfg else (["*"] if settings.debug else [])
+# CORS — origines configurées via core/config.py (List[str]), fallback "*" en debug si vide
+_cors_origins = settings.allowed_origins or (["*"] if settings.debug else [])
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,

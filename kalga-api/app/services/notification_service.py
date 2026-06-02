@@ -19,6 +19,9 @@ class NotificationService:
     def __init__(self, bridge_url: str = None):
         self.bridge_url = bridge_url or settings.whatsapp_bridge_url
         self.timeout = 10.0
+        self._headers = {}
+        if getattr(settings, 'internal_api_key', ''):
+            self._headers["X-Internal-Key"] = settings.internal_api_key
 
     async def send_message(
         self,
@@ -45,7 +48,8 @@ class NotificationService:
                         "merchant_phone": merchant_phone,
                         "to": to,
                         "message": message
-                    }
+                    },
+                    headers=self._headers,
                 )
                 success = response.status_code == 200
                 if success:
@@ -91,7 +95,8 @@ class NotificationService:
                         "longitude": longitude,
                         "name": name,
                         "address": address
-                    }
+                    },
+                    headers=self._headers,
                 )
                 success = response.status_code == 200
                 if success:
@@ -131,7 +136,8 @@ class NotificationService:
                         "to": to,
                         "image_path": image_path,
                         "caption": caption
-                    }
+                    },
+                    headers=self._headers,
                 )
                 success = response.status_code == 200
                 if success:

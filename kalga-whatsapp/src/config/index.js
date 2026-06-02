@@ -35,6 +35,12 @@ const config = {
     // Logging
     logLevel: process.env.LOG_LEVEL || 'info',
     debug: process.env.DEBUG === 'true',
+
+    // Security
+    internalApiKey: process.env.INTERNAL_API_KEY || '',
+    allowedOrigins: (process.env.ALLOWED_ORIGINS || 'http://localhost:8001')
+        .split(',')
+        .map(s => s.trim()),
 };
 
 // Validation de la configuration

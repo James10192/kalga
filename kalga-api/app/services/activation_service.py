@@ -92,6 +92,9 @@ Besoin d'aide? Contactez-nous!"""
     async def _send_whatsapp_message(self, phone: str, message: str) -> dict:
         """Envoie un message via le bridge WhatsApp"""
         try:
+            headers = {}
+            if getattr(settings, 'internal_api_key', ''):
+                headers["X-Internal-Key"] = settings.internal_api_key
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
                     f"{self.whatsapp_url}/send",
@@ -99,7 +102,8 @@ Besoin d'aide? Contactez-nous!"""
                         "merchant_phone": phone,
                         "to": phone,
                         "message": message
-                    }
+                    },
+                    headers=headers,
                 )
 
                 if response.status_code == 200:
