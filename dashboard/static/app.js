@@ -1,9 +1,12 @@
 // === KALGA Dashboard - Enhanced JavaScript ===
 
-// Configuration
+// Configuration — auto-detects API origin (same-origin in prod, localhost in dev)
+const _IS_LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.protocol === 'file:';
+const _API_ORIGIN = _IS_LOCAL ? 'http://localhost:8001' : location.origin;
 const CONFIG = {
-    KALGA_API: 'http://localhost:8001',
-    WHATSAPP_BRIDGE: 'http://localhost:3001',
+    KALGA_API: _API_ORIGIN,
+    // Bridge is proxied through the API (/api/wa) so port 3001 stays 127.0.0.1 on the server
+    WHATSAPP_BRIDGE: _API_ORIGIN + '/api/wa',
     REFRESH_INTERVAL: 30000,
     STATUS_CHECK_INTERVAL: 3000
 };

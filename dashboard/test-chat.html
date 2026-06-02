@@ -289,6 +289,73 @@
     .btn-send:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(37,211,102,.4); }
     .btn-send:disabled { opacity: .4; cursor: not-allowed; transform: none; }
 
+    /* ── IMAGE CLIENT INPUT ── */
+    .btn-attach {
+      width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--border2);
+      background: var(--surface2); color: var(--text2); cursor: pointer; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 17px;
+      transition: all .2s;
+    }
+    .btn-attach:hover { background: var(--surface3); border-color: var(--k-green); color: var(--k-green); }
+    .btn-attach:disabled { opacity: .35; cursor: not-allowed; }
+
+    .img-preview-bar {
+      display: none; align-items: center; gap: 10px;
+      padding: 8px 16px; background: var(--surface2);
+      border-top: 1px solid var(--border); flex-shrink: 0;
+    }
+    .img-preview-bar.show { display: flex; }
+    .img-preview-thumb {
+      width: 48px; height: 48px; object-fit: cover;
+      border-radius: 8px; border: 1px solid var(--border2);
+    }
+    .img-preview-name { font-size: 12px; color: var(--text2); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .img-preview-clear {
+      width: 24px; height: 24px; border-radius: 50%; border: none; background: var(--surface3);
+      color: var(--text2); cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: background .15s;
+    }
+    .img-preview-clear:hover { background: var(--red); color: #fff; }
+    .img-send-btn {
+      padding: 6px 12px; border-radius: 20px; border: none; cursor: pointer;
+      background: linear-gradient(135deg, var(--k-green), var(--k-green-d));
+      color: #fff; font-size: 12px; font-weight: 600; flex-shrink: 0; transition: opacity .2s;
+    }
+    .img-send-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* ── AUDIO PLAYER (bulle bot) ── */
+    .audio-player {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--surface3); border: 1px solid var(--border2);
+      border-radius: 20px; padding: 8px 14px; min-width: 220px; max-width: 300px;
+    }
+    .audio-play-btn {
+      width: 34px; height: 34px; border-radius: 50%; border: none; cursor: pointer;
+      background: linear-gradient(135deg, var(--k-green), var(--k-green-d));
+      color: #fff; font-size: 14px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform .15s; box-shadow: 0 2px 6px rgba(37,211,102,.3);
+    }
+    .audio-play-btn:hover { transform: scale(1.08); }
+    .audio-waveform {
+      flex: 1; display: flex; align-items: center; gap: 2px; height: 28px; cursor: pointer;
+    }
+    .audio-bar {
+      flex: 1; border-radius: 2px; background: var(--border2); transition: background .1s;
+      min-width: 2px;
+    }
+    .audio-bar.played { background: var(--k-green); }
+    .audio-duration { font-size: 11px; color: var(--text3); flex-shrink: 0; font-family: 'JetBrains Mono', monospace; }
+    .audio-label { font-size: 10px; color: var(--text3); margin-top: 4px; letter-spacing: .5px; }
+
+    /* ── IMAGE BUBBLE (bulle client photo) ── */
+    .msg-img-bubble {
+      max-width: 220px; border-radius: 12px; overflow: hidden;
+      border: 1px solid var(--border2); cursor: pointer;
+    }
+    .msg-img-bubble img { width: 100%; display: block; }
+    .msg-img-caption { font-size: 11px; color: var(--text3); padding: 4px 8px 6px; background: var(--surface2); }
+
     /* ── RIGHT DEBUG PANEL ── */
     .debug-panel {
       width: 340px; flex-shrink: 0; display: flex; flex-direction: column;
@@ -664,7 +731,24 @@
       </div>
     </div>
 
+    <!-- Image client preview bar (shown when a file is selected) -->
+    <div class="img-preview-bar" id="imgPreviewBar">
+      <img class="img-preview-thumb" id="imgPreviewThumb" src="" alt="">
+      <span class="img-preview-name" id="imgPreviewName"></span>
+      <button class="img-send-btn" id="btnSendImg">Envoyer photo</button>
+      <button class="img-preview-clear" id="btnClearImg" title="Annuler">✕</button>
+    </div>
+
     <div class="chat-input-area">
+      <!-- Hidden file inputs -->
+      <input type="file" id="clientImgInput" accept="image/jpeg,image/png,image/webp" style="display:none">
+      <button class="btn-attach" id="btnAttach" title="Envoyer une photo (simulation client)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      </button>
+      <label class="btn-attach" id="btnAttachAudio" title="Envoyer un vocal (simulation client)">
+        <input type="file" id="clientAudioInput" accept="audio/*,.ogg,.opus,.mp3,.wav,.m4a" style="display:none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      </label>
       <textarea class="msg-input" id="msgInput" placeholder="Tapez votre message… ou incluez #K001 pour démarrer" rows="1"></textarea>
       <button class="btn-send" id="btnSend" title="Envoyer">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -1066,13 +1150,90 @@ $('btnSaveLocation').addEventListener('click', async () => {
 });
 
 // ── CHAT ──
-function appendMsg(content, dir, debugStrip=null) {
+function appendMsg(content, dir, debugStrip=null, audioBase64=null) {
   const wrapper = document.createElement('div');
   wrapper.className = `msg-wrapper ${dir}`;
 
   const bubble = document.createElement('div');
   bubble.className = 'msg-bubble';
-  bubble.textContent = content;
+
+  if (audioBase64 && dir === 'in') {
+    // Audio PTT player
+    const ogg = 'data:audio/ogg;codecs=opus;base64,' + audioBase64;
+    const audio = new Audio(ogg);
+
+    // Generate 24 pseudo-random bars for waveform visual
+    const barHeights = Array.from({length: 24}, (_, i) => {
+      const v = Math.abs(Math.sin(i * 1.3) * 60 + Math.sin(i * 0.7) * 30) + 10;
+      return Math.min(100, Math.round(v));
+    });
+
+    const player = document.createElement('div');
+    player.className = 'audio-player';
+    player.innerHTML = `
+      <button class="audio-play-btn" title="Lire">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+      </button>
+      <div class="audio-waveform">
+        ${barHeights.map((h, i) => `<div class="audio-bar" data-i="${i}" style="height:${h}%"></div>`).join('')}
+      </div>
+      <span class="audio-duration">0:00</span>
+    `;
+
+    const playBtn = player.querySelector('.audio-play-btn');
+    const bars = player.querySelectorAll('.audio-bar');
+    const durEl = player.querySelector('.audio-duration');
+    let isPlaying = false;
+
+    const fmtTime = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+
+    audio.addEventListener('loadedmetadata', () => { durEl.textContent = fmtTime(audio.duration); });
+    audio.addEventListener('timeupdate', () => {
+      const pct = audio.duration ? audio.currentTime / audio.duration : 0;
+      const played = Math.round(pct * bars.length);
+      bars.forEach((b, i) => b.classList.toggle('played', i < played));
+      durEl.textContent = fmtTime(audio.currentTime);
+    });
+    audio.addEventListener('ended', () => {
+      isPlaying = false;
+      playBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>';
+      bars.forEach(b => b.classList.remove('played'));
+      durEl.textContent = fmtTime(audio.duration);
+    });
+
+    playBtn.addEventListener('click', () => {
+      if (isPlaying) {
+        audio.pause();
+        playBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>';
+      } else {
+        audio.play();
+        playBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+      }
+      isPlaying = !isPlaying;
+    });
+
+    // Click on waveform = seek
+    player.querySelector('.audio-waveform').addEventListener('click', e => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const pct = (e.clientX - rect.left) / rect.width;
+      audio.currentTime = pct * (audio.duration || 0);
+    });
+
+    bubble.appendChild(player);
+    const label = document.createElement('div');
+    label.className = 'audio-label';
+    label.textContent = '🎤 NOTE VOCALE';
+    bubble.appendChild(label);
+    // Text is shown below the player as subtitle
+    if (content && content !== '(vide)') {
+      const sub = document.createElement('div');
+      sub.style.cssText = 'font-size:12px;color:var(--text2);margin-top:6px;border-top:1px solid var(--border);padding-top:6px';
+      sub.textContent = content;
+      bubble.appendChild(sub);
+    }
+  } else {
+    bubble.textContent = content;
+  }
 
   const time = document.createElement('div');
   time.className = 'msg-time';
@@ -1183,7 +1344,7 @@ async function sendMessage() {
       ${data.human_takeover ? '<span class="msg-debug-chip"><span class="dot" style="background:var(--yellow)"></span>TAKEOVER</span>' : ''}
     `;
 
-    const botMsg = appendMsg(data.message || data.response || '(vide)', 'in', strip);
+    const botMsg = appendMsg(data.message || data.response || '(vide)', 'in', strip, data.audio_base64 || null);
     // Human takeover badge
     if (data.human_takeover) {
       const badge = document.createElement('span');
@@ -1709,6 +1870,196 @@ $('btnReset').addEventListener('click', () => {
   $('sumFallback').textContent = '—';
   addLog('info', 'Session réinitialisée');
   toast('Session réinitialisée', 'info');
+});
+
+// ── CLIENT IMAGE UPLOAD ──
+let _clientImgFile = null;
+
+$('btnAttach').addEventListener('click', () => {
+  if (!state.merchantId) { toast('Sélectionnez un marchand d\'abord', 'error'); return; }
+  $('clientImgInput').click();
+});
+
+$('clientImgInput').addEventListener('change', function() {
+  const file = this.files[0];
+  if (!file) return;
+  _clientImgFile = file;
+  const url = URL.createObjectURL(file);
+  $('imgPreviewThumb').src = url;
+  $('imgPreviewName').textContent = file.name;
+  $('imgPreviewBar').classList.add('show');
+  this.value = '';
+});
+
+$('btnClearImg').addEventListener('click', () => {
+  _clientImgFile = null;
+  $('imgPreviewBar').classList.remove('show');
+  $('imgPreviewThumb').src = '';
+});
+
+$('btnSendImg').addEventListener('click', async () => {
+  if (!_clientImgFile) return;
+  if (!state.merchantId || !state.merchantPhone) { toast('Sélectionnez un marchand', 'error'); return; }
+
+  const clientPhone = $('clientPhone').value.trim() || '221770000001';
+  const file = _clientImgFile;
+  const previewUrl = $('imgPreviewThumb').src;
+
+  // Show image bubble in chat (client side)
+  const imgWrapper = document.createElement('div');
+  imgWrapper.className = 'msg-wrapper out';
+  const imgBubble = document.createElement('div');
+  imgBubble.className = 'msg-img-bubble';
+  imgBubble.innerHTML = `<img src="${previewUrl}" alt="Photo client"><div class="msg-img-caption">📷 Photo envoyée</div>`;
+  imgWrapper.appendChild(imgBubble);
+  $('chatMessages').appendChild(imgWrapper);
+  $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
+
+  // Clear preview bar
+  _clientImgFile = null;
+  $('imgPreviewBar').classList.remove('show');
+  $('imgPreviewThumb').src = '';
+
+  showTyping(true);
+  $('btnSendImg').disabled = true;
+  addLog('info', `📷 Photo client envoyée: ${file.name}`);
+
+  const t0 = performance.now();
+  try {
+    const fd = new FormData();
+    fd.append('merchant_phone', state.merchantPhone);
+    fd.append('client_phone', clientPhone);
+    fd.append('client_name', 'Client Test');
+    fd.append('media_type', 'image');
+    fd.append('file', file);
+
+    const r = await fetch(`${apiBase()}/api/chat/incoming-media`, { method: 'POST', body: fd });
+    const latency = Math.round(performance.now() - t0);
+
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ detail: r.statusText }));
+      throw new Error(err.detail || r.statusText);
+    }
+
+    const data = await r.json();
+    showTyping(false);
+
+    if (data.no_response) {
+      appendSystem('Aucune réponse — aucune conversation active pour ce client');
+      return;
+    }
+
+    state.turnCount++;
+    const trace = data.debug_trace || {};
+    const stmInfo = (trace.memory || {}).stm || {};
+    const strip = `
+      <span class="msg-debug-chip"><span class="dot" style="background:var(--cyan)"></span>📷 ${latency}ms</span>
+      <span class="msg-debug-chip"><span class="dot" style="background:var(--yellow)"></span>${trace.mode||'—'}</span>
+      <span class="msg-debug-chip"><span class="dot" style="background:var(--purple)"></span>STM:${stmInfo.total_messages||0}msgs</span>
+    `;
+
+    appendMsg(data.message || data.response || '(vide)', 'in', strip, data.audio_base64 || null);
+    addLog('info', `← Réponse visuelle: "${(data.message||'').substring(0,60)}…" (${latency}ms)`);
+    updateDebugPanels(trace, latency, state.turnCount);
+
+    if (data.send_location && data.merchant_location) {
+      const loc = data.merchant_location;
+      const locEl = document.createElement('div');
+      locEl.className = 'msg-wrapper in';
+      const mapsUrl = loc.latitude && loc.longitude ? `https://www.google.com/maps?q=${loc.latitude},${loc.longitude}` : null;
+      locEl.innerHTML = `
+        <div class="msg-bubble" style="background:rgba(37,211,102,.12);border:1px solid rgba(37,211,102,.25);padding:10px 14px;display:flex;align-items:center;gap:10px;min-width:180px">
+          <span style="font-size:20px">📍</span>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--k-green)">${loc.name || 'Ma boutique'}</div>
+            ${mapsUrl ? `<a href="${mapsUrl}" target="_blank" style="font-size:10px;color:var(--k-green);text-decoration:underline;margin-top:3px;display:block">Voir sur Maps</a>` : ''}
+          </div>
+        </div>
+        <div class="msg-time">Localisation</div>
+      `;
+      $('chatMessages').appendChild(locEl);
+      $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
+    }
+  } catch (e) {
+    showTyping(false);
+    appendSystem(`Erreur photo: ${e.message}`);
+    addLog('error', `Erreur photo: ${e.message}`);
+    toast(e.message, 'error');
+  } finally {
+    $('btnSendImg').disabled = false;
+  }
+});
+
+// ── CLIENT AUDIO UPLOAD ──
+let _clientAudioFile = null;
+
+  const file = this.files[0];
+  if (!file) return;
+  _clientAudioFile = file;
+  this.value = '';
+
+  if (!state.merchantId || !state.merchantPhone) { toast('Sélectionnez un marchand', 'error'); return; }
+  const clientPhone = $('clientPhone').value.trim() || '221770000001';
+
+  // Afficher le vocal dans le chat (côté client)
+  const audioUrl = URL.createObjectURL(file);
+  const wrapper = document.createElement('div');
+  wrapper.className = 'msg-wrapper out';
+  wrapper.innerHTML = `<div class="msg-bubble"><span style="font-size:13px">🎤 Vocal envoyé: <em>${file.name}</em></span></div>`;
+  $('chatMessages').appendChild(wrapper);
+  $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
+
+  showTyping(true);
+  $('btnAttachAudio').disabled = true;
+  addLog('info', `🎤 Vocal client envoyé: ${file.name}`);
+
+  const t0 = performance.now();
+  try {
+    const fd = new FormData();
+    fd.append('merchant_phone', state.merchantPhone);
+    fd.append('client_phone', clientPhone);
+    fd.append('client_name', 'Client Test');
+    fd.append('media_type', 'audio');
+    fd.append('file', file);
+
+    const r = await fetch(`${apiBase()}/api/chat/incoming-media`, { method: 'POST', body: fd });
+    const latency = Math.round(performance.now() - t0);
+
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ detail: r.statusText }));
+      throw new Error(err.detail || r.statusText);
+    }
+
+    const data = await r.json();
+    showTyping(false);
+
+    if (data.no_response) {
+      appendSystem('Aucune réponse — aucune conversation active pour ce client');
+      return;
+    }
+
+    state.turnCount++;
+    const trace = data.debug_trace || {};
+    const stmInfo = (trace.memory || {}).stm || {};
+    const strip = `
+      <span class="msg-debug-chip"><span class="dot" style="background:var(--cyan)"></span>🎤 ${latency}ms</span>
+      <span class="msg-debug-chip"><span class="dot" style="background:var(--yellow)"></span>${trace.mode||'—'}</span>
+      <span class="msg-debug-chip"><span class="dot" style="background:var(--purple)"></span>STM:${stmInfo.total_messages||0}msgs</span>
+    `;
+
+    appendMsg(data.message || data.response || '(vide)', 'in', strip, data.audio_base64 || null);
+    addLog('info', `← Réponse vocale: "${(data.message||'').substring(0,60)}…" (${latency}ms)`);
+    updateDebugPanels(trace, latency, state.turnCount);
+
+  } catch(e) {
+    showTyping(false);
+    appendSystem(`Erreur vocal: ${e.message}`);
+    addLog('error', `Erreur vocal: ${e.message}`);
+    toast(e.message, 'error');
+  } finally {
+    $('btnAttachAudio').disabled = false;
+    _clientAudioFile = null;
+  }
 });
 
 // ── INPUT HANDLING ──

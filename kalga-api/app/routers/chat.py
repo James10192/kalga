@@ -42,7 +42,7 @@ async def handle_incoming_message(
     return await chat_service.handle_incoming_message(message)
 
 
-@router.post("/incoming-media")
+@router.post("/incoming-media", response_model=DebugBotResponse)
 @limiter.limit("20/minute")
 async def handle_incoming_media(
     request: Request,
@@ -114,13 +114,20 @@ async def handle_incoming_media(
     else:
         raise HTTPException(status_code=400, detail=f"media_type '{media_type}' non supporté")
 
+    from ..services.ai.debug_tracer import DebugTracer
     incoming = IncomingMessage(
         merchant_phone=merchant_phone,
         client_phone=client_phone,
         client_name=client_name or None,
         message=message_text,
     )
-    return await chat_service.handle_incoming_message(incoming)
+    tracer = DebugTracer()
+    response = await chat_service.handle_incoming_message(incoming, tracer=tracer)
+    tracer.finalize()
+    return DebugBotResponse(
+        **response.model_dump(),
+        debug_trace=tracer.to_dict()
+    )
 
 
 @router.post("/test-incoming", response_model=DebugBotResponse, tags=["Debug"])

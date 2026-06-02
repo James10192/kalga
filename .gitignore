@@ -43,6 +43,17 @@ build/
 *.md
 !API_DOCUMENTATION.md
 
+# Claude Code / dev artefacts
+.claude/settings.json
+.claude/settings.local.json
+.playwright-mcp/
+dashboard-overview.png
+dashboard/uploads_temp/
+
+# User uploads (data, not code)
+kalga-api/uploads/*
+!kalga-api/uploads/.gitkeep
+
 
 
 

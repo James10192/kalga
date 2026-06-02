@@ -2,7 +2,9 @@
  * KALGA Admin Dashboard - JavaScript
  */
 
-const API_URL = 'http://localhost:8001';
+const API_URL = (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.protocol === 'file:')
+    ? 'http://localhost:8001'
+    : location.origin;
 
 // ============================================
 // SECURITY UTILS
