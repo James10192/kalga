@@ -1,0 +1,164 @@
+/* =============================================================================
+   KALGA — Tailwind v4 + tokens shadcn-vue
+   Référence : ARCHITECTURE_FRONTEND.md sections 2 (stack) + 7.5 (design system)
+
+   Direction artistique : "Refined Heritage" — luxe artisanal africain
+   - Forest Green  : couleur primaire (CTA, titres, nav)
+   - Gold          : accent chaleureux (badges, CTA secondaires)
+   - Cream         : background storefront (vitrine acheteur uniquement)
+   - White         : background dashboards (lecture intensive, données denses)
+
+   Stratégie 2 surfaces, 1 marque :
+   - Storefront (acheteur) → ambiance luxe, fond crème (.storefront-theme)
+   - Dashboards (marchand + admin) → ambiance pro, fond blanc (par défaut)
+   ============================================================================= */
+
+@import 'tailwindcss';
+
+/* Plugin animate utilisé par shadcn-vue */
+@plugin 'tailwindcss-animate';
+
+/* Mode dark via class (configuré dans tailwind.config.ts) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* -----------------------------------------------------------------------------
+   Tokens shadcn — Light mode (par défaut = dashboards / admin)
+   Couleurs en HSL séparées (sans `hsl()` autour) pour permettre l'alpha.
+
+   Couleurs marque KALGA :
+   - Forest      : #0F4234 → hsl(155 63% 16%)
+   - Forest deep : #0A2E22 → hsl(156 63% 11%)  (header bar)
+   - Gold        : #E8C547 → hsl(46 76% 59%)
+   - Cream       : #F5F1E8 → hsl(45 32% 93%)
+   - Cream alt   : #EAE4D2 → hsl(45 30% 87%)   (muted sur storefront)
+   ----------------------------------------------------------------------------- */
+@layer base {
+  :root {
+    /* Background par défaut : blanc (dashboards) */
+    --background: 0 0% 100%;
+    --foreground: 156 32% 9%;
+
+    /* Background storefront : crème chaud (override dans .storefront-theme) */
+    --background-storefront: 45 32% 93%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 156 32% 9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 156 32% 9%;
+
+    /* Primary = Forest Green KALGA */
+    --primary: 155 63% 16%;
+    --primary-foreground: 45 32% 93%;
+
+    /* Secondary = Gold KALGA */
+    --secondary: 46 76% 59%;
+    --secondary-foreground: 156 32% 9%;
+
+    /* Forest deep — pour bandeaux haut (nav-bar storefront) */
+    --brand-deep: 156 63% 11%;
+    --brand-deep-foreground: 45 32% 93%;
+
+    /* Cream — exposable directement comme couleur Tailwind via brand.cream */
+    --brand-cream: 45 32% 93%;
+
+    --muted: 45 25% 92%;
+    --muted-foreground: 156 16% 32%;
+
+    --accent: 46 76% 59%;
+    --accent-foreground: 156 32% 9%;
+
+    --destructive: 0 73% 41%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 45 20% 85%;
+    --input: 45 20% 85%;
+    --ring: 46 76% 59%; /* focus en gold pour l'accent visuel */
+
+    --radius: 0.5rem;
+  }
+
+  /* Dark mode — KALGA Refined Heritage en sombre */
+  .dark {
+    --background: 156 32% 6%;
+    --foreground: 45 32% 93%;
+
+    --background-storefront: 156 32% 6%;
+
+    --card: 156 25% 9%;
+    --card-foreground: 45 32% 93%;
+
+    --popover: 156 25% 9%;
+    --popover-foreground: 45 32% 93%;
+
+    --primary: 155 50% 38%;
+    --primary-foreground: 156 32% 6%;
+
+    --secondary: 46 76% 59%;
+    --secondary-foreground: 156 32% 6%;
+
+    --brand-deep: 156 50% 4%;
+    --brand-deep-foreground: 45 32% 93%;
+
+    --brand-cream: 45 12% 18%;
+
+    --muted: 156 18% 16%;
+    --muted-foreground: 45 12% 70%;
+
+    --accent: 156 18% 16%;
+    --accent-foreground: 45 32% 93%;
+
+    --destructive: 0 60% 45%;
+    --destructive-foreground: 45 32% 93%;
+
+    --border: 156 18% 16%;
+    --input: 156 18% 16%;
+    --ring: 46 60% 50%;
+  }
+
+  /* ---------------------------------------------------------------------------
+     Storefront theme — applique le fond crème à la zone vitrine acheteur
+     Usage : <div class="storefront-theme"> dans layouts/default.vue
+     --------------------------------------------------------------------------- */
+  .storefront-theme {
+    --background: var(--background-storefront);
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   Resets globaux + polices
+   - Sans-serif : Inter (corps, UI dense)
+   - Serif       : Playfair Display (titres luxe storefront)
+   ----------------------------------------------------------------------------- */
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-feature-settings: 'cv11', 'ss01';
+    font-variation-settings: 'opsz' 32;
+  }
+
+  /* Titres serif pour le storefront (vitrine luxe) */
+  .storefront-theme h1,
+  .storefront-theme h2,
+  .storefront-theme h3,
+  .font-serif {
+    font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  /* Focus visible accessible (WCAG AA — voir doc section 2 a11y) */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}

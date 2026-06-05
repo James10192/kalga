@@ -1,0 +1,33 @@
+{
+  "extends": "./.nuxt/tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": true,
+    "paths": {
+      "@/*": ["./app/*"],
+      "@/features/*": ["./app/features/*"],
+      "@/components/*": ["./app/components/*"],
+      "@/composables/*": ["./app/composables/*"],
+      "@/stores/*": ["./app/stores/*"],
+      "@/types/*": ["./app/types/*"],
+      "@/utils/*": ["./app/utils/*"],
+      "~/*": ["./*"]
+    }
+  },
+  "include": [
+    "app/**/*",
+    "server/**/*",
+    "tests/**/*",
+    "i18n/**/*",
+    "nuxt.config.ts",
+    "tailwind.config.ts",
+    "vitest.config.ts",
+    "playwright.config.ts"
+  ],
+  "exclude": ["node_modules", ".nuxt", ".output", "dist"]
+}

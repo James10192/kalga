@@ -42,6 +42,8 @@ build/
 *.egg-info/
 *.md
 !API_DOCUMENTATION.md
+!ARCHITECTURE_FRONTEND.md
+!kalga-frontend/**/*.md
 
 # Claude Code / dev artefacts
 .claude/settings.json

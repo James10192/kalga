@@ -1,0 +1,50 @@
+# Dépendances
+node_modules
+.pnpm-store
+
+# Nuxt
+.nuxt
+.output
+.data
+dist
+
+# Environnement (secrets)
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editeurs
+.idea
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# Tests
+coverage
+.vitest
+.nyc_output
+playwright-report
+playwright/.cache
+test-results
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Sentry
+.sentryclirc
+
+# PWA générés
+public/sw.js
+public/workbox-*.js
+public/registerSW.js
