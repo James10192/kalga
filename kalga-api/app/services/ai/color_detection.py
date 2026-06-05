@@ -97,7 +97,7 @@ def _ciede2000(lab1: np.ndarray, lab2: np.ndarray) -> float:
     h2p = np.degrees(np.arctan2(b2, a2p)) % 360.0
     dLp = L2 - L1
     dCp = C2p - C1p
-    if C1p * C2p == 0:
+    if C1p * C2p < 1e-10:
         dhp = 0.0
     else:
         dh = h2p - h1p
@@ -109,7 +109,7 @@ def _ciede2000(lab1: np.ndarray, lab2: np.ndarray) -> float:
     dHp = 2 * np.sqrt(C1p * C2p) * np.sin(np.radians(dhp) / 2.0)
     Lbarp = (L1 + L2) / 2.0
     Cbarp = (C1p + C2p) / 2.0
-    if C1p * C2p == 0:
+    if C1p * C2p < 1e-10:
         hbarp = h1p + h2p
     elif abs(h1p - h2p) <= 180:
         hbarp = (h1p + h2p) / 2.0
@@ -227,7 +227,7 @@ def detect_color(image_bytes: bytes) -> ColorGuess:
     elif de >= _UNCERTAIN_DE:
         confidence = 0.35
     else:
-        confidence = 1.0 - (de - _CONFIDENT_DE) / (_UNCERTAIN_DE - _CONFIDENT_DE) * 0.55
+        confidence = 0.9 - (de - _CONFIDENT_DE) / (_UNCERTAIN_DE - _CONFIDENT_DE) * 0.55
     if is_multicolor:
         confidence = min(confidence, 0.4)
     return ColorGuess(name=name, confidence=round(confidence, 2),

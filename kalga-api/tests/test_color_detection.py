@@ -68,3 +68,14 @@ def test_corrupt_bytes_graceful():
 
 def test_confidence_high_for_clear_color():
     assert detect_color(_img_bytes((200, 30, 30))).confidence >= 0.6
+
+
+def test_confidence_in_interpolation_band_is_below_perfect():
+    """Une couleur imprécise (12 < ΔE < 28) doit avoir une confiance < 0.9 et > 0.35."""
+    # RGB (60, 120, 100) atterrit sur 'kaki' avec ΔE≈18.5 — en pleine bande d'interpolation.
+    g = detect_color(_img_bytes((60, 120, 100)))
+    assert not g.is_multicolor
+    assert g.reason.startswith("ΔE=")
+    de = float(g.reason.split("=")[1])
+    assert 12.0 < de < 28.0  # garde-fou : la couleur tombe bien dans la bande
+    assert 0.35 < g.confidence < 0.9
