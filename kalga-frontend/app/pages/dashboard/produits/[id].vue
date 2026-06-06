@@ -91,7 +91,7 @@ async function handleDelete(): Promise<void> {
     <template v-else>
       <header class="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 class="font-serif text-2xl font-semibold text-brand-forest">{{ product.name }}</h1>
+          <h1 class="font-display text-2xl font-semibold text-primary">{{ product.name }}</h1>
           <p class="text-sm text-muted-foreground">
             {{ $t('products.code') }} <strong>{{ product.code }}</strong>
           </p>

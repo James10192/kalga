@@ -22,7 +22,7 @@ const status = computed<'normal' | 'low' | 'out' | 'unmanaged'>(() => {
 
 const STATUS_CLASSES: Record<typeof status.value, string> = {
   normal: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-200 border border-emerald-500/20',
-  low: 'bg-brand-gold/20 text-brand-forest border border-brand-gold/40',
+  low: 'bg-warning/20 text-primary border border-warning/40',
   out: 'bg-destructive/10 text-destructive border border-destructive/20',
   unmanaged: 'bg-muted text-muted-foreground border border-border',
 }

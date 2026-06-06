@@ -55,7 +55,7 @@
     "merchant": "تاجر"
   },
   "landing": {
-    "heroTag": "تراث راقٍ",
+    "heroTag": "تجارة عبر واتساب",
     "heroTitle": "تجارة عبر واتساب، بلا انقطاع.",
     "heroSubtitle": "تقوم KALGA بأتمتة مبيعاتك على واتساب لتتمكّن من التركيز على ما يهم: حرفتك.",
     "merchantCTA": "دخول التاجر",
@@ -266,7 +266,7 @@
     "awayModeSaved": "تم تحديث وضع الغياب"
   },
   "storefront": {
-    "heritageBanner": "تراث راقٍ · فخامة منسّقة",
+    "tagline": "تجارة واتساب آلية",
     "search": "البحث عن منتج",
     "cart": "سلتي",
     "allRightsReserved": "جميع الحقوق محفوظة",

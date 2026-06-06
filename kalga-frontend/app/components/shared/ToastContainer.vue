@@ -23,7 +23,7 @@ const ICON_MAP: Record<ToastType, Component> = {
 const COLOR_CLASSES: Record<ToastType, string> = {
   success: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200',
   error: 'border-destructive/30 bg-destructive/10 text-destructive',
-  info: 'border-brand-forest/30 bg-brand-forest/10 text-brand-forest',
+  info: 'border-primary/30 bg-primary/10 text-primary',
 }
 </script>
 

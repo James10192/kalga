@@ -1,7 +1,7 @@
 <!--
   Bulle d'un message dans le thread.
   - Client : aligné à gauche, fond muted
-  - Bot/marchand : aligné à droite, fond brand-forest
+  - Bot/marchand : aligné à droite, fond primary
 -->
 
 <script setup lang="ts">
@@ -32,14 +32,14 @@ const timeLabel = computed(() =>
         'max-w-[80%] rounded-2xl px-4 py-2 text-sm',
         message.is_from_client
           ? 'rounded-tl-sm bg-muted text-foreground'
-          : 'rounded-tr-sm bg-brand-forest text-brand-gold',
+          : 'rounded-tr-sm bg-primary text-warning',
       ]"
     >
       <p class="whitespace-pre-wrap break-words">{{ message.content }}</p>
       <p
         :class="[
           'mt-1 text-[10px]',
-          message.is_from_client ? 'text-muted-foreground' : 'text-brand-gold/70',
+          message.is_from_client ? 'text-muted-foreground' : 'text-warning/70',
         ]"
       >
         {{ timeLabel }}

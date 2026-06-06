@@ -20,7 +20,7 @@ function handleReturnHome(): void {
 <template>
   <div class="flex min-h-screen flex-col items-center justify-center bg-background px-6 text-center">
     <div class="max-w-md space-y-6">
-      <p class="text-7xl font-bold text-brand-forest">
+      <p class="text-7xl font-bold text-primary">
         {{ error.statusCode }}
       </p>
 
@@ -34,7 +34,7 @@ function handleReturnHome(): void {
 
       <button
         type="button"
-        class="inline-flex items-center justify-center rounded-md bg-brand-forest px-6 py-2.5 text-sm font-medium text-white transition hover:bg-brand-forest/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        class="inline-flex items-center justify-center rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-white transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         @click="handleReturnHome"
       >
         {{ $t('errors.backHome') }}

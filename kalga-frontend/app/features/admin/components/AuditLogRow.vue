@@ -27,7 +27,7 @@ const adminInitials = computed(() => initialsFrom(props.entry.admin_email))
     class="grid grid-cols-[auto_1fr_auto] items-start gap-3 rounded-lg border border-border bg-card p-4"
   >
     <div
-      class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-brand-forest/10 text-brand-forest"
+      class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary"
       aria-hidden="true"
     >
       <ScrollText class="h-4 w-4" aria-hidden="true" />
@@ -41,7 +41,7 @@ const adminInitials = computed(() => initialsFrom(props.entry.admin_email))
       </p>
       <p v-if="entry.admin_email" class="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
         <span
-          class="inline-flex h-4 w-4 items-center justify-center rounded-full bg-brand-forest text-[10px] font-semibold text-brand-gold"
+          class="inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-warning"
           aria-hidden="true"
         >
           {{ adminInitials }}

@@ -54,7 +54,7 @@ async function handleSubmit(event: Event): Promise<void> {
         v-model="form.away_mode_enabled"
         type="checkbox"
         :disabled="isPending"
-        class="h-4 w-4 rounded border-input text-brand-forest focus-visible:ring-2 focus-visible:ring-ring"
+        class="h-4 w-4 rounded border-input text-primary focus-visible:ring-2 focus-visible:ring-ring"
       >
       <div class="flex-1">
         <p class="text-sm font-medium text-foreground">{{ $t('settings.awayModeToggle') }}</p>
@@ -83,7 +83,7 @@ async function handleSubmit(event: Event): Promise<void> {
       <button
         type="submit"
         :disabled="isPending"
-        class="inline-flex items-center gap-2 rounded-md bg-brand-forest px-4 py-2 text-sm font-medium text-brand-gold transition hover:bg-brand-forest/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+        class="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-warning transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
       >
         <Loader2 v-if="isPending" class="h-4 w-4 animate-spin" aria-hidden="true" />
         {{ isPending ? $t('common.loading') : $t('common.save') }}

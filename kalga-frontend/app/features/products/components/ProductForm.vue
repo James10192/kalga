@@ -228,7 +228,7 @@ const inputClass =
       <button
         type="submit"
         :disabled="loading"
-        class="inline-flex items-center justify-center gap-2 rounded-md bg-brand-forest px-5 py-2.5 text-sm font-medium text-brand-gold transition hover:bg-brand-forest/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+        class="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-warning transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
       >
         <Loader2 v-if="loading" class="h-4 w-4 animate-spin" aria-hidden="true" />
         {{ loading ? t('common.loading') : t(submitLabelI18nKey) }}

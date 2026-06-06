@@ -45,7 +45,7 @@ async function handleSubmit(data: ProductCreateInput): Promise<void> {
     </NuxtLink>
 
     <header>
-      <h1 class="font-serif text-2xl font-semibold text-brand-forest">
+      <h1 class="font-display text-2xl font-semibold text-primary">
         {{ $t('products.createTitle') }}
       </h1>
       <p class="text-sm text-muted-foreground">{{ $t('products.createSubtitle') }}</p>

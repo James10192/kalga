@@ -22,7 +22,7 @@ useHead({ title: t('errors.accountSuspendedTitle') })
       <ShieldAlert class="h-8 w-8" aria-hidden="true" />
     </div>
 
-    <h1 class="font-serif text-2xl font-semibold text-brand-forest">
+    <h1 class="font-display text-2xl font-semibold text-primary">
       {{ $t('errors.accountSuspendedTitle') }}
     </h1>
     <p class="mt-2 text-sm text-muted-foreground">
@@ -31,7 +31,7 @@ useHead({ title: t('errors.accountSuspendedTitle') })
 
     <button
       type="button"
-      class="mt-6 inline-flex items-center justify-center rounded-md bg-brand-forest px-5 py-2.5 text-sm font-medium text-brand-gold transition hover:bg-brand-forest/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      class="mt-6 inline-flex items-center justify-center rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-warning transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       @click="logout"
     >
       {{ $t('auth.logout') }}

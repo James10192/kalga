@@ -21,7 +21,7 @@ const detailHref = computed(() => ROUTES.storefront.product(props.product.code))
 
 <template>
   <article
-    class="group flex flex-col overflow-hidden rounded-lg border border-border bg-card transition hover:border-brand-forest/40 hover:shadow-md"
+    class="group flex flex-col overflow-hidden rounded-lg border border-border bg-card transition hover:border-primary/40 hover:shadow-md"
   >
     <NuxtLink
       :to="detailHref"
@@ -57,7 +57,7 @@ const detailHref = computed(() => ROUTES.storefront.product(props.product.code))
         >
           {{ product.variant_name }}
         </p>
-        <h3 class="line-clamp-1 font-serif text-lg font-medium text-brand-forest">
+        <h3 class="line-clamp-1 font-display text-lg font-medium text-primary">
           {{ product.name }}
         </h3>
         <p class="pt-1 font-semibold text-foreground">

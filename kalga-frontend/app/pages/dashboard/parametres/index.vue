@@ -98,7 +98,7 @@ function tabId(key: TabKey): string {
           :class="[
             'inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
             activeTab === tab.key
-              ? 'bg-brand-forest text-brand-gold'
+              ? 'bg-primary text-warning'
               : 'text-foreground hover:bg-muted',
           ]"
           @click="activeTab = tab.key"

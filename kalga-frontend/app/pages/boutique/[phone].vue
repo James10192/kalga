@@ -41,7 +41,7 @@ useHead({
       role="alert"
       class="mx-auto max-w-2xl px-4 py-20 text-center sm:px-6"
     >
-      <h1 class="font-serif text-2xl font-semibold text-brand-forest">
+      <h1 class="font-display text-2xl font-semibold text-primary">
         {{ $t('storefront.shopNotFound') }}
       </h1>
       <p class="mt-2 text-sm text-muted-foreground">
@@ -53,7 +53,7 @@ useHead({
       <StorefrontHero :merchant="storefront" />
 
       <main class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
-        <h2 class="mb-6 font-serif text-2xl font-semibold text-brand-forest">
+        <h2 class="mb-6 font-display text-2xl font-semibold text-primary">
           {{ $t('storefront.ourProducts') }}
         </h2>
 

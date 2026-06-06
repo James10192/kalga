@@ -51,7 +51,7 @@ watch(status, () => {
     <div
       v-if="!merchantPhone"
       role="alert"
-      class="rounded-lg border border-brand-gold/30 bg-brand-gold/10 p-4 text-sm text-brand-forest"
+      class="rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-primary"
     >
       {{ $t('conversations.noMerchantContext') }}
     </div>
@@ -87,11 +87,11 @@ watch(status, () => {
       class="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card px-6 py-16 text-center"
     >
       <div
-        class="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full bg-brand-forest/10 text-brand-forest"
+        class="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary"
       >
         <MessageSquareOff class="h-7 w-7" aria-hidden="true" />
       </div>
-      <h2 class="font-serif text-xl font-semibold text-brand-forest">
+      <h2 class="font-display text-xl font-semibold text-primary">
         {{ $t('conversations.emptyTitle') }}
       </h2>
       <p class="mt-1 max-w-sm text-sm text-muted-foreground">

@@ -29,10 +29,10 @@ const initials = computed(() =>
 <template>
   <NuxtLink
     :to="detailHref"
-    class="group grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-lg border border-border bg-card p-4 transition hover:border-brand-forest/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    class="group grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-lg border border-border bg-card p-4 transition hover:border-primary/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
   >
     <div
-      class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand-forest text-sm font-semibold text-brand-gold"
+      class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-semibold text-warning"
       aria-hidden="true"
     >
       {{ initials }}
@@ -57,7 +57,7 @@ const initials = computed(() =>
     </div>
 
     <ChevronRight
-      class="h-4 w-4 text-muted-foreground transition group-hover:text-brand-forest"
+      class="h-4 w-4 text-muted-foreground transition group-hover:text-primary"
       aria-hidden="true"
     />
   </NuxtLink>

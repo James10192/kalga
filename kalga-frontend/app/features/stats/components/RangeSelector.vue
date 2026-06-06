@@ -29,7 +29,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: RangePreset] }>()
       :class="[
         'rounded-sm px-3 py-1 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         modelValue === preset
-          ? 'bg-brand-forest text-brand-gold'
+          ? 'bg-primary text-warning'
           : 'text-foreground hover:bg-muted',
       ]"
       @click="emit('update:modelValue', preset)"

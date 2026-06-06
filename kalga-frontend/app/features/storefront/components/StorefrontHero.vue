@@ -1,6 +1,6 @@
 <!--
   Hero de vitrine marchand — bandeau forest deep avec logo + nom + description.
-  Référence : design "Refined Heritage" (Stitch)
+  Référence : design depuis dashboard/static/style.css
 -->
 
 <script setup lang="ts">
@@ -17,7 +17,7 @@ defineProps<Props>()
 
 <template>
   <section
-    class="relative overflow-hidden bg-brand-deep text-brand-gold"
+    class="relative overflow-hidden bg-foreground text-warning"
     :aria-label="merchant.business_name ?? ''"
   >
     <!-- Banner image en background, fallback gradient -->
@@ -32,13 +32,13 @@ defineProps<Props>()
         class="h-full w-full object-cover opacity-30"
         loading="eager"
       >
-      <div class="absolute inset-0 bg-gradient-to-b from-brand-deep/70 to-brand-deep" />
+      <div class="absolute inset-0 bg-gradient-to-b from-foreground/70 to-foreground" />
     </div>
 
     <div class="mx-auto flex max-w-7xl flex-col items-center gap-4 px-4 py-16 text-center sm:px-6">
       <div
         v-if="merchant.logo_url"
-        class="h-20 w-20 overflow-hidden rounded-full border-2 border-brand-gold/40 bg-brand-cream"
+        class="h-20 w-20 overflow-hidden rounded-full border-2 border-warning/40 bg-muted"
       >
         <img
           :src="merchant.logo_url"
@@ -48,16 +48,16 @@ defineProps<Props>()
       </div>
       <div
         v-else
-        class="inline-flex h-20 w-20 items-center justify-center rounded-full border-2 border-brand-gold/40 bg-brand-forest text-brand-gold"
+        class="inline-flex h-20 w-20 items-center justify-center rounded-full border-2 border-warning/40 bg-primary text-warning"
       >
         <Store class="h-8 w-8" aria-hidden="true" />
       </div>
 
-      <h1 class="font-serif text-3xl font-bold sm:text-4xl">
+      <h1 class="font-display text-3xl font-bold sm:text-4xl">
         {{ merchant.business_name ?? $t('storefront.unnamedShop') }}
       </h1>
 
-      <p v-if="merchant.description" class="max-w-2xl text-sm text-brand-gold/80 sm:text-base">
+      <p v-if="merchant.description" class="max-w-2xl text-sm text-warning/80 sm:text-base">
         {{ merchant.description }}
       </p>
     </div>

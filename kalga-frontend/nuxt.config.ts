@@ -22,10 +22,6 @@ export default defineNuxtConfig({
   // -------------------------------------------------------------------------
   modules: [
     '@nuxtjs/i18n',
-    // '@pinia/nuxt',  // À réactiver QUAND on aura un vrai store Pinia.
-    // Aujourd'hui on utilise TanStack Query partout, donc le module n'apporte
-    // que du poids + un peer mismatch (Pinia 2.x vs deps qui veulent Pinia 3.x)
-    // qui fait crasher le prerender SSR (obj.hasOwnProperty in shouldHydrate).
     '@vueuse/nuxt',
     '@vite-pwa/nuxt',
     '@nuxt/eslint',
@@ -172,8 +168,8 @@ export default defineNuxtConfig({
       short_name: 'KALGA',
       description: 'Commerce WhatsApp automatisé pour marchands',
       lang: 'fr',
-      theme_color: '#0F4234', // Forest Green (brand primary)
-      background_color: '#F5F1E8', // Cream (storefront splash)
+      theme_color: '#16a34a', // KALGA accent vert (style.css --accent)
+      background_color: '#f5f4f0', // Warm neutral (style.css --bg)
       display: 'standalone',
       start_url: '/dashboard',
       orientation: 'portrait',
@@ -231,16 +227,19 @@ export default defineNuxtConfig({
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
         { name: 'description', content: 'Commerce WhatsApp automatisé pour marchands' },
-        { name: 'theme-color', content: '#0F4234' }, // Forest brand
+        { name: 'theme-color', content: '#16a34a' }, // KALGA accent vert
       ],
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
-        // Google Fonts : Inter (UI) + Playfair Display (titres storefront)
+        // Google Fonts réelles (port depuis dashboard/static/style.css:7) :
+        // - Bricolage Grotesque : titres / display
+        // - Geist Sans          : corps / UI
+        // - Geist Mono          : code / monospace (codes produits, IDs)
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
         {
           rel: 'stylesheet',
-          href: 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;500;600;700;800&display=swap',
+          href: 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500;600&display=swap',
         },
       ],
     },
