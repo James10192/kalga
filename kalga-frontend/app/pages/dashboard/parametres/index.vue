@@ -88,8 +88,8 @@ function tabId(key: TabKey): string {
       >
         <button
           v-for="tab in TABS"
-          :key="tab.key"
           :id="tabId(tab.key)"
+          :key="tab.key"
           type="button"
           role="tab"
           :aria-selected="activeTab === tab.key"

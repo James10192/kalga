@@ -6,7 +6,6 @@
 <script setup lang="ts">
 import { ArrowRight, ImageOff, Loader2 } from 'lucide-vue-next'
 
-import WhatsAppButton from '@/features/storefront/components/WhatsAppButton.vue'
 import { useStorefrontProduct } from '@/features/storefront/composables/useStorefront'
 import { formatPriceFCFA } from '@/utils/format'
 import { ROUTES } from '@/utils/routes'
