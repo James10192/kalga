@@ -83,3 +83,14 @@ async def test_batch_rolls_back_on_failure(temp_db):
         )
     after = await repo.get_by_merchant(merchant_id)
     assert len(after) == len(before)  # rollback : rien d'ajouté
+
+
+async def test_batch_empty_list_raises(temp_db):
+    """Un lot vide doit lever ValueError (évite un SELECT ... IN () invalide)."""
+    repo = ProductRepository()
+    merchant_id, base = await _make_merchant_and_base(repo)
+    with pytest.raises(ValueError):
+        await repo.create_variants_batch(
+            merchant_id=merchant_id, base_name="Sac", price=15000, min_price=12000,
+            description=None, group_id="GRP-TEST01", variants=[],
+        )

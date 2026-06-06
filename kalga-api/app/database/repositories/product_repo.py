@@ -103,6 +103,10 @@ class ProductRepository(BaseRepository):
         En cas d'échec sur une variante, toute la transaction est annulée (rollback).
         Retourne les lignes créées.
         """
+        # Garde-fou : un lot vide n'a rien à insérer (évite un SELECT ... IN () invalide).
+        if not variants:
+            raise ValueError("La liste de variantes ne peut pas être vide")
+
         # Validation stricte avant toute écriture : un nom vide/None doit échouer.
         for v in variants:
             name = v.get("variant_name")

@@ -169,3 +169,26 @@ async def test_ask_variant_comma_routes_to_bulk(temp_db):
     msg = MerchantMessage(merchant_phone="2250788888888", message="rouge, bleu")
     resp = await service.process_command(msg)
     assert resp.action == CommandAction.VARIANTS_BATCH_CREATED
+
+
+async def test_command_variante_singular_with_newline_not_bulk(temp_db):
+    """'variante #K001\\nautre texte' ne doit PAS créer un lot (reste flux unitaire)."""
+    repo = ProductRepository()
+    async with get_connection() as db:
+        cur = await db.execute(
+            "INSERT INTO merchants (name, phone) VALUES (?, ?)", ("M", "2250777777777")
+        )
+        await db.commit()
+        merchant_id = cur.lastrowid
+    base = await repo.create(
+        merchant_id=merchant_id, name="Sac", price=15000, min_price=12000,
+        description=None,
+    )
+    service = MerchantCommandService()
+    msg = MerchantMessage(
+        merchant_phone="2250777777777",
+        message=f"variante {base['code']}\nEncore dispo ?",
+    )
+    resp = await service.process_command(msg)
+    assert resp.action != CommandAction.VARIANTS_BATCH_CREATED
+    assert resp.action == CommandAction.VARIANT_CREATE_START

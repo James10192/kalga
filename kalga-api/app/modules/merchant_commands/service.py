@@ -241,8 +241,10 @@ class MerchantCommandService:
             )
 
         # === CRÉATION DE VARIANTES EN LOT (liste) — prioritaire sur 'variante' ===
+        # La liste doit être sur la MÊME ligne que la commande ([ \t]+, pas \s+ qui
+        # avalerait un \n) ; pas de re.DOTALL pour ne pas capturer les lignes suivantes.
         bulk_match = re.search(
-            r'variantes?\s+#?(K?\d{3})\s+(.+)', message, re.IGNORECASE | re.DOTALL
+            r'variantes?\s+#?(K?\d{3})[ \t]+(.+)', message, re.IGNORECASE
         )
         if bulk_match:
             return await self._start_bulk_variants(bulk_match, merchant, db)
@@ -569,7 +571,7 @@ class MerchantCommandService:
         self, match: re.Match, merchant: dict, db
     ) -> CommandResponse:
         """Crée plusieurs variantes d'un coup : 'variantes #K001 rouge, bleu, noir'."""
-        from .handlers.bulk_variant_creation import parse_variant_list, BulkVariantCreationHandler
+        from .handlers.bulk_variant_creation import parse_variant_list
         code = f"#K{match.group(1).replace('K', '').replace('k', '')}"
         names = parse_variant_list(match.group(2))
         product = await db.get_product_by_code(code)
@@ -607,7 +609,7 @@ class MerchantCommandService:
             },
         )
         session = session_manager.get(merchant['phone'])
-        return await BulkVariantCreationHandler().handle(session, "ok", None, db)
+        return await self.bulk_variant_handler.handle(session, "ok", None, db)
 
     async def _start_variant_creation(
         self,
