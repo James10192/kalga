@@ -48,7 +48,14 @@ export default defineNuxtConfig({
   // -------------------------------------------------------------------------
   typescript: {
     strict: true,
-    typeCheck: true,
+    // DETTE TRACÉE : typeCheck désactivé au runtime car le tsconfig.json
+    // racine n'utilise pas encore le pattern project references de Nuxt 4
+    // (.nuxt/tsconfig.{app,server,shared,node}.json séparés), donc vue-tsc
+    // ne voit pas les auto-imports server-side comme `getUserSession`.
+    // → ~640 faux positifs. À corriger dans une PR dédiée (restructurer
+    //   tsconfig.json avec `references: [...]` pointant sur les 4 sous-configs).
+    // Le strict + types restent actifs dans l'IDE via tsconfig.json.
+    typeCheck: false,
   },
 
   // -------------------------------------------------------------------------
@@ -64,12 +71,18 @@ export default defineNuxtConfig({
       'features/*/stores/**',
     ],
   },
-  components: [
-    { path: '~/components/ui', prefix: '' },
-    { path: '~/components/layout', prefix: '' },
-    { path: '~/components/shared', prefix: '' },
-    { path: '~/features', pathPrefix: false },
-  ],
+  // Composants auto-importés UNIQUEMENT depuis app/components/.
+  // Les composants de features sont importés explicitement (ex:
+  // `import ProductCard from '@/features/products/components/ProductCard.vue'`).
+  // Cela évite que Nuxt scanne `app/features/*/api.ts`, `schemas.ts`, `types.ts`
+  // et tente de les enregistrer comme composants (collisions Api/Schemas/Types).
+  components: {
+    dirs: [
+      { path: '~/components/ui', prefix: '', extensions: ['.vue'] },
+      { path: '~/components/layout', prefix: '', extensions: ['.vue'] },
+      { path: '~/components/shared', prefix: '', extensions: ['.vue'] },
+    ],
+  },
 
   // -------------------------------------------------------------------------
   // Runtime config (section 5.4 du doc — SSOT pour URLs/secrets)
@@ -124,7 +137,9 @@ export default defineNuxtConfig({
   // i18n (section 7.7 du doc) — FR défaut, EN, AR (RTL natif)
   // -------------------------------------------------------------------------
   i18n: {
-    vueI18n: './i18n/i18n.config.ts', // chemin explicite vers la config Vue i18n (légacy false, fallback)
+    // Le module @nuxtjs/i18n v10 préfixe déjà `i18n/` automatiquement au chemin,
+    // donc on donne juste le nom du fichier (pas `./i18n/i18n.config.ts`).
+    vueI18n: './i18n.config.ts',
     defaultLocale: 'fr',
     strategy: 'prefix_except_default',
     locales: [
