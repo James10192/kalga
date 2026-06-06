@@ -32,4 +32,15 @@ export default withNuxt({
       { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
     ],
   },
+}, {
+  // Exception ciblée aux tests (justifiée — cf. doc §10) :
+  // - `no-explicit-any` : on caste les options capturées des mocks TanStack
+  //   Query pour inspecter queryKey/queryFn/onSuccess (introspection runtime).
+  // - `import/first` : `vi.mock` est hoisté par vitest ; l'idiome canonique le
+  //   place en tête de fichier, avant les imports.
+  files: ['tests/**/*.{test,spec}.ts'],
+  rules: {
+    '@typescript-eslint/no-explicit-any': 'off',
+    'import/first': 'off',
+  },
 })

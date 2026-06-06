@@ -47,12 +47,17 @@ export default defineNuxtConfig({
   // -------------------------------------------------------------------------
   typescript: {
     strict: true,
-    typeCheck: true,
+    // typeCheck reste à false EN DEV/BUILD : l'activer brancherait
+    // vite-plugin-checker, incompatible avec le setup project-references
+    // (« tsconfig.shared.json expected to have at least one output » → crash
+    // de `nuxt dev`). Le typecheck est donc enforced via la CLI `nuxt typecheck`
+    // (script `pnpm typecheck`, lancé en CI) — qui, elle, fonctionne avec les
+    // project references et ne voit plus les ~640 faux positifs server-side.
+    typeCheck: false,
     // Options strict supplémentaires injectées par Nuxt dans les 4 sous-configs
-    // générées (.nuxt/tsconfig.{app,server,shared,node}.json). C'est le point
-    // d'injection officiel : le tsconfig.json racine, lui, ne fait que pointer
-    // ces sous-configs via `references` (project references Nuxt 4), ce qui
-    // permet à vue-tsc de voir les auto-imports server-side (getUserSession…).
+    // générées (.nuxt/tsconfig.{app,server,shared,node}.json). Le tsconfig.json
+    // racine ne fait que pointer ces sous-configs via `references`, ce qui permet
+    // à vue-tsc (CLI) de voir les auto-imports server-side (getUserSession…).
     tsConfig: {
       compilerOptions: {
         noImplicitOverride: true,
