@@ -6,7 +6,7 @@
 <script setup lang="ts">
 import { ShieldAlert } from 'lucide-vue-next'
 
-definePageMeta({ layout: 'empty' })
+definePageMeta({ layout: false })
 
 const { logout } = useAuth()
 const { t } = useI18n()

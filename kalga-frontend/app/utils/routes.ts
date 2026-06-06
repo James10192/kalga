@@ -13,6 +13,9 @@ export const ROUTES = {
   // === ZONE PUBLIQUE ===
   home: '/',
   login: '/login',
+  /** Page d'attente après soumission du numéro WhatsApp (QR scan).
+   *  Implémenté entièrement dans la PR onboarding. */
+  connecting: '/connecting',
   storefront: {
     /** Vitrine d'un marchand : /boutique/:phone */
     merchant: (phone: string): string => `/boutique/${phone}`,
@@ -36,6 +39,8 @@ export const ROUTES = {
 
   // === ZONE ADMIN ===
   admin: {
+    /** Login admin — bypass middleware (page publique). */
+    login: '/admin/login',
     home: '/admin',
     merchants: '/admin/marchands',
     merchantDetail: (id: number): string => `/admin/marchands/${id}`,

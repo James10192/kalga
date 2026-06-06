@@ -97,6 +97,7 @@ export default defineNuxtConfig({
     proxyInternalApiKey: '', // NUXT_PROXY_INTERNAL_API_KEY (obligatoire)
     sessionPassword: '', // NUXT_SESSION_PASSWORD (obligatoire — cookies HttpOnly, min 32 chars)
     apiBackendUrl: '', // NUXT_API_BACKEND_URL (obligatoire — pas de fallback localhost)
+    whatsappBridgeUrl: '', // NUXT_WHATSAPP_BRIDGE_URL (obligatoire — bridge Node :3001)
 
     // Exposé au client
     public: {
@@ -122,9 +123,13 @@ export default defineNuxtConfig({
 
     // Zone admin — SSR + auth + role check
     '/admin/**': { ssr: true, appMiddleware: ['merchant', 'admin'] },
+    // Exception : la page de login admin est PUBLIQUE (pas d'auth requise).
+    // Déclarée après `/admin/**` pour overrider l'appMiddleware.
+    '/admin/login': { ssr: true, appMiddleware: [] },
 
-    // Auth pages
+    // Auth pages publiques
     '/login': { ssr: true },
+    '/connecting': { ssr: true }, // étape QR/onboarding (placeholder en PR #2)
   },
 
   // -------------------------------------------------------------------------
