@@ -12,6 +12,7 @@ from .schemas import MerchantMessage, CommandResponse, CommandAction, CreationSt
 from .handlers import (
     ProductCreationHandler,
     VariantCreationHandler,
+    BulkVariantCreationHandler,
     ProductEditionHandler,
     SalesManagementHandler,
     HelpCommandsHandler,
@@ -36,6 +37,7 @@ class MerchantCommandService:
     def __init__(self):
         self.product_handler = ProductCreationHandler()
         self.variant_handler = VariantCreationHandler()
+        self.bulk_variant_handler = BulkVariantCreationHandler()
         self.edition_handler = ProductEditionHandler()
         self.sales_handler = SalesManagementHandler()
         self.help_handler = HelpCommandsHandler()
@@ -144,6 +146,12 @@ class MerchantCommandService:
                 CreationStep.ASK_ANOTHER_VARIANT
             }
 
+            # Étapes de création de variantes en lot
+            bulk_variant_steps = {
+                CreationStep.VARIANT_BATCH_PHOTOS,
+                CreationStep.VARIANT_BATCH_CONFIRM,
+            }
+
             # Étapes de modification de produit
             edit_steps = {
                 CreationStep.EDIT_CHOOSE, CreationStep.EDIT_VALUE,
@@ -156,6 +164,10 @@ class MerchantCommandService:
                 )
             elif step in variant_steps:
                 return await self.variant_handler.handle(
+                    current_session, message, image_path, db
+                )
+            elif step in bulk_variant_steps:
+                return await self.bulk_variant_handler.handle(
                     current_session, message, image_path, db
                 )
             elif step in edit_steps:
@@ -227,6 +239,15 @@ class MerchantCommandService:
                          "Étape 1/5: Quel est le *nom* du produit?",
                 action=CommandAction.PRODUCT_CREATE_START
             )
+
+        # === CRÉATION DE VARIANTES EN LOT (liste) — prioritaire sur 'variante' ===
+        # La liste doit être sur la MÊME ligne que la commande ([ \t]+, pas \s+ qui
+        # avalerait un \n) ; pas de re.DOTALL pour ne pas capturer les lignes suivantes.
+        bulk_match = re.search(
+            r'variantes?\s+#?(K?\d{3})[ \t]+(.+)', message, re.IGNORECASE
+        )
+        if bulk_match:
+            return await self._start_bulk_variants(bulk_match, merchant, db)
 
         # === CRÉATION DE VARIANTE ===
         variante_match = re.search(r'variante\s+#?(K?\d{3})', message_lower, re.IGNORECASE)
@@ -545,6 +566,50 @@ class MerchantCommandService:
             )
 
         return None
+
+    async def _start_bulk_variants(
+        self, match: re.Match, merchant: dict, db
+    ) -> CommandResponse:
+        """Crée plusieurs variantes d'un coup : 'variantes #K001 rouge, bleu, noir'."""
+        from .handlers.bulk_variant_creation import parse_variant_list
+        code = f"#K{match.group(1).replace('K', '').replace('k', '')}"
+        names = parse_variant_list(match.group(2))
+        product = await db.get_product_by_code(code)
+        if not product or product['merchant_id'] != merchant['id']:
+            return CommandResponse(
+                response=f"Produit {code} non trouvé ou non autorisé.",
+                action=CommandAction.ERROR,
+            )
+        if not names:
+            return CommandResponse(
+                response="Donne au moins une variante. Ex: *variantes #K001 rouge, bleu*",
+                action=CommandAction.ERROR,
+            )
+        group_id = product.get('group_id')
+        if not group_id:
+            group_id = await db.generate_group_id()
+            from ...database.connection import get_connection
+            async with get_connection() as conn:
+                await conn.execute(
+                    "UPDATE products SET group_id = ? WHERE id = ?",
+                    (group_id, product['id']),
+                )
+                await conn.commit()
+        session_manager.create(
+            merchant_phone=merchant['phone'],
+            step=CreationStep.VARIANT_BATCH_CONFIRM,
+            data={
+                "merchant_id": merchant['id'], "name": product['name'],
+                "price": product['price'], "min_price": product['min_price'],
+                "description": product.get('description'), "group_id": group_id,
+                "original_code": code,
+                "pending_variants": [
+                    {"variant_name": n, "image_path": None} for n in names
+                ],
+            },
+        )
+        session = session_manager.get(merchant['phone'])
+        return await self.bulk_variant_handler.handle(session, "ok", None, db)
 
     async def _start_variant_creation(
         self,

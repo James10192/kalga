@@ -83,6 +83,76 @@ class ProductRepository(BaseRepository):
             row = await cursor.fetchone()
             return _row_to_dict(row) if row else None
 
+    async def create_variants_batch(
+        self,
+        merchant_id: int,
+        base_name: str,
+        price: float,
+        min_price: float,
+        description: Optional[str],
+        group_id: str,
+        variants: List[Dict[str, Any]],
+        stock_quantity: int = -1,
+        low_stock_threshold: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """
+        Crée N variantes partageant prix/group_id dans UNE transaction atomique.
+
+        variants: liste de {"variant_name": str, "image_path": Optional[str]}.
+        Le code (#K00x) est calculé une seule fois puis incrémenté.
+        En cas d'échec sur une variante, toute la transaction est annulée (rollback).
+        Retourne les lignes créées.
+        """
+        # Garde-fou : un lot vide n'a rien à insérer (évite un SELECT ... IN () invalide).
+        if not variants:
+            raise ValueError("La liste de variantes ne peut pas être vide")
+
+        # Validation stricte avant toute écriture : un nom vide/None doit échouer.
+        for v in variants:
+            name = v.get("variant_name")
+            if not isinstance(name, str) or not name.strip():
+                raise ValueError("variant_name manquant ou vide dans le lot")
+
+        async with get_connection() as db:
+            try:
+                cursor = await db.execute(
+                    "SELECT MAX(CAST(SUBSTR(code, 3) AS INTEGER)) FROM products"
+                )
+                row = await cursor.fetchone()
+                next_num = (row[0] or 0) + 1
+
+                created_ids = []
+                for i, variant in enumerate(variants):
+                    code = f"#K{next_num + i:03d}"
+                    variant_name = variant["variant_name"]
+                    full_name = f"{base_name} - {variant_name}"
+                    cur = await db.execute(
+                        """
+                        INSERT INTO products
+                            (merchant_id, name, code, price, min_price, description,
+                             image_path, group_id, variant_name,
+                             stock_quantity, low_stock_threshold)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (merchant_id, full_name, code, price, min_price, description,
+                         variant.get("image_path"), group_id, variant_name,
+                         stock_quantity, low_stock_threshold),
+                    )
+                    created_ids.append(cur.lastrowid)
+
+                await db.commit()
+            except Exception:
+                await db.rollback()
+                raise
+
+            placeholders = ",".join("?" for _ in created_ids)
+            cursor = await db.execute(
+                f"SELECT * FROM products WHERE id IN ({placeholders}) ORDER BY id",
+                tuple(created_ids),
+            )
+            rows = await cursor.fetchall()
+            return [_row_to_dict(r) for r in rows]
+
     async def update(self, product_id: int, **kwargs) -> bool:
         """Met à jour un produit avec les champs fournis"""
         if not kwargs:

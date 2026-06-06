@@ -197,9 +197,11 @@ class ProductCreationHandler(BaseHandler):
                 f"🏷️ Code: *{product['code']}*\n"
                 f"💰 Prix: {product['price']:,.0f} F\n"
                 f"{img_msg}"
-                "🎨 Tu as *d'autres couleurs/modèles* de ce produit?\n\n"
-                "Réponds *oui* pour ajouter une variante\n"
-                "Réponds *non* pour terminer",
+                "🎨 Tu as *d'autres variantes* (couleurs, tailles, modèles)?\n\n"
+                "• Tape la liste : ex. *rouge, bleu, noir* → créées d'un coup\n"
+                "• Ou écris *photos* pour envoyer un lot (je détecte les couleurs)\n"
+                "• Ou *oui* pour les ajouter une par une\n"
+                "• Ou *non* pour terminer",
                 CommandAction.PRODUCT_CREATED,
                 product_code=product['code']
             )
@@ -218,6 +220,34 @@ class ProductCreationHandler(BaseHandler):
     ) -> CommandResponse:
         """Demande si le marchand veut ajouter des variantes"""
         msg_lower = message.lower().strip()
+
+        # Mode lot — liste de variantes (présence d'une virgule = liste explicite)
+        if "," in message:
+            from .bulk_variant_creation import parse_variant_list, BulkVariantCreationHandler
+            names = parse_variant_list(message)
+            if names:
+                group_id = await self._ensure_group_id(session, db)
+                session.update_step(CreationStep.VARIANT_BATCH_CONFIRM)
+                session.set_data("group_id", group_id)
+                session.set_data("original_code", session.get_data("product_code"))
+                session.set_data(
+                    "pending_variants",
+                    [{"variant_name": n, "image_path": None} for n in names],
+                )
+                return await BulkVariantCreationHandler().handle(session, "ok", None, db)
+
+        # Mode lot — envoi de photos
+        if msg_lower in ("photos", "photo"):
+            group_id = await self._ensure_group_id(session, db)
+            session.update_step(CreationStep.VARIANT_BATCH_PHOTOS)
+            session.set_data("group_id", group_id)
+            session.set_data("original_code", session.get_data("product_code"))
+            session.set_data("batch_photos", [])
+            return self._response(
+                "📸 Envoie tes photos une par une, puis écris *fini*.\n"
+                "Je détecte la couleur de chacune automatiquement.",
+                CommandAction.VARIANT_BATCH_STEP,
+            )
 
         if msg_lower in ['oui', 'yes', 'o', 'y', 'ok', 'ouais', '1']:
             # Préparer pour la création de variante
@@ -274,3 +304,22 @@ class ProductCreationHandler(BaseHandler):
                 "Ou *non* pour terminer",
                 CommandAction.ASK_AGAIN
             )
+
+    async def _ensure_group_id(self, session: ProductSession, db: Any) -> str:
+        """Retourne le group_id du produit de base, en le générant si absent."""
+        product_code = session.get_data("product_code")
+        product = await db.get_product_by_code(product_code)
+        group_id = product.get("group_id") if product else None
+        if not group_id:
+            group_id = await db.generate_group_id()
+            # Persister le group_id sur le produit de base uniquement s'il existe encore
+            # (le produit a pu être supprimé entre le wizard et cette réponse).
+            if product:
+                from ....database.connection import get_connection
+                async with get_connection() as conn:
+                    await conn.execute(
+                        "UPDATE products SET group_id = ? WHERE id = ?",
+                        (group_id, product["id"]),
+                    )
+                    await conn.commit()
+        return group_id
