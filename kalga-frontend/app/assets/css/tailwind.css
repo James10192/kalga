@@ -11,6 +11,22 @@
    Stratégie 2 surfaces, 1 marque :
    - Storefront (acheteur) → ambiance luxe, fond crème (.storefront-theme)
    - Dashboards (marchand + admin) → ambiance pro, fond blanc (par défaut)
+
+   ===========================================================================
+   ARCHITECTURE TAILWIND v4 (lire avant de toucher) :
+
+   Tailwind v4 IGNORE quasi-totalement `tailwind.config.ts` pour les couleurs,
+   polices, espacements, etc. Toute la définition de tokens se fait DANS CE
+   FICHIER via la directive `@theme`.
+
+   Pattern shadcn-vue + Tailwind v4 :
+   1. Les VALEURS HSL brutes sont dans :root / .dark / .storefront-theme
+      (permettent le re-binding dynamique au runtime selon le thème)
+   2. Le bloc `@theme` mappe ces variables vers des tokens `--color-*`
+      qui DEVIENNENT des utility classes Tailwind (border-border,
+      bg-brand-forest, text-primary, etc.)
+   3. `tailwind.config.ts` ne sert plus qu'au `content` (scan des fichiers)
+      et aux plugins JS (tailwindcss-animate).
    ============================================================================= */
 
 @import 'tailwindcss';
@@ -18,117 +34,145 @@
 /* Plugin animate utilisé par shadcn-vue */
 @plugin 'tailwindcss-animate';
 
-/* Mode dark via class (configuré dans tailwind.config.ts) */
+/* Mode dark via class — `dark:bg-foo` actif si .dark dans l'ancêtre */
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* -----------------------------------------------------------------------------
-   Tokens shadcn — Light mode (par défaut = dashboards / admin)
-   Couleurs en HSL séparées (sans `hsl()` autour) pour permettre l'alpha.
-
-   Couleurs marque KALGA :
-   - Forest      : #0F4234 → hsl(155 63% 16%)
-   - Forest deep : #0A2E22 → hsl(156 63% 11%)  (header bar)
-   - Gold        : #E8C547 → hsl(46 76% 59%)
-   - Cream       : #F5F1E8 → hsl(45 32% 93%)
-   - Cream alt   : #EAE4D2 → hsl(45 30% 87%)   (muted sur storefront)
+   Valeurs HSL brutes — Light mode (défaut = dashboards / admin)
+   Format : H S% L% (sans `hsl()`) pour permettre `hsl(var(--x) / 0.5)`.
    ----------------------------------------------------------------------------- */
-@layer base {
-  :root {
-    /* Background par défaut : blanc (dashboards) */
-    --background: 0 0% 100%;
-    --foreground: 156 32% 9%;
+:root {
+  /* Surfaces */
+  --background: 0 0% 100%;
+  --foreground: 156 32% 9%;
+  --background-storefront: 45 32% 93%; /* crème — override dans .storefront-theme */
 
-    /* Background storefront : crème chaud (override dans .storefront-theme) */
-    --background-storefront: 45 32% 93%;
+  --card: 0 0% 100%;
+  --card-foreground: 156 32% 9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 156 32% 9%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 156 32% 9%;
+  /* Primary = Forest Green KALGA */
+  --primary: 155 63% 16%;
+  --primary-foreground: 45 32% 93%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 156 32% 9%;
+  /* Secondary = Gold KALGA */
+  --secondary: 46 76% 59%;
+  --secondary-foreground: 156 32% 9%;
 
-    /* Primary = Forest Green KALGA */
-    --primary: 155 63% 16%;
-    --primary-foreground: 45 32% 93%;
+  /* Forest deep — bandeaux haut (nav-bar storefront) */
+  --brand-deep: 156 63% 11%;
+  --brand-deep-foreground: 45 32% 93%;
+  /* Cream — exposable directement comme couleur brand */
+  --brand-cream: 45 32% 93%;
 
-    /* Secondary = Gold KALGA */
-    --secondary: 46 76% 59%;
-    --secondary-foreground: 156 32% 9%;
+  --muted: 45 25% 92%;
+  --muted-foreground: 156 16% 32%;
 
-    /* Forest deep — pour bandeaux haut (nav-bar storefront) */
-    --brand-deep: 156 63% 11%;
-    --brand-deep-foreground: 45 32% 93%;
+  --accent: 46 76% 59%;
+  --accent-foreground: 156 32% 9%;
 
-    /* Cream — exposable directement comme couleur Tailwind via brand.cream */
-    --brand-cream: 45 32% 93%;
+  --destructive: 0 73% 41%;
+  --destructive-foreground: 0 0% 100%;
 
-    --muted: 45 25% 92%;
-    --muted-foreground: 156 16% 32%;
+  --border: 45 20% 85%;
+  --input: 45 20% 85%;
+  --ring: 46 76% 59%; /* focus en gold pour l'accent visuel */
 
-    --accent: 46 76% 59%;
-    --accent-foreground: 156 32% 9%;
+  --radius: 0.5rem;
+}
 
-    --destructive: 0 73% 41%;
-    --destructive-foreground: 0 0% 100%;
+/* Dark mode — KALGA Refined Heritage en sombre */
+.dark {
+  --background: 156 32% 6%;
+  --foreground: 45 32% 93%;
+  --background-storefront: 156 32% 6%;
 
-    --border: 45 20% 85%;
-    --input: 45 20% 85%;
-    --ring: 46 76% 59%; /* focus en gold pour l'accent visuel */
+  --card: 156 25% 9%;
+  --card-foreground: 45 32% 93%;
+  --popover: 156 25% 9%;
+  --popover-foreground: 45 32% 93%;
 
-    --radius: 0.5rem;
-  }
+  --primary: 155 50% 38%;
+  --primary-foreground: 156 32% 6%;
 
-  /* Dark mode — KALGA Refined Heritage en sombre */
-  .dark {
-    --background: 156 32% 6%;
-    --foreground: 45 32% 93%;
+  --secondary: 46 76% 59%;
+  --secondary-foreground: 156 32% 6%;
 
-    --background-storefront: 156 32% 6%;
+  --brand-deep: 156 50% 4%;
+  --brand-deep-foreground: 45 32% 93%;
+  --brand-cream: 45 12% 18%;
 
-    --card: 156 25% 9%;
-    --card-foreground: 45 32% 93%;
+  --muted: 156 18% 16%;
+  --muted-foreground: 45 12% 70%;
 
-    --popover: 156 25% 9%;
-    --popover-foreground: 45 32% 93%;
+  --accent: 156 18% 16%;
+  --accent-foreground: 45 32% 93%;
 
-    --primary: 155 50% 38%;
-    --primary-foreground: 156 32% 6%;
+  --destructive: 0 60% 45%;
+  --destructive-foreground: 45 32% 93%;
 
-    --secondary: 46 76% 59%;
-    --secondary-foreground: 156 32% 6%;
+  --border: 156 18% 16%;
+  --input: 156 18% 16%;
+  --ring: 46 60% 50%;
+}
 
-    --brand-deep: 156 50% 4%;
-    --brand-deep-foreground: 45 32% 93%;
+/* Storefront theme — applique le fond crème à la zone vitrine acheteur.
+   Usage : <div class="storefront-theme"> dans layouts/default.vue */
+.storefront-theme {
+  --background: var(--background-storefront);
+}
 
-    --brand-cream: 45 12% 18%;
+/* -----------------------------------------------------------------------------
+   @theme — mappe les variables HSL ci-dessus vers des tokens Tailwind v4.
+   Chaque `--color-*` ici génère AUTOMATIQUEMENT les utility classes :
+     --color-border       → border-border, bg-border, text-border, etc.
+     --color-brand-forest → bg-brand-forest, text-brand-forest, etc.
+   ----------------------------------------------------------------------------- */
+@theme {
+  /* Surfaces */
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
 
-    --muted: 156 18% 16%;
-    --muted-foreground: 45 12% 70%;
+  /* Rôles sémantiques shadcn */
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
 
-    --accent: 156 18% 16%;
-    --accent-foreground: 45 32% 93%;
+  /* Structure */
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
 
-    --destructive: 0 60% 45%;
-    --destructive-foreground: 45 32% 93%;
+  /* Marque KALGA — Refined Heritage palette */
+  --color-brand-forest: hsl(var(--primary));
+  --color-brand-gold: hsl(var(--secondary));
+  --color-brand-cream: hsl(var(--brand-cream));
+  --color-brand-deep: hsl(var(--brand-deep));
 
-    --border: 156 18% 16%;
-    --input: 156 18% 16%;
-    --ring: 46 60% 50%;
-  }
+  /* Rayons */
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
 
-  /* ---------------------------------------------------------------------------
-     Storefront theme — applique le fond crème à la zone vitrine acheteur
-     Usage : <div class="storefront-theme"> dans layouts/default.vue
-     --------------------------------------------------------------------------- */
-  .storefront-theme {
-    --background: var(--background-storefront);
-  }
+  /* Polices */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-serif: 'Playfair Display', Georgia, 'Times New Roman', serif;
 }
 
 /* -----------------------------------------------------------------------------
    Resets globaux + polices
-   - Sans-serif : Inter (corps, UI dense)
-   - Serif       : Playfair Display (titres luxe storefront)
    ----------------------------------------------------------------------------- */
 @layer base {
   * {
@@ -142,7 +186,7 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: var(--font-sans);
     font-feature-settings: 'cv11', 'ss01';
     font-variation-settings: 'opsz' 32;
   }
@@ -152,7 +196,7 @@
   .storefront-theme h2,
   .storefront-theme h3,
   .font-serif {
-    font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+    font-family: var(--font-serif);
     font-weight: 600;
     letter-spacing: -0.01em;
   }
