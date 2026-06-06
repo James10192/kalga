@@ -8,17 +8,22 @@
 
 <script setup lang="ts">
 import { ChevronDown, LogOut } from 'lucide-vue-next'
+import { onClickOutside } from '@vueuse/core'
 
 const { user, logout } = useAuth()
 const { t } = useI18n()
 const open = ref(false)
+const root = ref<HTMLElement | null>(null)
+
+// Ferme le menu quand on clique en dehors. `onClickOutside` (composable)
+// est SSR-safe contrairement à la directive `v-on-click-outside`
+// (qui vit dans `@vueuse/components`, non installé ici).
+onClickOutside(root, () => {
+  open.value = false
+})
 
 function handleToggle(): void {
   open.value = !open.value
-}
-
-function handleClickOutside(): void {
-  open.value = false
 }
 
 async function handleLogout(): Promise<void> {
@@ -34,7 +39,7 @@ const initials = computed(() => {
 </script>
 
 <template>
-  <div v-if="user" v-on-click-outside="handleClickOutside" class="relative">
+  <div v-if="user" ref="root" class="relative">
     <button
       type="button"
       class="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

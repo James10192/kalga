@@ -7,9 +7,18 @@
 
 <script setup lang="ts">
 import { Globe } from 'lucide-vue-next'
+import { onClickOutside } from '@vueuse/core'
 
 const { locale, locales, setLocale } = useI18n()
 const open = ref(false)
+const root = ref<HTMLElement | null>(null)
+
+// Ferme le menu quand on clique en dehors. `onClickOutside` (composable)
+// est SSR-safe contrairement à la directive `v-on-click-outside`
+// (qui vit dans `@vueuse/components`, non installé ici).
+onClickOutside(root, () => {
+  open.value = false
+})
 
 interface DisplayedLocale {
   code: string
@@ -29,10 +38,6 @@ function handleToggle(): void {
   open.value = !open.value
 }
 
-function handleClickOutside(): void {
-  open.value = false
-}
-
 async function handleSelect(code: string): Promise<void> {
   open.value = false
   await setLocale(code as 'fr' | 'en' | 'ar')
@@ -40,7 +45,7 @@ async function handleSelect(code: string): Promise<void> {
 </script>
 
 <template>
-  <div v-on-click-outside="handleClickOutside" class="relative">
+  <div ref="root" class="relative">
     <button
       type="button"
       class="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

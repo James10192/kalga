@@ -22,7 +22,10 @@ export default defineNuxtConfig({
   // -------------------------------------------------------------------------
   modules: [
     '@nuxtjs/i18n',
-    '@pinia/nuxt',
+    // '@pinia/nuxt',  // À réactiver QUAND on aura un vrai store Pinia.
+    // Aujourd'hui on utilise TanStack Query partout, donc le module n'apporte
+    // que du poids + un peer mismatch (Pinia 2.x vs deps qui veulent Pinia 3.x)
+    // qui fait crasher le prerender SSR (obj.hasOwnProperty in shouldHydrate).
     '@vueuse/nuxt',
     '@vite-pwa/nuxt',
     '@nuxt/eslint',
