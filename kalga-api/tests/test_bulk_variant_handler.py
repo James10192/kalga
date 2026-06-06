@@ -114,3 +114,58 @@ async def test_fini_with_no_photo_reasks(temp_db):
     resp = await handler.handle(session, "fini", None, db)
     assert resp.action == CommandAction.ASK_AGAIN
     assert session.step == CreationStep.VARIANT_BATCH_PHOTOS
+
+
+# === Tests d'intégration (Task 6 : câblage commande + routage) ===
+from app.modules.merchant_commands.service import MerchantCommandService
+from app.modules.merchant_commands.schemas import MerchantMessage
+
+
+async def test_command_variantes_creates_list(temp_db):
+    repo = ProductRepository()
+    async with get_connection() as db:
+        cur = await db.execute(
+            "INSERT INTO merchants (name, phone) VALUES (?, ?)", ("M", "2250799999999")
+        )
+        await db.commit()
+        merchant_id = cur.lastrowid
+    base = await repo.create(
+        merchant_id=merchant_id, name="Sac", price=15000, min_price=12000,
+        description=None,
+    )
+    service = MerchantCommandService()
+    msg = MerchantMessage(
+        merchant_phone="2250799999999",
+        message=f"variantes {base['code']} rouge, bleu, noir",
+    )
+    resp = await service.process_command(msg)
+    assert resp.action == CommandAction.VARIANTS_BATCH_CREATED
+    products = await repo.get_by_merchant(merchant_id)
+    names = {p["name"] for p in products}
+    assert {"Sac - rouge", "Sac - bleu", "Sac - noir"} <= names
+
+
+async def test_ask_variant_comma_routes_to_bulk(temp_db):
+    """Au step ASK_VARIANT, une liste avec virgule crée les variantes en lot."""
+    repo = ProductRepository()
+    async with get_connection() as db:
+        cur = await db.execute(
+            "INSERT INTO merchants (name, phone) VALUES (?, ?)", ("M", "2250788888888")
+        )
+        await db.commit()
+        merchant_id = cur.lastrowid
+    base = await repo.create(
+        merchant_id=merchant_id, name="Sac", price=15000, min_price=12000,
+        description=None,
+    )
+    session_manager.create(
+        merchant_phone="2250788888888",
+        step=CreationStep.ASK_VARIANT,
+        data={"merchant_id": merchant_id, "name": "Sac", "price": 15000,
+              "min_price": 12000, "description": None,
+              "product_code": base["code"], "product_id": base["id"]},
+    )
+    service = MerchantCommandService()
+    msg = MerchantMessage(merchant_phone="2250788888888", message="rouge, bleu")
+    resp = await service.process_command(msg)
+    assert resp.action == CommandAction.VARIANTS_BATCH_CREATED
