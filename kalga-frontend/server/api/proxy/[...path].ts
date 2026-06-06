@@ -15,7 +15,8 @@
  *  - Les endpoints privés requièrent une session valide côté Nuxt
  */
 
-import { callBackend, getAccessTokenFromSession } from '~/server/utils/api-client'
+// `callBackend` et `getAccessTokenFromSession` sont auto-importés depuis
+// `server/utils/api-client.ts` par Nuxt 4 (convention server-side auto-import).
 
 /** En-têtes à ne PAS forwarder du browser vers le backend */
 const STRIPPED_INCOMING_HEADERS = new Set([
