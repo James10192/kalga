@@ -34,6 +34,38 @@ export const PHONE_MAX_LEN = 15
 /** Numéro nettoyé = chiffres uniquement, indicatif inclus */
 export const PHONE_DIGITS_ONLY_REGEX = /^\d{10,15}$/
 
+/**
+ * Pays supportés par le login WhatsApp marchand.
+ * Source : dashboard/index.html — country selector.
+ * Ordre exact préservé (Côte d'Ivoire en premier = pays principal KALGA).
+ *
+ * `code` = indicatif téléphonique sans le `+`, utilisé comme préfixe
+ * du numéro avant envoi au backend.
+ */
+export interface WhatsAppCountry {
+  readonly code: string
+  readonly flag: string
+  readonly nameKey: string
+}
+
+export const WHATSAPP_COUNTRIES: ReadonlyArray<WhatsAppCountry> = [
+  { code: '225', flag: '🇨🇮', nameKey: 'country.ci' },
+  { code: '224', flag: '🇬🇳', nameKey: 'country.gn' },
+  { code: '223', flag: '🇲🇱', nameKey: 'country.ml' },
+  { code: '226', flag: '🇧🇫', nameKey: 'country.bf' },
+  { code: '228', flag: '🇹🇬', nameKey: 'country.tg' },
+  { code: '229', flag: '🇧🇯', nameKey: 'country.bj' },
+  { code: '221', flag: '🇸🇳', nameKey: 'country.sn' },
+  { code: '237', flag: '🇨🇲', nameKey: 'country.cm' },
+  { code: '241', flag: '🇬🇦', nameKey: 'country.ga' },
+  { code: '242', flag: '🇨🇬', nameKey: 'country.cg' },
+  { code: '243', flag: '🇨🇩', nameKey: 'country.cd' },
+  { code: '33', flag: '🇫🇷', nameKey: 'country.fr' },
+] as const
+
+/** Pays par défaut (Côte d'Ivoire). */
+export const WHATSAPP_COUNTRY_DEFAULT = WHATSAPP_COUNTRIES[0]
+
 // =============================================================================
 // MARCHAND
 // =============================================================================

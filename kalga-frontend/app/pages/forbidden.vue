@@ -7,7 +7,7 @@
 import { Lock } from 'lucide-vue-next'
 import { ROUTES } from '@/utils/routes'
 
-definePageMeta({ layout: 'empty' })
+definePageMeta({ layout: false })
 
 const { t } = useI18n()
 useHead({ title: t('errors.forbiddenTitle') })
