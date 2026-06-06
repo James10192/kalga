@@ -71,14 +71,17 @@ export default defineNuxtConfig({
       'features/*/stores/**',
     ],
   },
-  // Composants auto-importés UNIQUEMENT depuis app/components/.
+  // Composants auto-importés UNIQUEMENT depuis app/components/{layout,shared}/.
+  // Note : `app/components/ui/` n'est PAS encore dans la liste car le dossier
+  // n'existe pas tant que la CLI shadcn-vue n'a pas généré son premier composant.
+  // Il sera ajouté ici dès qu'on lance `pnpm shadcn-nuxt add button` (ou autre).
+  //
   // Les composants de features sont importés explicitement (ex:
   // `import ProductCard from '@/features/products/components/ProductCard.vue'`).
   // Cela évite que Nuxt scanne `app/features/*/api.ts`, `schemas.ts`, `types.ts`
   // et tente de les enregistrer comme composants (collisions Api/Schemas/Types).
   components: {
     dirs: [
-      { path: '~/components/ui', prefix: '', extensions: ['.vue'] },
       { path: '~/components/layout', prefix: '', extensions: ['.vue'] },
       { path: '~/components/shared', prefix: '', extensions: ['.vue'] },
     ],

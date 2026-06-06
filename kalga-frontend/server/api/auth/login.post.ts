@@ -10,8 +10,9 @@
  *  4. Renvoie le user au browser (PAS le JWT)
  */
 
+// `callBackend` est auto-importé depuis `server/utils/api-client.ts` par Nuxt 4
+// (convention server-side auto-import). Pas besoin d'import explicite.
 import { loginInputSchema } from '@/features/auth/schemas'
-import { callBackend } from '~/server/utils/api-client'
 
 interface BackendLoginResponse {
   access_token: string
