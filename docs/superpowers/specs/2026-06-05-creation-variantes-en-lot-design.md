@@ -1,7 +1,7 @@
 # Création de variantes en lot — Design
 
 **Date** : 2026-06-05
-**Statut** : Validé (en attente de relecture marchand avant plan d'implémentation)
+**Statut** : Implémenté (branche `feature/variantes-en-lot`, 32 tests verts)
 **Périmètre** : `kalga-api` — module `merchant_commands` + nouveau module IA `color_detection`
 
 ---
