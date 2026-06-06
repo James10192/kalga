@@ -63,8 +63,12 @@ export const WHATSAPP_COUNTRIES: ReadonlyArray<WhatsAppCountry> = [
   { code: '33', flag: '🇫🇷', nameKey: 'country.fr' },
 ] as const
 
-/** Pays par défaut (Côte d'Ivoire). */
-export const WHATSAPP_COUNTRY_DEFAULT = WHATSAPP_COUNTRIES[0]
+/**
+ * Pays par défaut (Côte d'Ivoire).
+ * `WHATSAPP_COUNTRIES` est un littéral non vide → l'index 0 est garanti.
+ * Le `!` lève le `| undefined` que `noUncheckedIndexedAccess` ajoute.
+ */
+export const WHATSAPP_COUNTRY_DEFAULT = WHATSAPP_COUNTRIES[0]!
 
 // =============================================================================
 // MARCHAND

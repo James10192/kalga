@@ -14,6 +14,7 @@ import {
   PRICE_MAX,
   PRICE_MIN,
 } from '@/utils/constants'
+import type { ConversationStatusValue } from '@/utils/constants'
 
 // =============================================================================
 // CONVERSATION
@@ -26,7 +27,7 @@ export const conversationSchema = z.object({
   client_phone: z.string().regex(PHONE_DIGITS_ONLY_REGEX, 'Téléphone invalide'),
   client_name: z.string().nullable(),
   status: z.enum(
-    CONVERSATION_STATUS_VALUES as unknown as readonly [string, ...string[]],
+    CONVERSATION_STATUS_VALUES as [ConversationStatusValue, ...ConversationStatusValue[]],
   ),
   current_offer: z.number().int().min(PRICE_MIN).max(PRICE_MAX).nullable(),
   selected_variant_id: z.number().int().positive().nullable(),

@@ -47,14 +47,21 @@ export default defineNuxtConfig({
   // -------------------------------------------------------------------------
   typescript: {
     strict: true,
-    // DETTE TRACÉE : typeCheck désactivé au runtime car le tsconfig.json
-    // racine n'utilise pas encore le pattern project references de Nuxt 4
-    // (.nuxt/tsconfig.{app,server,shared,node}.json séparés), donc vue-tsc
-    // ne voit pas les auto-imports server-side comme `getUserSession`.
-    // → ~640 faux positifs. À corriger dans une PR dédiée (restructurer
-    //   tsconfig.json avec `references: [...]` pointant sur les 4 sous-configs).
-    // Le strict + types restent actifs dans l'IDE via tsconfig.json.
-    typeCheck: false,
+    typeCheck: true,
+    // Options strict supplémentaires injectées par Nuxt dans les 4 sous-configs
+    // générées (.nuxt/tsconfig.{app,server,shared,node}.json). C'est le point
+    // d'injection officiel : le tsconfig.json racine, lui, ne fait que pointer
+    // ces sous-configs via `references` (project references Nuxt 4), ce qui
+    // permet à vue-tsc de voir les auto-imports server-side (getUserSession…).
+    tsConfig: {
+      compilerOptions: {
+        noImplicitOverride: true,
+        noFallthroughCasesInSwitch: true,
+        noImplicitReturns: true,
+        forceConsistentCasingInFileNames: true,
+        verbatimModuleSyntax: true,
+      },
+    },
   },
 
   // -------------------------------------------------------------------------
@@ -64,10 +71,8 @@ export default defineNuxtConfig({
   imports: {
     dirs: [
       'composables/**',
-      'stores/**',
       'utils/**',
       'features/*/composables/**',
-      'features/*/stores/**',
     ],
   },
   // Composants auto-importés UNIQUEMENT depuis app/components/{layout,shared}/.
@@ -160,7 +165,6 @@ export default defineNuxtConfig({
       redirectOn: 'root',
       fallbackLocale: 'fr',
     },
-    bundle: { optimizeTranslationDirective: false },
   },
 
   // -------------------------------------------------------------------------

@@ -73,7 +73,7 @@ export function formatDateTime(iso: string, locale: string = 'fr-FR'): string {
  * groupe le reste par 2 ou 4.
  *
  * @example formatPhone('2250161407534') // "+225 01 61 40 75 34"
- * @example formatPhone('33612345678')   // "+33 06 12 34 56 78"
+ * @example formatPhone('33612345678')   // "+33 6 12 34 56 78"
  */
 export function formatPhone(phone: string): string {
   if (!phone) {
@@ -88,9 +88,13 @@ export function formatPhone(phone: string): string {
   const ccLen = digits.startsWith('33') || digits.startsWith('34') ? 2 : 3
   const cc = digits.slice(0, ccLen)
   const rest = digits.slice(ccLen)
-  // Regroupe le reste par 2 chiffres
-  const grouped = rest.replace(/(\d{2})(?=\d)/g, '$1 ')
-  return `+${cc} ${grouped}`
+  // Si le reste a un nombre impair de chiffres (ex: France +33 6 12 34 56 78),
+  // on isole le 1er chiffre puis on groupe le reste par paires. Sinon (ex: 225,
+  // 10 chiffres pairs) on groupe directement par paires.
+  const lead = rest.length % 2 === 1 ? rest.slice(0, 1) : ''
+  const body = lead ? rest.slice(1) : rest
+  const grouped = body.replace(/(\d{2})(?=\d)/g, '$1 ')
+  return lead ? `+${cc} ${lead} ${grouped}` : `+${cc} ${grouped}`
 }
 
 /**

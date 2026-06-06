@@ -11,6 +11,7 @@ import type {
   loginInputSchema,
   loginResponseSchema,
   sessionUserSchema,
+  whatsappConnectInputSchema,
 } from './schemas'
 
 export type LoginInput = z.infer<typeof loginInputSchema>
@@ -18,3 +19,4 @@ export type ForgotPasswordInput = z.infer<typeof forgotPasswordInputSchema>
 export type ChangePasswordInput = z.infer<typeof changePasswordInputSchema>
 export type SessionUser = z.infer<typeof sessionUserSchema>
 export type LoginResponse = z.infer<typeof loginResponseSchema>
+export type WhatsappConnectInput = z.infer<typeof whatsappConnectInputSchema>

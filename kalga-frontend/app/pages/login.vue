@@ -25,12 +25,14 @@ const { t } = useI18n()
 const { push } = useToast()
 const router = useRouter()
 
+// Data fetching délégué au composable (pas de $fetch dans la page — §7.5/§10).
+const { mutateAsync: connectWhatsapp, isPending: submitting } = useWhatsappConnect()
+
 const phone = ref<CountryPhoneValue>({
   countryCode: WHATSAPP_COUNTRY_DEFAULT.code,
   localNumber: '',
 })
 
-const submitting = ref(false)
 const fieldError = ref<string | null>(null)
 
 useHead({ title: t('auth.merchant.title') })
@@ -49,18 +51,12 @@ async function handleSubmit(event: Event): Promise<void> {
     return
   }
 
-  submitting.value = true
   try {
-    await $fetch('/api/whatsapp/connect', {
-      method: 'POST',
-      body: { merchant_phone: fullNumber },
-    })
+    await connectWhatsapp({ merchant_phone: fullNumber })
     // Le QR + suite de l'onboarding sont sur /connecting — porté en PR onboarding.
     await router.push(`${ROUTES.connecting}?phone=${encodeURIComponent(fullNumber)}`)
   } catch (err) {
     push.error(extractApiErrorMessage(err, t('auth.merchant.connectError')))
-  } finally {
-    submitting.value = false
   }
 }
 </script>

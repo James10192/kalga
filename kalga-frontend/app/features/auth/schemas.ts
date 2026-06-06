@@ -12,6 +12,7 @@ import {
   EMAIL_MAX_LEN,
   PASSWORD_MAX_LEN,
   PASSWORD_MIN_LEN,
+  PHONE_DIGITS_ONLY_REGEX,
   ROLE_VALUES,
 } from '@/utils/constants'
 
@@ -31,6 +32,11 @@ export const loginInputSchema = z.object({
 /** Form mot de passe oublié */
 export const forgotPasswordInputSchema = z.object({
   email: z.string().email('Email invalide').max(EMAIL_MAX_LEN),
+})
+
+/** Form de connexion WhatsApp marchand (page login) — numéro complet indicatif + local */
+export const whatsappConnectInputSchema = z.object({
+  merchant_phone: z.string().regex(PHONE_DIGITS_ONLY_REGEX, 'Numéro WhatsApp invalide'),
 })
 
 /** Form changement de mot de passe */

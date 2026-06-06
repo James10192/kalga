@@ -70,7 +70,7 @@ describe('formatPhone', () => {
   })
 
   it('formate un numéro français avec indicatif 33', () => {
-    expect(formatPhone('33612345678')).toBe('+33 06 12 34 56 78')
+    expect(formatPhone('33612345678')).toBe('+33 6 12 34 56 78')
   })
 
   it('retourne le numéro tel quel si trop court', () => {

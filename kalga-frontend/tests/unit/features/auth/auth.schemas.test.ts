@@ -94,6 +94,7 @@ describe('sessionUserSchema', () => {
       role: 'admin',
       is_active: true,
       merchant_id: null,
+      merchant_phone: null,
     })
     expect(result.success).toBe(true)
   })
@@ -105,6 +106,7 @@ describe('sessionUserSchema', () => {
       role: 'merchant',
       is_active: true,
       merchant_id: 42,
+      merchant_phone: '2250161407534',
     })
     expect(result.success).toBe(true)
   })
