@@ -13,20 +13,27 @@
    - Dashboards (marchand + admin) → ambiance pro, fond blanc (par défaut)
 
    ===========================================================================
-   ARCHITECTURE TAILWIND v4 (lire avant de toucher) :
+   ARCHITECTURE TAILWIND v4 + shadcn-vue (lire avant de toucher) :
 
-   Tailwind v4 IGNORE quasi-totalement `tailwind.config.ts` pour les couleurs,
-   polices, espacements, etc. Toute la définition de tokens se fait DANS CE
-   FICHIER via la directive `@theme`.
+   Source officielle : https://www.shadcn-vue.com/docs/theming
 
-   Pattern shadcn-vue + Tailwind v4 :
-   1. Les VALEURS HSL brutes sont dans :root / .dark / .storefront-theme
-      (permettent le re-binding dynamique au runtime selon le thème)
-   2. Le bloc `@theme` mappe ces variables vers des tokens `--color-*`
-      qui DEVIENNENT des utility classes Tailwind (border-border,
-      bg-brand-forest, text-primary, etc.)
-   3. `tailwind.config.ts` ne sert plus qu'au `content` (scan des fichiers)
-      et aux plugins JS (tailwindcss-animate).
+   Pattern impératif pour shadcn-vue + Tailwind v4 :
+
+   1. Les valeurs de couleur dans :root / .dark sont des CHAÎNES COMPLÈTES
+      (ex: `hsl(155 63% 16%)`, pas `155 63% 16%`). Permet à Tailwind v4
+      d'utiliser ces variables directement dans @theme inline.
+
+   2. La directive est `@theme inline` (PAS `@theme` tout court).
+      `inline` indique à Tailwind de garder les références var() telles
+      quelles au lieu d'évaluer les valeurs au build-time.
+      Sans `inline` → erreur "Cannot convert undefined or null to object"
+      car Tailwind essaie de résoudre `hsl(var(--x))` au build.
+
+   3. Dans @theme inline, on référence chaque variable SANS wrapper :
+      `--color-background: var(--background);`
+      (PAS `--color-background: hsl(var(--background));`)
+
+   4. tailwind.config.ts ne sert plus qu'à `content` (scan) + plugins JS.
    ============================================================================= */
 
 @import 'tailwindcss';
@@ -38,83 +45,81 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* -----------------------------------------------------------------------------
-   Valeurs HSL brutes — Light mode (défaut = dashboards / admin)
-   Format : H S% L% (sans `hsl()`) pour permettre `hsl(var(--x) / 0.5)`.
+   Valeurs de tokens — Light mode (défaut = dashboards / admin)
+   Format : chaînes complètes `hsl(H S% L%)` pour que @theme inline puisse
+   les utiliser directement via `var(--x)`.
    ----------------------------------------------------------------------------- */
 :root {
-  /* Surfaces */
-  --background: 0 0% 100%;
-  --foreground: 156 32% 9%;
-  --background-storefront: 45 32% 93%; /* crème — override dans .storefront-theme */
+  --radius: 0.5rem;
 
-  --card: 0 0% 100%;
-  --card-foreground: 156 32% 9%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 156 32% 9%;
+  /* Surfaces */
+  --background: hsl(0 0% 100%);
+  --foreground: hsl(156 32% 9%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(156 32% 9%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(156 32% 9%);
+
+  /* Storefront — surcharge appliquée par .storefront-theme */
+  --background-storefront: hsl(45 32% 93%);
 
   /* Primary = Forest Green KALGA */
-  --primary: 155 63% 16%;
-  --primary-foreground: 45 32% 93%;
+  --primary: hsl(155 63% 16%);
+  --primary-foreground: hsl(45 32% 93%);
 
   /* Secondary = Gold KALGA */
-  --secondary: 46 76% 59%;
-  --secondary-foreground: 156 32% 9%;
+  --secondary: hsl(46 76% 59%);
+  --secondary-foreground: hsl(156 32% 9%);
 
-  /* Forest deep — bandeaux haut (nav-bar storefront) */
-  --brand-deep: 156 63% 11%;
-  --brand-deep-foreground: 45 32% 93%;
-  /* Cream — exposable directement comme couleur brand */
-  --brand-cream: 45 32% 93%;
+  /* Muted / Accent / Destructive */
+  --muted: hsl(45 25% 92%);
+  --muted-foreground: hsl(156 16% 32%);
+  --accent: hsl(46 76% 59%);
+  --accent-foreground: hsl(156 32% 9%);
+  --destructive: hsl(0 73% 41%);
+  --destructive-foreground: hsl(0 0% 100%);
 
-  --muted: 45 25% 92%;
-  --muted-foreground: 156 16% 32%;
+  /* Structure */
+  --border: hsl(45 20% 85%);
+  --input: hsl(45 20% 85%);
+  --ring: hsl(46 76% 59%); /* focus en gold pour l'accent visuel */
 
-  --accent: 46 76% 59%;
-  --accent-foreground: 156 32% 9%;
-
-  --destructive: 0 73% 41%;
-  --destructive-foreground: 0 0% 100%;
-
-  --border: 45 20% 85%;
-  --input: 45 20% 85%;
-  --ring: 46 76% 59%; /* focus en gold pour l'accent visuel */
-
-  --radius: 0.5rem;
+  /* Marque KALGA — tokens supplémentaires */
+  --brand-deep: hsl(156 63% 11%); /* Forest deep — bandeau nav storefront */
+  --brand-deep-foreground: hsl(45 32% 93%);
+  --brand-cream: hsl(45 32% 93%); /* Cream — exposable directement */
 }
 
 /* Dark mode — KALGA Refined Heritage en sombre */
 .dark {
-  --background: 156 32% 6%;
-  --foreground: 45 32% 93%;
-  --background-storefront: 156 32% 6%;
+  --background: hsl(156 32% 6%);
+  --foreground: hsl(45 32% 93%);
+  --card: hsl(156 25% 9%);
+  --card-foreground: hsl(45 32% 93%);
+  --popover: hsl(156 25% 9%);
+  --popover-foreground: hsl(45 32% 93%);
 
-  --card: 156 25% 9%;
-  --card-foreground: 45 32% 93%;
-  --popover: 156 25% 9%;
-  --popover-foreground: 45 32% 93%;
+  --background-storefront: hsl(156 32% 6%);
 
-  --primary: 155 50% 38%;
-  --primary-foreground: 156 32% 6%;
+  --primary: hsl(155 50% 38%);
+  --primary-foreground: hsl(156 32% 6%);
+  --secondary: hsl(46 76% 59%);
+  --secondary-foreground: hsl(156 32% 6%);
 
-  --secondary: 46 76% 59%;
-  --secondary-foreground: 156 32% 6%;
+  --muted: hsl(156 18% 16%);
+  --muted-foreground: hsl(45 12% 70%);
+  --accent: hsl(156 18% 16%);
+  --accent-foreground: hsl(45 32% 93%);
+  --destructive: hsl(0 60% 45%);
+  --destructive-foreground: hsl(45 32% 93%);
 
-  --brand-deep: 156 50% 4%;
-  --brand-deep-foreground: 45 32% 93%;
-  --brand-cream: 45 12% 18%;
+  --border: hsl(156 18% 16%);
+  --input: hsl(156 18% 16%);
+  --ring: hsl(46 60% 50%);
 
-  --muted: 156 18% 16%;
-  --muted-foreground: 45 12% 70%;
-
-  --accent: 156 18% 16%;
-  --accent-foreground: 45 32% 93%;
-
-  --destructive: 0 60% 45%;
-  --destructive-foreground: 45 32% 93%;
-
-  --border: 156 18% 16%;
-  --input: 156 18% 16%;
-  --ring: 46 60% 50%;
+  --brand-deep: hsl(156 50% 4%);
+  --brand-deep-foreground: hsl(45 32% 93%);
+  --brand-cream: hsl(45 12% 18%);
 }
 
 /* Storefront theme — applique le fond crème à la zone vitrine acheteur.
@@ -124,47 +129,48 @@
 }
 
 /* -----------------------------------------------------------------------------
-   @theme — mappe les variables HSL ci-dessus vers des tokens Tailwind v4.
-   Chaque `--color-*` ici génère AUTOMATIQUEMENT les utility classes :
-     --color-border       → border-border, bg-border, text-border, etc.
-     --color-brand-forest → bg-brand-forest, text-brand-forest, etc.
+   @theme inline — expose les tokens ci-dessus comme utility classes Tailwind v4.
+   Chaque `--color-*` ici génère AUTOMATIQUEMENT les utilities :
+     --color-border       → border-border, bg-border, text-border
+     --color-brand-forest → bg-brand-forest, text-brand-forest, border-brand-forest
+   `inline` est CRITIQUE : sans lui, Tailwind tente d'évaluer var() au build → erreur.
    ----------------------------------------------------------------------------- */
-@theme {
+@theme inline {
   /* Surfaces */
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
 
   /* Rôles sémantiques shadcn */
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
-  --color-secondary: hsl(var(--secondary));
-  --color-secondary-foreground: hsl(var(--secondary-foreground));
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
-  --color-accent: hsl(var(--accent));
-  --color-accent-foreground: hsl(var(--accent-foreground));
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
 
   /* Structure */
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
-  --color-ring: hsl(var(--ring));
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
 
   /* Marque KALGA — Refined Heritage palette */
-  --color-brand-forest: hsl(var(--primary));
-  --color-brand-gold: hsl(var(--secondary));
-  --color-brand-cream: hsl(var(--brand-cream));
-  --color-brand-deep: hsl(var(--brand-deep));
+  --color-brand-forest: var(--primary);
+  --color-brand-gold: var(--secondary);
+  --color-brand-cream: var(--brand-cream);
+  --color-brand-deep: var(--brand-deep);
 
   /* Rayons */
-  --radius-lg: var(--radius);
-  --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
 
   /* Polices */
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
