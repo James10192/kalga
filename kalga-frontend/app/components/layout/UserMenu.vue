@@ -48,7 +48,7 @@ const initials = computed(() => {
       @click="handleToggle"
     >
       <span
-        class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-brand-forest text-sm font-semibold text-brand-gold"
+        class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-semibold text-warning"
         aria-hidden="true"
       >
         {{ initials }}

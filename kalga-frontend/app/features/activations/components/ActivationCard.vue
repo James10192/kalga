@@ -38,7 +38,7 @@ async function handleSend(): Promise<void> {
 <template>
   <article class="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
     <div
-      class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand-gold/20 text-brand-forest"
+      class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-warning/20 text-primary"
       aria-hidden="true"
     >
       <KeyRound class="h-4 w-4" aria-hidden="true" />
@@ -59,7 +59,7 @@ async function handleSend(): Promise<void> {
     <button
       type="button"
       :disabled="isPending"
-      class="inline-flex shrink-0 items-center gap-2 rounded-md bg-brand-forest px-3 py-1.5 text-xs font-medium text-brand-gold transition hover:bg-brand-forest/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+      class="inline-flex shrink-0 items-center gap-2 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-warning transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
       @click="handleSend"
     >
       <Loader2 v-if="isPending" class="h-3 w-3 animate-spin" aria-hidden="true" />

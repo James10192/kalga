@@ -3,7 +3,7 @@
   Référence : ARCHITECTURE_FRONTEND.md section 7.5
 
   Design : sobre, fond crème, logo + nav + lang + cart.
-  Style luxe Refined Heritage (typographie serif sur titres).
+  Style: header public KALGA.
 -->
 
 <script setup lang="ts">
@@ -23,9 +23,9 @@ watch(() => route.path, () => {
 <template>
   <header class="sticky top-0 z-40 border-b border-border bg-card">
     <!-- Bandeau d'annonce -->
-    <div class="bg-brand-deep px-4 py-1.5 text-center">
-      <p class="text-xs text-brand-gold/90">
-        {{ $t('storefront.heritageBanner') }}
+    <div class="bg-foreground px-4 py-1.5 text-center">
+      <p class="text-xs text-warning/90">
+        {{ $t('storefront.tagline') }}
       </p>
     </div>
 
@@ -55,7 +55,7 @@ watch(() => route.path, () => {
           v-for="item in PUBLIC_NAV"
           :key="item.to"
           :to="item.to"
-          class="text-sm font-medium text-foreground transition hover:text-brand-forest focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          class="text-sm font-medium text-foreground transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {{ $t(item.i18nKey) }}
         </NuxtLink>

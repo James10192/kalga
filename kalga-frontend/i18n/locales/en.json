@@ -55,7 +55,7 @@
     "merchant": "Merchant"
   },
   "landing": {
-    "heroTag": "Refined Heritage",
+    "heroTag": "WhatsApp Commerce",
     "heroTitle": "WhatsApp commerce, uninterrupted.",
     "heroSubtitle": "KALGA automates your WhatsApp sales so you can focus on what matters: your craft.",
     "merchantCTA": "Merchant access",
@@ -266,7 +266,7 @@
     "awayModeSaved": "Away mode updated"
   },
   "storefront": {
-    "heritageBanner": "Curated luxury · Refined heritage",
+    "tagline": "Automated WhatsApp commerce",
     "search": "Search products",
     "cart": "My cart",
     "allRightsReserved": "All rights reserved",

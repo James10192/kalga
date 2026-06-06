@@ -83,7 +83,7 @@ const inputClass =
       class="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card px-6 py-16 text-center"
     >
       <div
-        class="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full bg-brand-forest/10 text-brand-forest"
+        class="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary"
       >
         <Users class="h-6 w-6" aria-hidden="true" />
       </div>

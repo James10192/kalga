@@ -63,7 +63,7 @@ const messagesHint = computed(() => {
     <div
       v-if="!merchantId"
       role="alert"
-      class="rounded-lg border border-brand-gold/30 bg-brand-gold/10 p-4 text-sm text-brand-forest"
+      class="rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-primary"
     >
       {{ $t('conversations.noMerchantContext') }}
     </div>

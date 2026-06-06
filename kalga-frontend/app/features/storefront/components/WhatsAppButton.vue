@@ -32,8 +32,8 @@ const href = computed(() => {
 
 const classes = computed(() =>
   props.variant === 'primary'
-    ? 'bg-brand-forest text-brand-gold hover:bg-brand-forest/90'
-    : 'border border-brand-forest text-brand-forest hover:bg-brand-forest/5',
+    ? 'bg-primary text-warning hover:bg-primary/90'
+    : 'border border-primary text-primary hover:bg-primary/5',
 )
 </script>
 

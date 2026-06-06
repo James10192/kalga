@@ -1,139 +1,126 @@
 /* =============================================================================
-   KALGA — Tailwind v4 + tokens shadcn-vue
+   KALGA — Tailwind v4 + tokens design réels (port 1:1 depuis dashboard/static/style.css)
    Référence : ARCHITECTURE_FRONTEND.md sections 2 (stack) + 7.5 (design system)
 
-   Direction artistique : "Refined Heritage" — luxe artisanal africain
-   - Forest Green  : couleur primaire (CTA, titres, nav)
-   - Gold          : accent chaleureux (badges, CTA secondaires)
-   - Cream         : background storefront (vitrine acheteur uniquement)
-   - White         : background dashboards (lecture intensive, données denses)
+   Source de vérité : dashboard/static/style.css — "Merchant OS Premium Redesign"
+   - Polices    : Bricolage Grotesque (display) + Geist Sans (body) + Geist Mono
+   - Accent     : vert #16a34a (highlight #22c55e, lo #dcfce7)
+   - Surface    : warm neutral (#f5f4f0 light, #0f0f0f dark)
+   - Bi-modal   : light/dark via class .dark
 
-   Stratégie 2 surfaces, 1 marque :
-   - Storefront (acheteur) → ambiance luxe, fond crème (.storefront-theme)
-   - Dashboards (marchand + admin) → ambiance pro, fond blanc (par défaut)
-
-   ===========================================================================
-   ARCHITECTURE TAILWIND v4 + shadcn-vue (lire avant de toucher) :
-
-   Source officielle : https://www.shadcn-vue.com/docs/theming
-
-   Pattern impératif pour shadcn-vue + Tailwind v4 :
-
-   1. Les valeurs de couleur dans :root / .dark sont des CHAÎNES COMPLÈTES
-      (ex: `hsl(155 63% 16%)`, pas `155 63% 16%`). Permet à Tailwind v4
-      d'utiliser ces variables directement dans @theme inline.
-
-   2. La directive est `@theme inline` (PAS `@theme` tout court).
-      `inline` indique à Tailwind de garder les références var() telles
-      quelles au lieu d'évaluer les valeurs au build-time.
-      Sans `inline` → erreur "Cannot convert undefined or null to object"
-      car Tailwind essaie de résoudre `hsl(var(--x))` au build.
-
-   3. Dans @theme inline, on référence chaque variable SANS wrapper :
-      `--color-background: var(--background);`
-      (PAS `--color-background: hsl(var(--background));`)
-
-   4. tailwind.config.ts ne sert plus qu'à `content` (scan) + plugins JS.
+   Architecture v4 :
+   - :root et .dark contiennent les valeurs HSL/HEX réelles
+   - @theme inline expose chaque variable comme utility class
+     (--color-primary → bg-primary, text-primary, border-primary, etc.)
    ============================================================================= */
 
 @import 'tailwindcss';
 
-/* Plugin animate utilisé par shadcn-vue */
+/* Plugin animate utilisé par shadcn-vue (toasts, dropdowns, dialogs) */
 @plugin 'tailwindcss-animate';
 
 /* Mode dark via class — `dark:bg-foo` actif si .dark dans l'ancêtre */
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* -----------------------------------------------------------------------------
-   Valeurs de tokens — Light mode (défaut = dashboards / admin)
-   Format : chaînes complètes `hsl(H S% L%)` pour que @theme inline puisse
-   les utiliser directement via `var(--x)`.
+   Valeurs RÉELLES — Light mode (défaut)
+   Port direct depuis dashboard/static/style.css:42-67
    ----------------------------------------------------------------------------- */
 :root {
-  --radius: 0.5rem;
+  /* Surfaces warm neutral (style.css) */
+  --background: #f5f4f0;
+  --background-alt: #eeede8;
+  --foreground: #1a1714;
 
-  /* Surfaces */
-  --background: hsl(0 0% 100%);
-  --foreground: hsl(156 32% 9%);
-  --card: hsl(0 0% 100%);
-  --card-foreground: hsl(156 32% 9%);
-  --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(156 32% 9%);
+  --card: #ffffff;
+  --card-foreground: #1a1714;
+  --popover: #ffffff;
+  --popover-foreground: #1a1714;
+  --surface-2: #f9f8f5;
+  --surface-3: #f0ede8;
 
-  /* Storefront — surcharge appliquée par .storefront-theme */
-  --background-storefront: hsl(45 32% 93%);
+  /* Texte hiérarchisé (style.css --text-1..4) */
+  --text-1: #1a1714;
+  --text-2: #4a4540;
+  --text-3: #8a8278;
+  --text-4: #b0a89e;
 
-  /* Primary = Forest Green KALGA */
-  --primary: hsl(155 63% 16%);
-  --primary-foreground: hsl(45 32% 93%);
+  /* Accent vert KALGA (--accent dans style.css) */
+  --primary: #16a34a;
+  --primary-foreground: #ffffff;
+  --primary-hi: #22c55e;
+  --primary-lo: #dcfce7;
 
-  /* Secondary = Gold KALGA */
-  --secondary: hsl(46 76% 59%);
-  --secondary-foreground: hsl(156 32% 9%);
+  /* Sémantique (style.css) */
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
 
-  /* Muted / Accent / Destructive */
-  --muted: hsl(45 25% 92%);
-  --muted-foreground: hsl(156 16% 32%);
-  --accent: hsl(46 76% 59%);
-  --accent-foreground: hsl(156 32% 9%);
-  --destructive: hsl(0 73% 41%);
-  --destructive-foreground: hsl(0 0% 100%);
+  --warning: #f59e0b;
+  --warning-foreground: #1a1714;
 
-  /* Structure */
-  --border: hsl(45 20% 85%);
-  --input: hsl(45 20% 85%);
-  --ring: hsl(46 76% 59%); /* focus en gold pour l'accent visuel */
+  --info: #3b82f6;
+  --info-foreground: #ffffff;
 
-  /* Marque KALGA — tokens supplémentaires */
-  --brand-deep: hsl(156 63% 11%); /* Forest deep — bandeau nav storefront */
-  --brand-deep-foreground: hsl(45 32% 93%);
-  --brand-cream: hsl(45 32% 93%); /* Cream — exposable directement */
-}
+  --success: #10b981;
+  --success-foreground: #ffffff;
 
-/* Dark mode — KALGA Refined Heritage en sombre */
-.dark {
-  --background: hsl(156 32% 6%);
-  --foreground: hsl(45 32% 93%);
-  --card: hsl(156 25% 9%);
-  --card-foreground: hsl(45 32% 93%);
-  --popover: hsl(156 25% 9%);
-  --popover-foreground: hsl(45 32% 93%);
+  /* Muted/Accent (sémantique shadcn-vue) */
+  --muted: #f0ede8;
+  --muted-foreground: #8a8278;
+  --accent: #f0ede8;
+  --accent-foreground: #1a1714;
 
-  --background-storefront: hsl(156 32% 6%);
+  /* Structure (style.css) */
+  --border: #e4e0d8;
+  --border-lo: #ede9e0;
+  --input: #d8d4cc;
+  --input-bg: #f9f8f5;
+  --ring: #16a34a;
 
-  --primary: hsl(155 50% 38%);
-  --primary-foreground: hsl(156 32% 6%);
-  --secondary: hsl(46 76% 59%);
-  --secondary-foreground: hsl(156 32% 6%);
-
-  --muted: hsl(156 18% 16%);
-  --muted-foreground: hsl(45 12% 70%);
-  --accent: hsl(156 18% 16%);
-  --accent-foreground: hsl(45 32% 93%);
-  --destructive: hsl(0 60% 45%);
-  --destructive-foreground: hsl(45 32% 93%);
-
-  --border: hsl(156 18% 16%);
-  --input: hsl(156 18% 16%);
-  --ring: hsl(46 60% 50%);
-
-  --brand-deep: hsl(156 50% 4%);
-  --brand-deep-foreground: hsl(45 32% 93%);
-  --brand-cream: hsl(45 12% 18%);
-}
-
-/* Storefront theme — applique le fond crème à la zone vitrine acheteur.
-   Usage : <div class="storefront-theme"> dans layouts/default.vue */
-.storefront-theme {
-  --background: var(--background-storefront);
+  /* Rayon base */
+  --radius: 10px;
 }
 
 /* -----------------------------------------------------------------------------
-   @theme inline — expose les tokens ci-dessus comme utility classes Tailwind v4.
-   Chaque `--color-*` ici génère AUTOMATIQUEMENT les utilities :
-     --color-border       → border-border, bg-border, text-border
-     --color-brand-forest → bg-brand-forest, text-brand-forest, border-brand-forest
-   `inline` est CRITIQUE : sans lui, Tailwind tente d'évaluer var() au build → erreur.
+   Dark mode (port 1:1 depuis style.css:69-97)
+   ----------------------------------------------------------------------------- */
+.dark {
+  --background: #0f0f0f;
+  --background-alt: #141414;
+  --foreground: #f0ede8;
+
+  --card: #1a1a1a;
+  --card-foreground: #f0ede8;
+  --popover: #1a1a1a;
+  --popover-foreground: #f0ede8;
+  --surface-2: #202020;
+  --surface-3: #272727;
+
+  --text-1: #f0ede8;
+  --text-2: #b8b0a8;
+  --text-3: #706860;
+  --text-4: #484038;
+
+  --primary: #22c55e;
+  --primary-foreground: #0f0f0f;
+  --primary-hi: #4ade80;
+  --primary-lo: rgba(34, 197, 94, 0.12);
+
+  --muted: #202020;
+  --muted-foreground: #b8b0a8;
+  --accent: #202020;
+  --accent-foreground: #f0ede8;
+
+  --border: #2a2a2a;
+  --border-lo: #222222;
+  --input: #333333;
+  --input-bg: #1e1e1e;
+  --ring: #22c55e;
+}
+
+/* -----------------------------------------------------------------------------
+   @theme inline — expose les tokens en utility classes Tailwind v4
+   Chaque `--color-*` génère AUTOMATIQUEMENT bg-*, text-*, border-*, ring-*, etc.
    ----------------------------------------------------------------------------- */
 @theme inline {
   /* Surfaces */
@@ -144,41 +131,55 @@
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
 
-  /* Rôles sémantiques shadcn */
+  /* Hiérarchie texte */
+  --color-text-1: var(--text-1);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+  --color-text-4: var(--text-4);
+
+  /* Sémantique */
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
+  --color-primary-hi: var(--primary-hi);
+  --color-primary-lo: var(--primary-lo);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
 
   /* Structure */
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  /* Marque KALGA — Refined Heritage palette */
-  --color-brand-forest: var(--primary);
-  --color-brand-gold: var(--secondary);
-  --color-brand-cream: var(--brand-cream);
-  --color-brand-deep: var(--brand-deep);
+  /* Rayons (style.css --radius-*) */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
 
-  /* Rayons */
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-
-  /* Polices */
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-serif: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  /* Polices (port depuis style.css --font-*) */
+  --font-display: 'Bricolage Grotesque', system-ui, sans-serif;
+  --font-sans: 'Geist', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', 'Courier New', monospace;
 }
 
 /* -----------------------------------------------------------------------------
-   Resets globaux + polices
+   Resets globaux
    ----------------------------------------------------------------------------- */
 @layer base {
   * {
@@ -186,6 +187,7 @@
   }
 
   html {
+    color-scheme: light dark;
     -webkit-text-size-adjust: 100%;
     -webkit-tap-highlight-color: transparent;
   }
@@ -193,22 +195,24 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-sans);
-    font-feature-settings: 'cv11', 'ss01';
-    font-variation-settings: 'opsz' 32;
+    font-size: 14px;
+    line-height: 1.6;
   }
 
-  /* Titres serif pour le storefront (vitrine luxe) */
-  .storefront-theme h1,
-  .storefront-theme h2,
-  .storefront-theme h3,
-  .font-serif {
-    font-family: var(--font-serif);
-    font-weight: 600;
-    letter-spacing: -0.01em;
+  /* Titres en display font (Bricolage Grotesque) */
+  h1, h2, h3, h4, h5, h6,
+  .font-display {
+    font-family: var(--font-display);
   }
 
-  /* Focus visible accessible (WCAG AA — voir doc section 2 a11y) */
+  /* Focus visible accessible (style.css --shadow-focus) */
   :focus-visible {
     @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
+
+  /* Scrollbar fine (style.css:123) */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-4); }
 }

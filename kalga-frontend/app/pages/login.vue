@@ -88,7 +88,7 @@ async function handleSubmit(event: Event): Promise<void> {
 
     <div class="rounded-xl border border-border bg-card p-8 shadow-sm">
       <header class="mb-6 text-center">
-        <h1 class="font-serif text-2xl font-semibold text-brand-forest">
+        <h1 class="font-display text-2xl font-semibold text-primary">
           {{ $t('auth.loginTitle') }}
         </h1>
         <p class="mt-1 text-sm text-muted-foreground">
@@ -165,7 +165,7 @@ async function handleSubmit(event: Event): Promise<void> {
         <button
           type="submit"
           :disabled="loading"
-          class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-brand-forest px-4 py-2.5 text-sm font-medium text-brand-gold transition hover:bg-brand-forest/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+          class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-warning transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Loader2 v-if="loading" class="h-4 w-4 animate-spin" aria-hidden="true" />
           {{ loading ? $t('common.loading') : $t('auth.login') }}

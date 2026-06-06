@@ -10,7 +10,7 @@ const currentYear = new Date().getFullYear()
 </script>
 
 <template>
-  <footer class="mt-auto border-t border-border bg-brand-deep text-brand-gold/90">
+  <footer class="mt-auto border-t border-border bg-foreground text-warning/90">
     <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6">
       <div class="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
         <KalgaLogo size="sm" />

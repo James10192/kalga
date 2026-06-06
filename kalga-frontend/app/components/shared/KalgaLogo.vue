@@ -36,7 +36,7 @@ const tokens = computed(() => SIZE_TOKENS[props.size])
     <span
       :class="[
         tokens.box,
-        'inline-flex items-center justify-center rounded-md bg-brand-forest font-serif font-bold text-brand-gold',
+        'inline-flex items-center justify-center rounded-md bg-primary font-display font-bold text-warning',
       ]"
     >
       <span :class="tokens.text">K</span>
@@ -44,7 +44,7 @@ const tokens = computed(() => SIZE_TOKENS[props.size])
 
     <span
       v-if="withWordmark"
-      :class="[tokens.word, 'font-serif font-semibold tracking-tight text-brand-forest']"
+      :class="[tokens.word, 'font-display font-semibold tracking-tight text-primary']"
     >
       KALGA
     </span>

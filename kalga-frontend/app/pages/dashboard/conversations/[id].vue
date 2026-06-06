@@ -100,14 +100,14 @@ const lastClientMessage = computed<string>(() => {
           class="mt-4 flex items-center gap-3 rounded-md border border-border bg-muted/30 p-3"
         >
           <div
-            class="rounded-md bg-brand-forest px-2 py-1 text-xs font-semibold text-brand-gold"
+            class="rounded-md bg-primary px-2 py-1 text-xs font-semibold text-warning"
           >
             {{ product.code }}
           </div>
           <p class="text-sm font-medium text-foreground">{{ product.name }}</p>
           <NuxtLink
             :to="ROUTES.dashboard.productDetail(product.id)"
-            class="ml-auto text-xs text-brand-forest underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            class="ml-auto text-xs text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {{ $t('conversations.openProduct') }}
           </NuxtLink>
@@ -115,7 +115,7 @@ const lastClientMessage = computed<string>(() => {
 
         <div v-if="conversation.current_offer" class="mt-2 text-xs text-muted-foreground">
           {{ $t('conversations.currentOffer') }}:
-          <span class="font-medium text-brand-forest">{{ conversation.current_offer }}</span>
+          <span class="font-medium text-primary">{{ conversation.current_offer }}</span>
         </div>
       </header>
 

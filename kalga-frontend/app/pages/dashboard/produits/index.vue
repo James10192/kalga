@@ -40,7 +40,7 @@ const totalPages = computed(() =>
 
       <NuxtLink
         :to="ROUTES.dashboard.productNew"
-        class="inline-flex items-center gap-2 rounded-md bg-brand-forest px-4 py-2 text-sm font-medium text-brand-gold transition hover:bg-brand-forest/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        class="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-warning transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Plus class="h-4 w-4" aria-hidden="true" />
         {{ $t('products.createNew') }}

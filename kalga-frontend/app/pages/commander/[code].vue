@@ -127,7 +127,7 @@ async function handleSubmit(event: Event): Promise<void> {
       >
         <CheckCircle2 class="h-8 w-8" aria-hidden="true" />
       </div>
-      <h1 class="font-serif text-2xl font-semibold text-brand-forest">
+      <h1 class="font-display text-2xl font-semibold text-primary">
         {{ $t('storefront.thanksTitle') }}
       </h1>
       <p class="mt-2 text-sm text-muted-foreground">
@@ -136,7 +136,7 @@ async function handleSubmit(event: Event): Promise<void> {
 
       <NuxtLink
         :to="ROUTES.home"
-        class="mt-6 inline-flex items-center justify-center rounded-md bg-brand-forest px-5 py-2.5 text-sm font-medium text-brand-gold transition hover:bg-brand-forest/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        class="mt-6 inline-flex items-center justify-center rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-warning transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {{ $t('errors.backHome') }}
       </NuxtLink>
@@ -159,11 +159,11 @@ async function handleSubmit(event: Event): Promise<void> {
             >
           </div>
           <span
-            class="mb-2 inline-block rounded-md bg-brand-forest px-2 py-0.5 text-xs font-semibold text-brand-gold"
+            class="mb-2 inline-block rounded-md bg-primary px-2 py-0.5 text-xs font-semibold text-warning"
           >
             {{ product.code }}
           </span>
-          <h2 class="font-serif text-lg font-semibold text-brand-forest">
+          <h2 class="font-display text-lg font-semibold text-primary">
             {{ product.name }}
           </h2>
           <p class="mt-1 text-xl font-semibold text-foreground">
@@ -175,7 +175,7 @@ async function handleSubmit(event: Event): Promise<void> {
       <!-- Form -->
       <section class="lg:col-span-3">
         <header class="mb-4">
-          <h1 class="font-serif text-2xl font-semibold text-brand-forest">
+          <h1 class="font-display text-2xl font-semibold text-primary">
             {{ $t('storefront.orderFormTitle') }}
           </h1>
           <p class="text-sm text-muted-foreground">
@@ -250,7 +250,7 @@ async function handleSubmit(event: Event): Promise<void> {
           <button
             type="submit"
             :disabled="isPending"
-            class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-brand-forest px-5 py-3 text-sm font-semibold text-brand-gold transition hover:bg-brand-forest/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+            class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-5 py-3 text-sm font-semibold text-warning transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Loader2 v-if="isPending" class="h-4 w-4 animate-spin" aria-hidden="true" />
             {{ isPending ? $t('common.loading') : $t('storefront.confirmOrder') }}

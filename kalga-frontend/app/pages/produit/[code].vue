@@ -43,7 +43,7 @@ const orderHref = computed(() =>
       role="alert"
       class="mx-auto max-w-2xl px-4 py-20 text-center sm:px-6"
     >
-      <h1 class="font-serif text-2xl font-semibold text-brand-forest">
+      <h1 class="font-display text-2xl font-semibold text-primary">
         {{ $t('storefront.productNotFound') }}
       </h1>
       <p class="mt-2 text-sm text-muted-foreground">
@@ -76,11 +76,11 @@ const orderHref = computed(() =>
       <div class="space-y-6">
         <header class="space-y-2">
           <span
-            class="inline-flex items-center rounded-md bg-brand-forest px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-brand-gold"
+            class="inline-flex items-center rounded-md bg-primary px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-warning"
           >
             {{ product.code }}
           </span>
-          <h1 class="font-serif text-3xl font-bold text-brand-forest sm:text-4xl">
+          <h1 class="font-display text-3xl font-bold text-primary sm:text-4xl">
             {{ product.name }}
           </h1>
           <p
@@ -102,7 +102,7 @@ const orderHref = computed(() =>
         <div
           v-if="!product.in_stock"
           role="alert"
-          class="rounded-md border border-brand-gold/40 bg-brand-gold/10 px-3 py-2 text-sm text-brand-forest"
+          class="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-primary"
         >
           {{ $t('storefront.outOfStockNotice') }}
         </div>
@@ -110,7 +110,7 @@ const orderHref = computed(() =>
         <div class="flex flex-col gap-3 pt-2 sm:flex-row">
           <NuxtLink
             :to="orderHref"
-            class="inline-flex items-center justify-center gap-2 rounded-md bg-brand-forest px-5 py-3 text-sm font-semibold text-brand-gold transition hover:bg-brand-forest/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            class="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-3 text-sm font-semibold text-warning transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {{ $t('storefront.orderNow') }}
             <ArrowRight class="h-4 w-4" aria-hidden="true" />

@@ -38,7 +38,7 @@ const iconComponent = computed(() => iconFor(props.icon))
       </p>
       <span
         v-if="iconComponent"
-        class="inline-flex h-8 w-8 items-center justify-center rounded-md bg-brand-forest/10 text-brand-forest"
+        class="inline-flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary"
       >
         <component :is="iconComponent" class="h-4 w-4" aria-hidden="true" />
       </span>

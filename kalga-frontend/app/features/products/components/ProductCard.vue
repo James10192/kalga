@@ -34,7 +34,7 @@ const imageSrc = computed<string | null>(() => {
 
 <template>
   <article
-    class="group flex flex-col overflow-hidden rounded-lg border border-border bg-card transition hover:border-brand-forest/40 hover:shadow-sm"
+    class="group flex flex-col overflow-hidden rounded-lg border border-border bg-card transition hover:border-primary/40 hover:shadow-sm"
   >
     <NuxtLink
       :to="detailHref"
@@ -57,7 +57,7 @@ const imageSrc = computed<string | null>(() => {
         </div>
 
         <span
-          class="absolute left-2 top-2 rounded-md bg-brand-forest px-2 py-0.5 text-xs font-semibold text-brand-gold"
+          class="absolute left-2 top-2 rounded-md bg-primary px-2 py-0.5 text-xs font-semibold text-warning"
         >
           {{ product.code }}
         </span>
@@ -71,7 +71,7 @@ const imageSrc = computed<string | null>(() => {
         </p>
 
         <div class="flex items-center justify-between pt-1">
-          <span class="font-semibold text-brand-forest">
+          <span class="font-semibold text-primary">
             {{ formatPriceFCFA(product.price) }}
           </span>
 

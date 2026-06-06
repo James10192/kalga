@@ -55,7 +55,7 @@
     "merchant": "Marchand"
   },
   "landing": {
-    "heroTag": "Patrimoine raffiné",
+    "heroTag": "Commerce WhatsApp",
     "heroTitle": "Commerce WhatsApp, sans interruption.",
     "heroSubtitle": "KALGA automatise vos ventes WhatsApp pour que vous puissiez vous concentrer sur ce qui compte : votre métier.",
     "merchantCTA": "Accès marchand",
@@ -266,7 +266,7 @@
     "awayModeSaved": "Mode absence mis à jour"
   },
   "storefront": {
-    "heritageBanner": "Patrimoine raffiné · Curated luxury",
+    "tagline": "Commerce WhatsApp automatisé",
     "search": "Rechercher un produit",
     "cart": "Mon panier",
     "allRightsReserved": "Tous droits réservés",

@@ -7,7 +7,7 @@
 
 <template>
   <div
-    class="storefront-theme flex min-h-screen items-center justify-center bg-background px-4 py-8 text-foreground"
+    class="flex min-h-screen items-center justify-center bg-background px-4 py-8 text-foreground"
   >
     <slot />
   </div>

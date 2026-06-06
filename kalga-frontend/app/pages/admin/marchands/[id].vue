@@ -65,7 +65,7 @@ const storefrontHref = computed(() =>
       <header class="rounded-lg border border-border bg-card p-6">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 class="font-serif text-2xl font-semibold text-brand-forest">
+            <h1 class="font-display text-2xl font-semibold text-primary">
               {{ merchant.business_name ?? merchant.name }}
             </h1>
             <p class="text-sm text-muted-foreground">{{ merchant.name }}</p>
@@ -105,7 +105,7 @@ const storefrontHref = computed(() =>
       </header>
 
       <section class="rounded-lg border border-border bg-card p-6">
-        <h2 class="mb-3 font-serif text-lg font-semibold text-brand-forest">
+        <h2 class="mb-3 font-display text-lg font-semibold text-primary">
           {{ $t('admin.quickActions') }}
         </h2>
         <div class="flex flex-wrap gap-3">
@@ -113,7 +113,7 @@ const storefrontHref = computed(() =>
             :to="storefrontHref"
             target="_blank"
             rel="noopener"
-            class="inline-flex items-center justify-center rounded-md border border-brand-forest px-4 py-2 text-sm font-medium text-brand-forest transition hover:bg-brand-forest/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            class="inline-flex items-center justify-center rounded-md border border-primary px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {{ $t('admin.openStorefront') }}
           </NuxtLink>

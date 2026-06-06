@@ -17,9 +17,9 @@ const props = defineProps<Props>()
 
 const STATUS_CLASSES: Record<ConversationStatusValue, string> = {
   [CONVERSATION_STATUS.ACTIVE]:
-    'bg-brand-forest/10 text-brand-forest border border-brand-forest/20',
+    'bg-primary/10 text-primary border border-primary/20',
   [CONVERSATION_STATUS.NEGOTIATING]:
-    'bg-brand-gold/20 text-brand-forest border border-brand-gold/40',
+    'bg-warning/20 text-primary border border-warning/40',
   [CONVERSATION_STATUS.AGREED]:
     'bg-emerald-500/10 text-emerald-700 dark:text-emerald-200 border border-emerald-500/20',
   [CONVERSATION_STATUS.PENDING_DELIVERY]:
