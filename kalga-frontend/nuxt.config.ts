@@ -245,15 +245,14 @@ export default defineNuxtConfig({
       ],
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
-        // Google Fonts réelles (port depuis dashboard/static/style.css:7) :
-        // - Bricolage Grotesque : titres / display
-        // - Geist Sans          : corps / UI
-        // - Geist Mono          : code / monospace (codes produits, IDs)
+        // Google Fonts « Luxe africain » (cf. tailwind.css --font-*) :
+        // - Playfair Display : titres / display (serif)
+        // - Inter            : corps / UI (sans-serif)
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
         {
           rel: 'stylesheet',
-          href: 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500;600&display=swap',
+          href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap',
         },
       ],
     },

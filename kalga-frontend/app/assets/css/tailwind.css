@@ -1,17 +1,20 @@
 /* =============================================================================
-   KALGA — Tailwind v4 + tokens design réels (port 1:1 depuis dashboard/static/style.css)
-   Référence : ARCHITECTURE_FRONTEND.md sections 2 (stack) + 7.5 (design system)
+   KALGA — Tailwind v4 + design tokens « Luxe africain »
+   Référence : ARCHITECTURE_FRONTEND.md sections 2 (stack) + 5.4 (SSOT tokens)
 
-   Source de vérité : dashboard/static/style.css — "Merchant OS Premium Redesign"
-   - Polices    : Bricolage Grotesque (display) + Geist Sans (body) + Geist Mono
-   - Accent     : vert #16a34a (highlight #22c55e, lo #dcfce7)
-   - Surface    : warm neutral (#f5f4f0 light, #0f0f0f dark)
-   - Bi-modal   : light/dark via class .dark
+   SOURCE UNIQUE DE VÉRITÉ des couleurs/polices du site (Issue #0).
+   - Palette  : vert forêt #1B4332 + or #B5853A, surfaces blanc cassé / crème
+   - Polices  : Playfair Display (titres, serif) + Inter (corps, sans-serif)
+   - Bi-modal : clair (:root) / sombre (.dark), bascule via classe .dark
 
-   Architecture v4 :
-   - :root et .dark contiennent les valeurs HSL/HEX réelles
-   - @theme inline expose chaque variable comme utility class
-     (--color-primary → bg-primary, text-primary, border-primary, etc.)
+   Règle d'or : les composants n'utilisent QUE des classes sémantiques
+   (bg-background, text-foreground, bg-primary, text-gold…) — JAMAIS de hex
+   en dur ni de bg-[#...]. Changer une couleur = 1 ligne ici.
+
+   Distinction importante :
+   - `--gold`   = couleur de MARQUE (accent doré), à utiliser volontairement.
+   - `--accent` = surface NEUTRE de survol shadcn (dropdowns/menus). NE PAS
+     y mettre l'or, sinon tous les composants shadcn virent au doré.
    ============================================================================= */
 
 @import 'tailwindcss';
@@ -19,103 +22,117 @@
 /* Plugin animate utilisé par shadcn-vue (toasts, dropdowns, dialogs) */
 @plugin 'tailwindcss-animate';
 
-/* Mode dark via class — `dark:bg-foo` actif si .dark dans l'ancêtre */
+/* Mode dark via class — `dark:bg-foo` actif si .dark dans un ancêtre */
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* -----------------------------------------------------------------------------
-   Valeurs RÉELLES — Light mode (défaut)
-   Port direct depuis dashboard/static/style.css:42-67
+   ☀️ MODE CLAIR (défaut)
    ----------------------------------------------------------------------------- */
 :root {
-  /* Surfaces warm neutral (style.css) */
-  --background: #f5f4f0;
-  --background-alt: #eeede8;
-  --foreground: #1a1714;
+  /* Surfaces : blanc cassé + crème */
+  --background: #fafaf7;
+  --background-alt: #f5f0e8;
+  --foreground: #1a1a1a;
 
   --card: #ffffff;
-  --card-foreground: #1a1714;
+  --card-foreground: #1a1a1a;
   --popover: #ffffff;
-  --popover-foreground: #1a1714;
-  --surface-2: #f9f8f5;
-  --surface-3: #f0ede8;
+  --popover-foreground: #1a1a1a;
+  --surface-2: #f5f0e8;
+  --surface-3: #efe8dc;
 
-  /* Texte hiérarchisé (style.css --text-1..4) */
-  --text-1: #1a1714;
-  --text-2: #4a4540;
-  --text-3: #8a8278;
-  --text-4: #b0a89e;
+  /* Hiérarchie texte */
+  --text-1: #1a1a1a;
+  --text-2: #4a4a46;
+  --text-3: #6b6b6b;
+  --text-4: #9a9a92;
 
-  /* Accent vert KALGA (--accent dans style.css) */
-  --primary: #16a34a;
+  /* Marque — vert forêt */
+  --primary: #1b4332;
   --primary-foreground: #ffffff;
-  --primary-hi: #22c55e;
-  --primary-lo: #dcfce7;
+  --primary-hi: #2d6a4f; /* hover plus clair */
+  --primary-lo: #e8f0ec; /* fond vert très léger */
 
-  /* Sémantique (style.css) */
-  --destructive: #ef4444;
+  /* Marque — or (accent volontaire, DISTINCT de --accent shadcn) */
+  --gold: #b5853a;
+  --gold-foreground: #ffffff;
+  --gold-lo: #f3ead9;
+
+  /* Sémantique fonctionnelle */
+  --destructive: #b3261e;
   --destructive-foreground: #ffffff;
-
-  --warning: #f59e0b;
-  --warning-foreground: #1a1714;
-
-  --info: #3b82f6;
+  --warning: #b5853a;
+  --warning-foreground: #1a1a1a;
+  --info: #2f6f8f;
   --info-foreground: #ffffff;
-
-  --success: #10b981;
+  --success: #1b6e4b;
   --success-foreground: #ffffff;
 
-  /* Muted/Accent (sémantique shadcn-vue) */
-  --muted: #f0ede8;
-  --muted-foreground: #8a8278;
-  --accent: #f0ede8;
-  --accent-foreground: #1a1714;
+  /* Surface neutre de survol shadcn (NEUTRE, pas l'or) */
+  --muted: #f5f0e8;
+  --muted-foreground: #6b6b6b;
+  --accent: #f0ebe0;
+  --accent-foreground: #1a1a1a;
 
-  /* Structure (style.css) */
-  --border: #e4e0d8;
-  --border-lo: #ede9e0;
-  --input: #d8d4cc;
-  --input-bg: #f9f8f5;
-  --ring: #16a34a;
+  /* Structure */
+  --border: #e5e0d5;
+  --border-lo: #efeae0;
+  --input: #d8d2c6;
+  --input-bg: #ffffff;
+  --ring: #1b4332;
 
   /* Rayon base */
-  --radius: 10px;
+  --radius: 8px;
 }
 
 /* -----------------------------------------------------------------------------
-   Dark mode (port 1:1 depuis style.css:69-97)
+   🌙 MODE SOMBRE — vert/or éclaircis pour rester lisibles sur fond foncé
    ----------------------------------------------------------------------------- */
 .dark {
-  --background: #0f0f0f;
-  --background-alt: #141414;
-  --foreground: #f0ede8;
+  --background: #10160f;
+  --background-alt: #18211a;
+  --foreground: #f3f1ea;
 
-  --card: #1a1a1a;
-  --card-foreground: #f0ede8;
-  --popover: #1a1a1a;
-  --popover-foreground: #f0ede8;
-  --surface-2: #202020;
-  --surface-3: #272727;
+  --card: #18211a;
+  --card-foreground: #f3f1ea;
+  --popover: #18211a;
+  --popover-foreground: #f3f1ea;
+  --surface-2: #1c261e;
+  --surface-3: #232e25;
 
-  --text-1: #f0ede8;
-  --text-2: #b8b0a8;
-  --text-3: #706860;
-  --text-4: #484038;
+  --text-1: #f3f1ea;
+  --text-2: #c9c7bf;
+  --text-3: #a0a096;
+  --text-4: #6e6e66;
 
-  --primary: #22c55e;
-  --primary-foreground: #0f0f0f;
-  --primary-hi: #4ade80;
-  --primary-lo: rgba(34, 197, 94, 0.12);
+  --primary: #40916c; /* vert éclairci (sinon illisible sur fond noir) */
+  --primary-foreground: #0b120d;
+  --primary-hi: #52b788;
+  --primary-lo: rgba(64, 145, 108, 0.15);
 
-  --muted: #202020;
-  --muted-foreground: #b8b0a8;
-  --accent: #202020;
-  --accent-foreground: #f0ede8;
+  --gold: #c9a24b; /* or éclairci */
+  --gold-foreground: #1a1a1a;
+  --gold-lo: rgba(201, 162, 75, 0.15);
 
-  --border: #2a2a2a;
-  --border-lo: #222222;
-  --input: #333333;
-  --input-bg: #1e1e1e;
-  --ring: #22c55e;
+  --destructive: #e5484d;
+  --destructive-foreground: #ffffff;
+  --warning: #c9a24b;
+  --warning-foreground: #10160f;
+  --info: #5aa8c7;
+  --info-foreground: #0b120d;
+  --success: #52b788;
+  --success-foreground: #0b120d;
+
+  --muted: #1c261e;
+  --muted-foreground: #c9c7bf;
+  --accent: #1c261e;
+  --accent-foreground: #f3f1ea;
+
+  --border: #2a352c;
+  --border-lo: #222b24;
+  --input: #344036;
+  --input-bg: #141b16;
+  --ring: #40916c;
 }
 
 /* -----------------------------------------------------------------------------
@@ -125,11 +142,14 @@
 @theme inline {
   /* Surfaces */
   --color-background: var(--background);
+  --color-background-alt: var(--background-alt);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
 
   /* Hiérarchie texte */
   --color-text-1: var(--text-1);
@@ -137,21 +157,24 @@
   --color-text-3: var(--text-3);
   --color-text-4: var(--text-4);
 
-  /* Sémantique */
+  /* Marque — vert */
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-hi: var(--primary-hi);
   --color-primary-lo: var(--primary-lo);
 
+  /* Marque — or */
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
+  --color-gold-lo: var(--gold-lo);
+
+  /* Sémantique */
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
-
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
-
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
-
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
 
@@ -165,17 +188,18 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  /* Rayons (style.css --radius-*) */
+  /* Rayons */
   --radius-xs: 4px;
   --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 20px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
 
-  /* Polices (port depuis style.css --font-*) */
-  --font-display: 'Bricolage Grotesque', system-ui, sans-serif;
-  --font-sans: 'Geist', system-ui, sans-serif;
-  --font-mono: 'Geist Mono', 'Courier New', monospace;
+  /* Polices — Playfair Display (titres) + Inter (corps) */
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'Courier New', monospace;
 }
 
 /* -----------------------------------------------------------------------------
@@ -195,22 +219,23 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-sans);
-    font-size: 14px;
+    font-size: 15px;
     line-height: 1.6;
   }
 
-  /* Titres en display font (Bricolage Grotesque) */
+  /* Titres en serif Playfair Display, interlignage resserré */
   h1, h2, h3, h4, h5, h6,
   .font-display {
     font-family: var(--font-display);
+    line-height: 1.4;
   }
 
-  /* Focus visible accessible (style.css --shadow-focus) */
+  /* Focus visible accessible */
   :focus-visible {
     @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
 
-  /* Scrollbar fine (style.css:123) */
+  /* Scrollbar fine */
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
