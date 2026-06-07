@@ -7,7 +7,7 @@
  */
 
 import type {
-  StorefrontMerchant,
+  StorefrontBoutique,
   StorefrontOrderInput,
   StorefrontProductDetail,
 } from './types'
@@ -21,9 +21,14 @@ function proxyUrl(path: string): string {
 }
 
 export const storefrontApi = {
-  /** Récupère la vitrine d'un marchand par son téléphone. */
-  getMerchant: (phone: string): Promise<StorefrontMerchant> =>
-    $fetch<StorefrontMerchant>(proxyUrl(`/storefront/${phone}`)),
+  /**
+   * Récupère la vitrine d'un marchand (marchand + produits) par téléphone.
+   * Backend : GET /api/storefront/{phone}/products → { merchant, products }
+   * (un seul appel, cf. storefront.js). NB : GET /{phone} ne renvoie PAS les
+   * produits (juste product_count), d'où l'usage de /{phone}/products ici.
+   */
+  getMerchant: (phone: string): Promise<StorefrontBoutique> =>
+    $fetch<StorefrontBoutique>(proxyUrl(`/storefront/${phone}/products`)),
 
   /**
    * Détail d'un produit public par code (#K001).

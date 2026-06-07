@@ -57,8 +57,8 @@ defineProps<Props>()
         {{ merchant.business_name ?? $t('storefront.unnamedShop') }}
       </h1>
 
-      <p v-if="merchant.description" class="max-w-2xl text-sm text-warning/80 sm:text-base">
-        {{ merchant.description }}
+      <p v-if="merchant.tagline" class="max-w-2xl text-sm text-warning/80 sm:text-base">
+        {{ merchant.tagline }}
       </p>
     </div>
   </section>

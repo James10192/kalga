@@ -18,10 +18,11 @@ const phone = computed(() => {
   return Array.isArray(raw) ? (raw[0] ?? '') : (raw ?? '')
 })
 
+// Le endpoint renvoie { merchant, products }.
 const { data: storefront, isLoading, isError } = useStorefrontMerchant(phone)
 
 useHead({
-  title: () => storefront.value?.business_name ?? t('storefront.shopFallback'),
+  title: () => storefront.value?.merchant.business_name ?? t('storefront.shopFallback'),
 })
 </script>
 
@@ -50,7 +51,7 @@ useHead({
     </div>
 
     <template v-else>
-      <StorefrontHero :merchant="storefront" />
+      <StorefrontHero :merchant="storefront.merchant" />
 
       <main class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
         <h2 class="mb-6 font-display text-2xl font-semibold text-primary">
