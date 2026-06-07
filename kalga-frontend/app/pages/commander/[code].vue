@@ -27,7 +27,11 @@ const code = computed(() => {
   return Array.isArray(raw) ? (raw[0] ?? '') : (raw ?? '')
 })
 
-const { data: product, isLoading: productLoading } = useStorefrontProduct(code)
+// Le endpoint renvoie { product, variants, merchant } : on a besoin du produit
+// (récap + code) ET du téléphone marchand (requis par le backend submit_order).
+const { data, isLoading: productLoading } = useStorefrontProduct(code)
+const product = computed(() => data.value?.product)
+const merchant = computed(() => data.value?.merchant)
 const { mutateAsync, isPending } = useSubmitOrder()
 
 useHead({ title: () => t('storefront.orderTitle') })
@@ -66,7 +70,7 @@ async function handleSubmit(event: Event): Promise<void> {
 
   const cleanedPhone = form.client_phone.replace(/\D/g, '')
   const payload: StorefrontOrderInput = {
-    merchant_phone: '', // Le backend résout via product_code → merchant
+    merchant_phone: merchant.value?.phone ?? '', // requis par le backend submit_order
     product_code: product.value.code,
     client_name: form.client_name.trim(),
     client_phone: cleanedPhone,

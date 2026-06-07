@@ -9,7 +9,7 @@
 import type {
   StorefrontMerchant,
   StorefrontOrderInput,
-  StorefrontProduct,
+  StorefrontProductDetail,
 } from './types'
 
 function proxyUrl(path: string): string {
@@ -25,13 +25,21 @@ export const storefrontApi = {
   getMerchant: (phone: string): Promise<StorefrontMerchant> =>
     $fetch<StorefrontMerchant>(proxyUrl(`/storefront/${phone}`)),
 
-  /** Détail d'un produit public par code (#K001). */
-  getProduct: (code: string): Promise<StorefrontProduct> =>
-    $fetch<StorefrontProduct>(proxyUrl(`/storefront/products/${code}`)),
+  /**
+   * Détail d'un produit public par code (#K001).
+   * Backend : GET /api/storefront/product/{code} → { product, variants, merchant }.
+   */
+  getProduct: (code: string): Promise<StorefrontProductDetail> =>
+    $fetch<StorefrontProductDetail>(proxyUrl(`/storefront/product/${code}`)),
 
-  /** Soumission d'une commande depuis la vitrine. */
-  submitOrder: (data: StorefrontOrderInput): Promise<{ sent: boolean }> =>
-    $fetch<{ sent: boolean }>(proxyUrl('/storefront/orders'), {
+  /**
+   * Soumission d'une commande depuis la vitrine.
+   * Backend : POST /api/storefront/order → { success, order_id, message }.
+   */
+  submitOrder: (
+    data: StorefrontOrderInput,
+  ): Promise<{ success: boolean; order_id: number; message: string }> =>
+    $fetch(proxyUrl('/storefront/order'), {
       method: 'POST',
       body: data,
     }),

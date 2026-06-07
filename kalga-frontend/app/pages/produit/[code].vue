@@ -6,6 +6,7 @@
 <script setup lang="ts">
 import { ArrowRight, ImageOff, Loader2 } from 'lucide-vue-next'
 
+import WhatsAppButton from '@/features/storefront/components/WhatsAppButton.vue'
 import { useStorefrontProduct } from '@/features/storefront/composables/useStorefront'
 import { formatPriceFCFA } from '@/utils/format'
 import { ROUTES } from '@/utils/routes'
@@ -18,7 +19,11 @@ const code = computed(() => {
   return Array.isArray(raw) ? (raw[0] ?? '') : (raw ?? '')
 })
 
-const { data: product, isLoading, isError } = useStorefrontProduct(code)
+// Le endpoint renvoie { product, variants, merchant } — on dérive les deux
+// vues dont la page a besoin (le marchand porte le téléphone pour WhatsApp).
+const { data, isLoading, isError } = useStorefrontProduct(code)
+const product = computed(() => data.value?.product)
+const merchant = computed(() => data.value?.merchant)
 
 useHead({
   title: () => product.value?.name ?? t('storefront.productFallback'),
@@ -114,6 +119,14 @@ const orderHref = computed(() =>
             {{ $t('storefront.orderNow') }}
             <ArrowRight class="h-4 w-4" aria-hidden="true" />
           </NuxtLink>
+
+          <!-- Contact direct WhatsApp (message pré-rempli) — cf. storefront.js source de vérité -->
+          <WhatsAppButton
+            v-if="merchant"
+            :phone="merchant.phone"
+            :product-code="product.code"
+            variant="outline"
+          />
         </div>
       </div>
     </main>

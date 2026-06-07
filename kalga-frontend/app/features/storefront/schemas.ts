@@ -33,6 +33,32 @@ export const storefrontProductSchema = z.object({
 })
 
 // =============================================================================
+// DÉTAIL PRODUIT (réponse GET /api/storefront/product/{code})
+// Le backend renvoie { product, variants, merchant } — cf. storefront.py
+// `_merchant_to_storefront` (le marchand expose `phone`, requis pour le
+// bouton « Contacter sur WhatsApp » de la fiche produit).
+// =============================================================================
+
+/** Marchand minimal renvoyé avec le détail produit (champs publics). */
+export const storefrontProductMerchantSchema = z.object({
+  name: z.string(),
+  business_name: z.string().nullable(),
+  phone: z.string().regex(PHONE_DIGITS_ONLY_REGEX),
+  address: z.string().nullable(),
+  logo_url: z.string().nullable(),
+  banner_url: z.string().nullable(),
+  about: z.string().nullable(),
+  tagline: z.string().nullable(),
+})
+
+/** Réponse complète du endpoint détail produit. */
+export const storefrontProductDetailSchema = z.object({
+  product: storefrontProductSchema,
+  variants: z.array(storefrontProductSchema),
+  merchant: storefrontProductMerchantSchema,
+})
+
+// =============================================================================
 // VITRINE MARCHAND COMPLÈTE
 // =============================================================================
 
