@@ -47,4 +47,7 @@ export const ADMIN_NAV: ReadonlyArray<NavItem> = [
 
 export const PUBLIC_NAV: ReadonlyArray<NavItem> = [
   { i18nKey: 'nav.home', to: ROUTES.home, icon: 'Home' },
+  { i18nKey: 'nav.catalog', to: '/#trending', icon: 'LayoutGrid' },
+  { i18nKey: 'nav.merchant', to: ROUTES.login, icon: 'Store' },
+  { i18nKey: 'nav.admin', to: ROUTES.admin.login, icon: 'ShieldCheck' },
 ] as const
