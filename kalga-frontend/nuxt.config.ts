@@ -17,6 +17,14 @@ export default defineNuxtConfig({
   future: { compatibilityVersion: 4 },
   devtools: { enabled: true },
 
+  // appManifest désactivé : le module virtuel #app-manifest n'est pas résolu en
+  // dev sur ce chemin Windows/Unicode (« Failed to resolve import #app-manifest »
+  // + GET /_nuxt/builds/meta/dev.json 404). On n'en dépend pas : le gating d'auth
+  // passe par le middleware global auth.global.ts, pas par routeRules.appMiddleware.
+  experimental: {
+    appManifest: false,
+  },
+
   // -------------------------------------------------------------------------
   // Modules (section 2 du doc)
   // -------------------------------------------------------------------------
@@ -133,14 +141,13 @@ export default defineNuxtConfig({
     '/produit/**': { swr: 3600 },
     '/commander/**': { ssr: true }, // formulaire de commande — pas de cache
 
-    // Zone marchand — SSR + auth
-    '/dashboard/**': { ssr: true, appMiddleware: ['merchant'] },
+    // Zone marchand — SSR. L'auth est gardée par le middleware global
+    // `auth.global.ts` (par chemin), pas par routeRules.appMiddleware (qui
+    // dépend de l'app manifest, non résolu en dev sur ce chemin Unicode).
+    '/dashboard/**': { ssr: true },
 
-    // Zone admin — SSR + auth + role check
-    '/admin/**': { ssr: true, appMiddleware: ['merchant', 'admin'] },
-    // Exception : la page de login admin est PUBLIQUE (pas d'auth requise).
-    // Déclarée après `/admin/**` pour overrider l'appMiddleware.
-    '/admin/login': { ssr: true, appMiddleware: [] },
+    // Zone admin — SSR. Auth + rôle gardés par le middleware global.
+    '/admin/**': { ssr: true },
 
     // Auth pages publiques
     '/login': { ssr: true },
