@@ -9,9 +9,11 @@
  * du marchand. Le QR Code et le status sont ensuite consultés via d'autres
  * endpoints (couverts dans une PR ultérieure : onboarding QR).
  *
- * Sécurité : pas d'auth requise au login (le bridge fait ses propres checks).
- * On valide le payload côté Nuxt pour rejeter rapidement les requêtes mal
- * formées et éviter de polluer le bridge.
+ * Sécurité : le bridge protège ses POST par un header `X-Internal-Key`
+ * (cf. kalga-whatsapp/src/loaders/express.js) = la clé interne partagée
+ * (NUXT_PROXY_INTERNAL_API_KEY, identique à INTERNAL_API_KEY du bridge/API).
+ * On l'injecte côté serveur, jamais exposée au browser. On valide aussi le
+ * payload pour rejeter vite les requêtes mal formées.
  */
 
 import { z } from 'zod'
@@ -43,6 +45,9 @@ export default defineEventHandler(async (event) => {
     return await $fetch(url, {
       method: 'POST',
       body,
+      headers: config.proxyInternalApiKey
+        ? { 'X-Internal-Key': config.proxyInternalApiKey }
+        : undefined,
     })
   } catch (err) {
     const status = (err as { statusCode?: number }).statusCode ?? 502
