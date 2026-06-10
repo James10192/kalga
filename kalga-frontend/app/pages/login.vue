@@ -37,15 +37,11 @@ const fieldError = ref<string | null>(null)
 
 useHead({ title: t('auth.merchant.title') })
 
-function buildFullNumber(value: CountryPhoneValue): string {
-  return `${value.countryCode}${value.localNumber.replace(/\D/g, '')}`
-}
-
 async function handleSubmit(event: Event): Promise<void> {
   event.preventDefault()
   fieldError.value = null
 
-  const fullNumber = buildFullNumber(phone.value)
+  const fullNumber = buildInternationalPhone(phone.value.countryCode, phone.value.localNumber)
   if (!PHONE_DIGITS_ONLY_REGEX.test(fullNumber)) {
     fieldError.value = t('auth.merchant.phoneInvalid')
     return

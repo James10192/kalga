@@ -40,6 +40,11 @@ export default defineNuxtConfig({
   // -------------------------------------------------------------------------
   vite: {
     plugins: [tailwindcss()],
+    // Pré-bundle qrcode.vue (page /connecting) pour éviter une découverte de
+    // dépendance au runtime → rechargement de page qui réinitialise le poll QR.
+    optimizeDeps: {
+      include: ['qrcode.vue'],
+    },
   },
 
   // -------------------------------------------------------------------------

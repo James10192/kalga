@@ -68,7 +68,7 @@
       "connectedRedirect": "Connected! Redirecting to your dashboard…",
       "qrInitializing": "Generating the QR code…",
       "qrScanInstruction": "WhatsApp › Linked devices › Link a device, then scan.",
-      "sessionError": "Couldn't connect. Hang on, retrying…",
+      "sessionError": "This number isn't a registered merchant. Check your number.",
       "noPhone": "Missing number. Please start the connection again."
     },
     "admin": {

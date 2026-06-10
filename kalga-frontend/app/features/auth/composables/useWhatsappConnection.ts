@@ -70,12 +70,11 @@ export function useWhatsappConnection(
       })
       await navigateTo('/dashboard')
     } catch {
-      // La connexion WhatsApp a été vue mais la session a échoué : on laisse
-      // l'utilisateur reprendre (le polling reprend pour retenter).
+      // Session refusée (ex : numéro non enregistré comme marchand) : l'échec
+      // est DÉTERMINISTE pour ce numéro → on STOPPE (pas de relance du polling,
+      // qui martèlerait l'endpoint). L'écran affiche l'erreur + retour login.
       establishing.value = false
-      connected.value = false
       error.value = 'session'
-      resume()
     }
   }
 
