@@ -22,11 +22,27 @@ function proxyUrl(path: string): string {
 }
 
 export const productsApi = {
-  /** Liste les produits du marchand courant (paginé). */
+  /**
+   * Liste les produits du marchand courant (paginé).
+   * Le backend renvoie { products, total, page, limit, pages } — on le mappe
+   * vers le contrat `Paginated<Product>` ({ items, per_page, total_pages }).
+   */
   list: (merchantId: number, page = 1): Promise<Paginated<Product>> =>
-    $fetch<Paginated<Product>>(proxyUrl(`/merchants/${merchantId}/products`), {
+    $fetch<{
+      products: Product[]
+      total: number
+      page: number
+      limit: number
+      pages: number
+    }>(proxyUrl(`/merchants/${merchantId}/products`), {
       query: { page },
-    }),
+    }).then((r) => ({
+      items: r.products,
+      total: r.total,
+      page: r.page,
+      per_page: r.limit,
+      total_pages: r.pages,
+    })),
 
   /** Détail d'un produit par id. */
   getById: (id: number): Promise<Product> => $fetch<Product>(proxyUrl(`/products/${id}`)),
