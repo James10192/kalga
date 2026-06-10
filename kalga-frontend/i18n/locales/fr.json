@@ -68,7 +68,7 @@
       "connectedRedirect": "Connecté ! Redirection vers ton tableau de bord…",
       "qrInitializing": "Génération du QR code…",
       "qrScanInstruction": "WhatsApp › Appareils connectés › Connecter un appareil, puis scanne.",
-      "sessionError": "Connexion impossible. Patiente, on réessaie…",
+      "sessionError": "Ce numéro n'est pas reconnu comme marchand. Vérifie ton numéro.",
       "noPhone": "Numéro manquant. Reprends la connexion."
     },
     "admin": {

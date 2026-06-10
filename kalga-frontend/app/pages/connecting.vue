@@ -9,7 +9,7 @@
 
 <script setup lang="ts">
 import QrcodeVue from 'qrcode.vue'
-import { CheckCircle2, Loader2, MessageCircle, QrCode } from 'lucide-vue-next'
+import { AlertTriangle, CheckCircle2, Loader2, MessageCircle, QrCode } from 'lucide-vue-next'
 
 import { useWhatsappConnection } from '@/features/auth/composables/useWhatsappConnection'
 import { ROUTES } from '@/utils/routes'
@@ -38,6 +38,20 @@ useHead({ title: t('auth.merchant.connectingTitle') })
     <!-- Numéro manquant -->
     <div v-if="!phone" class="max-w-sm space-y-3" role="alert">
       <p class="text-sm text-muted-foreground">{{ $t('auth.merchant.noPhone') }}</p>
+      <NuxtLink
+        :to="ROUTES.login"
+        class="inline-flex items-center justify-center rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary-hi"
+      >
+        {{ $t('common.back') }}
+      </NuxtLink>
+    </div>
+
+    <!-- Erreur de session (ex : numéro non enregistré comme marchand) — priorité -->
+    <div v-else-if="error" class="max-w-sm space-y-4" role="alert">
+      <AlertTriangle class="mx-auto h-12 w-12 text-destructive" aria-hidden="true" />
+      <h1 class="font-display text-2xl font-semibold text-primary">
+        {{ $t('auth.merchant.sessionError') }}
+      </h1>
       <NuxtLink
         :to="ROUTES.login"
         class="inline-flex items-center justify-center rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary-hi"
@@ -86,10 +100,6 @@ useHead({ title: t('auth.merchant.connectingTitle') })
       >
         <MessageCircle class="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
         {{ $t('auth.merchant.qrScanInstruction') }}
-      </p>
-
-      <p v-if="error" role="alert" class="text-sm text-destructive">
-        {{ $t('auth.merchant.sessionError') }}
       </p>
     </div>
   </main>
