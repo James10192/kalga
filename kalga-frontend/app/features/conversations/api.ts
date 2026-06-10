@@ -24,15 +24,33 @@ export interface ConversationsListParams {
 }
 
 export const conversationsApi = {
-  /** Liste paginée des conversations d'un marchand (filtrable par statut). */
-  list: ({
+  /**
+   * Liste paginée des conversations d'un marchand (filtrable par statut).
+   * Le backend renvoie { conversations, total, page, limit, pages } — on le
+   * mappe vers le contrat `Paginated<Conversation>` ({ items, per_page, total_pages }).
+   */
+  list: async ({
     merchantPhone,
     status,
     page = 1,
-  }: ConversationsListParams): Promise<Paginated<Conversation>> =>
-    $fetch<Paginated<Conversation>>(proxyUrl(`/chat/conversations/${merchantPhone}`), {
+  }: ConversationsListParams): Promise<Paginated<Conversation>> => {
+    const r = await $fetch<{
+      conversations: Conversation[]
+      total: number
+      page: number
+      limit: number
+      pages: number
+    }>(proxyUrl(`/chat/conversations/${merchantPhone}`), {
       query: { status, page },
-    }),
+    })
+    return {
+      items: r.conversations,
+      total: r.total,
+      page: r.page,
+      per_page: r.limit,
+      total_pages: r.pages,
+    }
+  },
 
   /** Détail d'une conversation par ID. */
   getById: (id: number): Promise<Conversation> =>
