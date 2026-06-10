@@ -68,6 +68,8 @@ export const sessionUserSchema = z.object({
   merchant_id: z.number().int().positive().nullable(),
   /** Téléphone du marchand (null pour les admins) */
   merchant_phone: z.string().nullable(),
+  /** Nom commercial du marchand (absent pour les admins) */
+  business_name: z.string().nullable().optional(),
 })
 
 /** Réponse de l'endpoint /api/auth/login */
