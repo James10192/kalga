@@ -18,15 +18,27 @@ import type {
 export const merchantsKeys = {
   all: ['merchants'] as const,
   detail: (id: number) => ['merchants', 'detail', id] as const,
+  detailByPhone: (phone: string) => ['merchants', 'detail', 'phone', phone] as const,
   list: (page: number, search: string) => ['merchants', 'list', page, search] as const,
 }
 
+/** Marchand par ID (contexte admin). */
 export function useMerchant(id: MaybeRef<number>) {
   return useQuery({
     queryKey: computed(() => merchantsKeys.detail(unref(id))),
     queryFn: () => merchantsApi.getById(unref(id)),
     staleTime: CACHE_STALE_TIME_DEFAULT,
     enabled: computed(() => unref(id) > 0),
+  })
+}
+
+/** Marchand par téléphone (le marchand consulte son propre profil). */
+export function useMerchantByPhone(phone: MaybeRef<string>) {
+  return useQuery({
+    queryKey: computed(() => merchantsKeys.detailByPhone(unref(phone))),
+    queryFn: () => merchantsApi.getByPhone(unref(phone)),
+    staleTime: CACHE_STALE_TIME_DEFAULT,
+    enabled: computed(() => unref(phone).length > 0),
   })
 }
 
@@ -74,8 +86,8 @@ export function useUpdateBotPersona() {
 export function useUpdateAwayMode() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, data }: { id: number; data: MerchantAwayModeUpdate }) =>
-      merchantsApi.updateAwayMode(id, data),
+    mutationFn: ({ phone, data }: { phone: string; data: MerchantAwayModeUpdate }) =>
+      merchantsApi.updateAwayMode(phone, data),
     onSuccess: (updated) => invalidateMerchant(queryClient, updated.id),
   })
 }

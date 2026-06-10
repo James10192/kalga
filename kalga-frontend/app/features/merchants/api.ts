@@ -23,26 +23,30 @@ function proxyUrl(path: string): string {
 }
 
 export const merchantsApi = {
-  /** Détail d'un marchand par ID. */
+  /** Détail d'un marchand par ID (contexte admin). */
   getById: (id: number): Promise<Merchant> => $fetch<Merchant>(proxyUrl(`/merchants/${id}`)),
+
+  /** Détail d'un marchand par téléphone (le marchand consulte son propre profil). */
+  getByPhone: (phone: string): Promise<Merchant> =>
+    $fetch<Merchant>(proxyUrl(`/merchants/${phone}`)),
 
   /** Liste paginée (admin). */
   list: (page = 1, search?: string): Promise<Paginated<Merchant>> =>
     $fetch<Paginated<Merchant>>(proxyUrl('/merchants'), { query: { page, search } }),
 
-  /** Met à jour le profil (nom, business_name, paiement). */
+  /** Met à jour le profil (nom, business_name, paiement). Backend : PUT /{id}. */
   updateProfile: (id: number, data: MerchantProfileUpdate): Promise<Merchant> =>
-    $fetch<Merchant>(proxyUrl(`/merchants/${id}/profile`), { method: 'PUT', body: data }),
+    $fetch<Merchant>(proxyUrl(`/merchants/${id}`), { method: 'PUT', body: data }),
 
   /** Met à jour la localisation (adresse + GPS). */
   updateLocation: (id: number, data: MerchantLocationUpdate): Promise<Merchant> =>
     $fetch<Merchant>(proxyUrl(`/merchants/${id}/location`), { method: 'PUT', body: data }),
 
-  /** Met à jour la persona du bot IA. */
+  /** Met à jour la persona du bot IA. Backend : PUT /{id}/persona. */
   updateBotPersona: (id: number, data: MerchantBotPersonaUpdate): Promise<Merchant> =>
-    $fetch<Merchant>(proxyUrl(`/merchants/${id}/bot-persona`), { method: 'PUT', body: data }),
+    $fetch<Merchant>(proxyUrl(`/merchants/${id}/persona`), { method: 'PUT', body: data }),
 
-  /** Active/désactive le mode absence. */
-  updateAwayMode: (id: number, data: MerchantAwayModeUpdate): Promise<Merchant> =>
-    $fetch<Merchant>(proxyUrl(`/merchants/${id}/away-mode`), { method: 'PUT', body: data }),
+  /** Met à jour le mode absence. Backend : PUT /{phone}/away-settings (par téléphone). */
+  updateAwayMode: (phone: string, data: MerchantAwayModeUpdate): Promise<Merchant> =>
+    $fetch<Merchant>(proxyUrl(`/merchants/${phone}/away-settings`), { method: 'PUT', body: data }),
 }
