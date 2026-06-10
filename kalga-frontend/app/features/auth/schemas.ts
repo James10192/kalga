@@ -61,7 +61,8 @@ export const changePasswordInputSchema = z
 /** Session utilisateur (lue depuis HttpOnly cookie côté serveur, exposée au client) */
 export const sessionUserSchema = z.object({
   id: z.number().int().positive(),
-  email: z.string().email(),
+  /** Email (admin). `null` pour un marchand : il s'authentifie par WhatsApp, sans email. */
+  email: z.string().email().nullable(),
   role: z.enum(ROLE_VALUES as [string, ...string[]]),
   is_active: z.boolean(),
   merchant_id: z.number().int().positive().nullable(),

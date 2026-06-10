@@ -64,8 +64,12 @@
       "connectError": "تعذّر بدء الاتصال",
       "secureNote": "اتصال آمن · بياناتك تبقى خاصة",
       "connectingTitle": "جارٍ ربط واتساب…",
-      "connectingSubtitle": "تجهيز رمز QR للرقم {phone}",
-      "connectingPlaceholder": "سيتم نقل مسح QR والدفع والتفعيل وموقع المتجر إلى هنا في PR مرحلة الإعداد."
+      "connectingSubtitle": "امسح رمز QR عبر واتساب لتفعيل متجرك.",
+      "connectedRedirect": "تم الاتصال! يتم تحويلك إلى لوحة التحكم…",
+      "qrInitializing": "جارٍ توليد رمز QR…",
+      "qrScanInstruction": "واتساب › الأجهزة المرتبطة › ربط جهاز، ثم امسح.",
+      "sessionError": "تعذّر الاتصال. انتظر، تتم إعادة المحاولة…",
+      "noPhone": "الرقم مفقود. أعد بدء الاتصال."
     },
     "admin": {
       "title": "تسجيل دخول الإدارة",
