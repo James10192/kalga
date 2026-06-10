@@ -21,14 +21,9 @@ const detailHref = computed(() => ROUTES.dashboard.productDetail(props.product.i
 const imageSrc = computed<string | null>(() => {
   const path = props.product.image_path
   if (!path) return null
-  // Les images sont servies par le backend FastAPI, donc on passe par le proxy
-  const config = useRuntimeConfig()
-  const base = config.public.apiUrl.endsWith('/')
-    ? config.public.apiUrl.slice(0, -1)
-    : config.public.apiUrl
-  // L'API expose les images sous /uploads/, hors /api → on accède via le backend direct
-  // via le proxy /api/proxy/../uploads (cas géré côté serveur Nitro si nécessaire).
-  return `${base}/uploads/${path}`
+  // `image_path` = nom de fichier nu côté dashboard. Les images sont servies par
+  // le backend sous /uploads/ et relayées par server/routes/uploads/[...path].ts.
+  return path.startsWith('/uploads/') ? path : `/uploads/${path}`
 })
 </script>
 
