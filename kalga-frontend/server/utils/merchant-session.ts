@@ -35,6 +35,7 @@ export interface MerchantSessionUser {
   is_active: boolean
   merchant_id: number
   merchant_phone: string
+  business_name: string | null
 }
 
 /** Dépendances injectées (infra) — permettent de substituer des fakes en test. */
@@ -91,5 +92,6 @@ export async function resolveMerchantSession(
     is_active: merchant.is_active,
     merchant_id: merchant.id,
     merchant_phone: merchant.phone,
+    business_name: merchant.business_name,
   }
 }

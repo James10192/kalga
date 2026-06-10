@@ -140,9 +140,12 @@
     "chatLabel": "Chat with an advisor"
   },
   "dashboard": {
-    "welcomeTitle": "Hello, {email}",
+    "welcomeTitle": "Hello, {name}",
     "welcomeSubtitle": "Here's a quick overview of your activity.",
-    "emptyState": "The dashboard will be enriched in a future phase."
+    "defaultMerchantName": "Merchant",
+    "recentConversations": "Recent conversations",
+    "viewAll": "View all",
+    "noActivity": "No activity yet."
   },
   "admin": {
     "welcomeTitle": "Welcome, {email}",

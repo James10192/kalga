@@ -140,9 +140,12 @@
     "chatLabel": "Discuter avec un conseiller"
   },
   "dashboard": {
-    "welcomeTitle": "Bonjour, {email}",
+    "welcomeTitle": "Bonjour, {name}",
     "welcomeSubtitle": "Voici un aperçu rapide de votre activité.",
-    "emptyState": "Le tableau de bord sera enrichi dans une prochaine phase."
+    "defaultMerchantName": "Marchand",
+    "recentConversations": "Dernières conversations",
+    "viewAll": "Tout voir",
+    "noActivity": "Aucune activité pour le moment."
   },
   "admin": {
     "welcomeTitle": "Bienvenue, {email}",

@@ -140,9 +140,12 @@
     "chatLabel": "تحدّث مع مستشار"
   },
   "dashboard": {
-    "welcomeTitle": "مرحباً، {email}",
+    "welcomeTitle": "مرحباً، {name}",
     "welcomeSubtitle": "نظرة سريعة على نشاطك.",
-    "emptyState": "ستُثرى لوحة التحكم في مرحلة لاحقة."
+    "defaultMerchantName": "تاجر",
+    "recentConversations": "أحدث المحادثات",
+    "viewAll": "عرض الكل",
+    "noActivity": "لا يوجد نشاط بعد."
   },
   "admin": {
     "welcomeTitle": "مرحباً، {email}",

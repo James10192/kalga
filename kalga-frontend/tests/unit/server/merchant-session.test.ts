@@ -64,6 +64,7 @@ describe('resolveMerchantSession', () => {
       is_active: true,
       merchant_id: 7,
       merchant_phone: '225161407534',
+      business_name: 'Fleurs d Abidjan',
     })
     expect(deps.getStatus).toHaveBeenCalledWith('225161407534')
   })
