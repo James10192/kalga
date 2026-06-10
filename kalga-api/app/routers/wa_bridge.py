@@ -19,6 +19,10 @@ _STRIPPED_RESPONSE_HEADERS = {"content-length", "transfer-encoding", "connection
 async def proxy(path: str, request: Request):
     url = f"{settings.whatsapp_bridge_url.rstrip('/')}/{path}"
     headers = {k: v for k, v in request.headers.items() if k.lower() not in _STRIPPED_REQUEST_HEADERS}
+    # Injecter la clé interne côté serveur : le navigateur ne la connaît pas (et ne doit pas),
+    # mais le bridge exige X-Internal-Key sur ses routes POST (connect, send, disconnect).
+    if settings.internal_api_key:
+        headers["X-Internal-Key"] = settings.internal_api_key
     body = await request.body()
 
     async with httpx.AsyncClient(timeout=settings.whatsapp_request_timeout) as client:
