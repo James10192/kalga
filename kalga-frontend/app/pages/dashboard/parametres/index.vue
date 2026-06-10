@@ -16,7 +16,7 @@ import AwayModeForm from '@/features/merchants/components/AwayModeForm.vue'
 import BotPersonaForm from '@/features/merchants/components/BotPersonaForm.vue'
 import LocationForm from '@/features/merchants/components/LocationForm.vue'
 import ProfileForm from '@/features/merchants/components/ProfileForm.vue'
-import { useMerchant } from '@/features/merchants/composables/useMerchants'
+import { useMerchantByPhone } from '@/features/merchants/composables/useMerchants'
 
 definePageMeta({ layout: 'dashboard' })
 
@@ -38,8 +38,8 @@ const TABS: ReadonlyArray<Tab> = [
 const { t } = useI18n()
 const { user } = useAuth()
 
-const merchantId = computed(() => user.value?.merchant_id ?? 0)
-const { data: merchant, isLoading, isError } = useMerchant(merchantId)
+const merchantPhone = computed(() => user.value?.merchant_phone ?? '')
+const { data: merchant, isLoading, isError } = useMerchantByPhone(merchantPhone)
 
 const activeTab = ref<TabKey>('profile')
 
