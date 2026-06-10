@@ -64,8 +64,12 @@
       "connectError": "Could not start the connection",
       "secureNote": "Secure connection · Your data stays private",
       "connectingTitle": "Connecting your WhatsApp…",
-      "connectingSubtitle": "Preparing the QR code for {phone}",
-      "connectingPlaceholder": "QR scan, payment activation and shop location will be ported here in the onboarding PR."
+      "connectingSubtitle": "Scan the QR code with WhatsApp to activate your store.",
+      "connectedRedirect": "Connected! Redirecting to your dashboard…",
+      "qrInitializing": "Generating the QR code…",
+      "qrScanInstruction": "WhatsApp › Linked devices › Link a device, then scan.",
+      "sessionError": "Couldn't connect. Hang on, retrying…",
+      "noPhone": "Missing number. Please start the connection again."
     },
     "admin": {
       "title": "Admin sign in",

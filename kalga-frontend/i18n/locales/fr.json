@@ -64,8 +64,12 @@
       "connectError": "Impossible de lancer la connexion",
       "secureNote": "Connexion sécurisée · Vos données restent privées",
       "connectingTitle": "Connexion de votre WhatsApp…",
-      "connectingSubtitle": "Préparation du QR code pour {phone}",
-      "connectingPlaceholder": "Le scan QR, le paiement, l'activation et la localisation de la boutique seront portés ici dans la PR onboarding."
+      "connectingSubtitle": "Scanne le QR code avec WhatsApp pour activer ta boutique.",
+      "connectedRedirect": "Connecté ! Redirection vers ton tableau de bord…",
+      "qrInitializing": "Génération du QR code…",
+      "qrScanInstruction": "WhatsApp › Appareils connectés › Connecter un appareil, puis scanne.",
+      "sessionError": "Connexion impossible. Patiente, on réessaie…",
+      "noPhone": "Numéro manquant. Reprends la connexion."
     },
     "admin": {
       "title": "Connexion administrateur",

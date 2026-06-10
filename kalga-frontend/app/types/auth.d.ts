@@ -23,8 +23,9 @@ declare module '#auth-utils' {
 
   // Données stockées en session mais NE JAMAIS renvoyées au client.
   interface SecureSessionData {
-    /** JWT renvoyé par le backend FastAPI au login */
-    accessToken: string
+    /** JWT renvoyé par le backend FastAPI au login admin. Absent pour un
+     *  marchand (auth WhatsApp, pas de JWT) → optionnel. */
+    accessToken?: string
   }
 }
 
