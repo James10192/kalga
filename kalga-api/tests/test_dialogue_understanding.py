@@ -117,3 +117,73 @@ def test_variant_beats_photo_for_same_phrase():
     # « d'autres couleurs » ne doit pas déclencher ASK_PHOTO en plus
     intents = detect_visual_intents("tu as d'autres couleurs ?")
     assert Intent(IntentType.ASK_PHOTO) not in intents
+
+
+# === Logistique, social & signaux ===
+from app.services.dialogue.understanding import detect_logistics_intents, detect_signal_intents
+
+
+def test_location_request():
+    for msg in ("où vous êtes ?", "l'adresse ?", "envoie la localisation",
+                "c'est où le magasin ?"):
+        assert Intent(IntentType.ASK_LOCATION) in detect_logistics_intents(msg.lower(), None), msg
+
+
+def test_payment_request():
+    for msg in ("comment payer ?", "orange money ?", "wave ?", "numéro de paiement"):
+        assert Intent(IntentType.ASK_PAYMENT) in detect_logistics_intents(msg.lower(), None), msg
+
+
+def test_delivery_info_question_vs_choice():
+    # Question sur la livraison ≠ choix de la livraison
+    q = detect_logistics_intents("c'est combien la livraison ?", None)
+    assert Intent(IntentType.ASK_DELIVERY_INFO) in q
+    assert Intent(IntentType.CHOOSE_DELIVERY) not in q
+
+    c = detect_logistics_intents("je veux me faire livrer", None)
+    assert Intent(IntentType.CHOOSE_DELIVERY) in c
+
+
+def test_pickup_choice():
+    for msg in ("je viens chercher", "je passe au magasin", "je vais venir sur place"):
+        assert Intent(IntentType.CHOOSE_PICKUP) in detect_logistics_intents(msg.lower(), None), msg
+
+
+def test_give_address_when_bot_asked():
+    intents = detect_logistics_intents(
+        "cocody angré 7e tranche, près de la pharmacie",
+        "Parfait ! Donne-moi ton adresse de livraison ?",
+    )
+    assert any(i.type == IntentType.GIVE_ADDRESS and "cocody" in i.text for i in intents)
+
+
+def test_no_give_address_without_bot_asking():
+    intents = detect_logistics_intents("cocody angré 7e tranche", None)
+    assert all(i.type != IntentType.GIVE_ADDRESS for i in intents)
+
+
+def test_greeting():
+    for msg in ("hello", "salut", "bonjour", "bonsoir", "cc"):
+        assert Intent(IntentType.GREETING) in detect_signal_intents(msg.lower()), msg
+
+
+def test_goodbye_restrictive():
+    assert Intent(IntentType.GOODBYE) in detect_signal_intents("bye")
+    assert Intent(IntentType.GOODBYE) in detect_signal_intents("merci bye")
+    assert Intent(IntentType.GOODBYE) in detect_signal_intents("laisse tomber")
+    # Jamais GOODBYE si signe d'intérêt
+    assert detect_signal_intents("bye, mais c'est combien ?") == []
+
+
+def test_frustration():
+    assert Intent(IntentType.FRUSTRATION) in detect_signal_intents("tu te moques de moi, voleur !")
+
+
+def test_correction():
+    assert Intent(IntentType.CORRECTION) in detect_signal_intents("c'est pas ce que j'ai demandé")
+
+
+def test_human_request():
+    for msg in ("je veux parler à quelqu'un", "passez-moi un responsable",
+                "je veux parler au vendeur directement"):
+        assert Intent(IntentType.HUMAN_REQUEST) in detect_signal_intents(msg.lower()), msg

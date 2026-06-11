@@ -166,3 +166,134 @@ def detect_visual_intents(text: str) -> List[Intent]:
         intents.append(Intent(IntentType.ASK_PHOTO))
 
     return intents
+
+
+# ─────────────────────────────────────────────────────────────
+# Logistique
+# ─────────────────────────────────────────────────────────────
+
+_LOCATION_KEYWORDS = (
+    "adresse", "localisation", "position", "emplacement", "où vous êtes",
+    "ou vous etes", "où c'est", "ou c'est", "c'est où", "c'est ou",
+    "où est le magasin", "ou est le magasin", "comment trouver",
+    "situé", "situe", "le magasin", "la boutique",
+)
+_PAYMENT_KEYWORDS = (
+    "comment payer", "je paye comment", "paiement", "orange money", "wave",
+    "momo", "moov money", "mtn money", "numéro de paiement", "numero de paiement",
+)
+_DELIVERY_QUESTION_PATTERNS = (
+    "combien la livraison", "c'est combien la livraison", "prix de la livraison",
+    "frais de livraison", "vous livrez", "tu livres", "la livraison coûte",
+    "la livraison coute", "livraison ?",
+)
+_DELIVERY_CHOICE_PATTERNS = (
+    "je veux la livraison", "je veux me faire livrer", "je veux me faire livré",
+    "livre-moi", "livrez-moi", "livre moi", "livrer chez moi", "en livraison",
+    "ok livraison", "oui livraison", "je préfère la livraison",
+    "je prefere la livraison", "pour la livraison",
+)
+_PICKUP_PATTERNS = (
+    "je viens chercher", "je viens le chercher", "je passe chercher",
+    "je passe au magasin", "je viens au magasin", "venir au magasin",
+    "je passe à la boutique", "je vais venir", "sur place", "en personne",
+    "moi-même", "moi même", "je viens",
+)
+
+
+def detect_logistics_intents(text: str, last_bot_message: Optional[str]) -> List[Intent]:
+    """ASK_LOCATION / ASK_PAYMENT / ASK_DELIVERY_INFO / CHOOSE_* / GIVE_ADDRESS."""
+    low = text.lower()
+    intents: List[Intent] = []
+
+    if any(k in low for k in _LOCATION_KEYWORDS):
+        intents.append(Intent(IntentType.ASK_LOCATION))
+    if any(k in low for k in _PAYMENT_KEYWORDS):
+        intents.append(Intent(IntentType.ASK_PAYMENT))
+
+    if any(p in low for p in _DELIVERY_QUESTION_PATTERNS):
+        intents.append(Intent(IntentType.ASK_DELIVERY_INFO))
+    elif any(p in low for p in _DELIVERY_CHOICE_PATTERNS):
+        intents.append(Intent(IntentType.CHOOSE_DELIVERY))
+
+    if any(p in low for p in _PICKUP_PATTERNS):
+        intents.append(Intent(IntentType.CHOOSE_PICKUP))
+
+    # GIVE_ADDRESS : uniquement si le bot vient de demander l'adresse, que le
+    # message ressemble à un lieu (assez long, lettres) et ne porte rien d'autre.
+    bot_asked_address = bool(last_bot_message) and "adresse" in last_bot_message.lower()
+    if bot_asked_address and not intents and len(low) >= 8 and any(c.isalpha() for c in low):
+        intents.append(Intent(IntentType.GIVE_ADDRESS, text=text.strip()))
+
+    return intents
+
+
+# ─────────────────────────────────────────────────────────────
+# Social & signaux
+# ─────────────────────────────────────────────────────────────
+
+_GREETINGS = ("hello", "salut", "bonjour", "bonsoir", "coucou", "cc", "yo", "hey", "hi")
+
+_INTEREST_KEYWORDS = (
+    "prix", "combien", "livr", "acheter", "prend", "veux", "veut", "dispo",
+    "couleur", "taille", "photo", "image", "intéress", "interess", "comment",
+    "où", "ou est", "quand", "payer", "adresse",
+)
+_GOODBYE_EXACT = (
+    "bye", "ciao", "au revoir", "non merci", "pas intéressé", "pas interesse",
+    "merci bye", "na laisse", "laisse tomber", "laisse béton", "laisse beton",
+    "j'ai trouvé ailleurs", "jai trouve ailleurs", "je reviendrai",
+    "je reviens plus tard", "pas pour l'instant", "pas maintenant merci",
+    "à une prochaine", "a une prochaine", "en tout cas merci",
+)
+_GOODBYE_STARTS = ("laisse tomber", "j'ai trouvé ailleurs", "jai trouve ailleurs")
+
+_FRUSTRATION_PATTERNS = (
+    "voleur", "arnaque", "arnaqueur", "escroc", "menteur", "tu te moques",
+    "moque de moi", "tu te fous de moi", "fous de ma gueule", "n'importe quoi",
+    "nimporte quoi", "tu rigoles", "tu plaisantes", "tu abuses", "tu exagères",
+    "tu exageres", "c'est du vol", "pas sérieux", "pas serieux",
+)
+_CORRECTION_PATTERNS = (
+    "c'est pas ce que j'ai demandé", "pas ce que j'ai demandé",
+    "pas ce que je t'ai demandé", "tu n'as pas répondu", "tu nas pas repondu",
+    "tu réponds pas à", "tu reponds pas a", "ma question c'était",
+    "ma question cetait", "j'avais demandé", "javais demande",
+    "ce n'est pas ma question", "c'est pas ma question", "tu comprends pas",
+    "tu comprend pas", "je t'ai pas demandé ça", "j'ai pas demandé ça",
+    "jai pas demande ca", "c'est pas ça que je voulais",
+    "c'est pas ce que je voulais", "non ce que je",
+)
+_HUMAN_PATTERNS = (
+    "parler à quelqu'un", "parler a quelqu'un", "un responsable",
+    "passe-moi", "passez-moi", "un humain", "une vraie personne",
+    "parler au vendeur", "le vendeur directement", "litige", "réclamation",
+    "reclamation",
+)
+
+
+def detect_signal_intents(text: str) -> List[Intent]:
+    """GREETING / GOODBYE / FRUSTRATION / CORRECTION / HUMAN_REQUEST."""
+    low = text.lower().strip()
+    intents: List[Intent] = []
+
+    if any(p in low for p in _CORRECTION_PATTERNS):
+        intents.append(Intent(IntentType.CORRECTION))
+    if any(p in low for p in _FRUSTRATION_PATTERNS):
+        intents.append(Intent(IntentType.FRUSTRATION))
+    if any(p in low for p in _HUMAN_PATTERNS):
+        intents.append(Intent(IntentType.HUMAN_REQUEST))
+
+    first_word = low.split(" ")[0].rstrip("!,.") if low else ""
+    if first_word in _GREETINGS:
+        intents.append(Intent(IntentType.GREETING))
+
+    # GOODBYE — très restrictif (ne jamais perdre un client intéressé) :
+    # aucun mot d'intérêt, aucun chiffre, et formulation de fin connue.
+    has_interest = any(k in low for k in _INTEREST_KEYWORDS)
+    has_digit = any(c.isdigit() for c in low)
+    if not has_interest and not has_digit:
+        if low in _GOODBYE_EXACT or any(low.startswith(s) for s in _GOODBYE_STARTS):
+            intents.append(Intent(IntentType.GOODBYE))
+
+    return intents
