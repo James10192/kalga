@@ -255,6 +255,17 @@ class ChatService:
                 )
                 logger.info(f"Client fidèle (v2): plancher ajusté à {v2_floor:,.0f} F")
 
+            # Mémoire long-terme : les faits connus du client personnalisent la voix
+            v2_memory = None
+            try:
+                facts = await self.client_history.get_memory_facts(
+                    merchant['id'], message.client_phone) or []
+                fact_lines = [f["fact"] for f in facts[:3] if f.get("fact")]
+                if fact_lines:
+                    v2_memory = "Ce qu'on sait du client : " + " ; ".join(fact_lines)
+            except Exception as e:
+                logger.debug(f"LTM v2 indisponible (non bloquant): {e}")
+
             engine_v2 = await dialogue_respond(
                 client_message=message.message,
                 conversation=conversation,
@@ -262,6 +273,7 @@ class ChatService:
                 merchant=merchant,
                 history=history,
                 floor_override=v2_floor,
+                memory_extra=v2_memory,
             )
             if tracer:
                 tracer.event("CHAT", "dialogue_v2",

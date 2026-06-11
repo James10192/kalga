@@ -105,6 +105,20 @@ async def test_engine_location_request_sets_flag(temp_db):
     assert out.new_status == "agreed"      # la localisation ne conclut rien
 
 
+async def test_engine_memory_extra_reaches_the_voice(temp_db):
+    """Les faits LTM passés par chat_service arrivent dans le brief du LLM."""
+    from app.services.dialogue.llm_protocol import FakeLLMClient
+    merchant, product, _ = await _seed()
+    conv = {"id": 1, "status": "negotiating", "current_offer": None,
+            "selected_variant_id": None}
+    fake = FakeLLMClient(speak_result="Content de te revoir ! La photo arrive 😊")
+    out = await respond("envoie la photo", conv, product, merchant,
+                        history=[{"content": "hello", "is_from_client": True}],
+                        llm=fake, memory_extra="Ce qu'on sait du client : aime le rouge")
+    assert out is not None
+    assert "aime le rouge" in fake.speak_briefs[0]["memory"]
+
+
 async def test_engine_system_message_returns_none(temp_db):
     merchant, product, _ = await _seed()
     conv = {"id": 1, "status": "active", "current_offer": None,
