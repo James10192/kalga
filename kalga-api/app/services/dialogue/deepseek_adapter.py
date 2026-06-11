@@ -68,8 +68,11 @@ class DeepSeekAdapter:
             if persona.get("bot_catchphrase"):
                 persona_line = f"Phrase signature à placer si naturel : {persona['bot_catchphrase']}\n"
             memory_line = f"Contexte client : {brief['memory']}\n" if brief.get("memory") else ""
+            desc_line = (f"Description produit : {brief['product_description']}\n"
+                         if brief.get("product_description") else "")
             user = (
                 f"Produit : {brief.get('product_name')} à {brief.get('listed_price')} F\n"
+                f"{desc_line}"
                 f"Le client vient de dire : {brief.get('client_message')}\n"
                 f"{memory_line}{persona_line}"
                 f"PLAN À EXPRIMER (dans cet ordre) : {json.dumps(brief.get('actions', []), ensure_ascii=False)}\n"

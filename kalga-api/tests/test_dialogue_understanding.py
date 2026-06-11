@@ -238,3 +238,16 @@ def test_price_question_is_ask_info_with_subject():
 def test_sorted_by_canonical_priority():
     intents = extract_intents("c'est pas ce que j'ai demandé, je veux la photo")
     assert intents[0].type == IntentType.CORRECTION
+
+
+def test_authenticity_question_without_question_mark_is_ask_info():
+    """Bug terrain n°4 : « c'est l'original » (sans ?) doit être une question qualité,
+    jamais une acceptation de vente."""
+    intents = extract_intents("c'est l'original")
+    assert intents == [Intent(IntentType.ASK_INFO, text="qualité")]
+
+
+def test_quality_words_are_ask_info():
+    for msg in ("c'est authentique ?", "c'est du vrai ?", "il y a garantie ?"):
+        intents = extract_intents(msg)
+        assert Intent(IntentType.ASK_INFO, text="qualité") in intents, msg

@@ -55,6 +55,10 @@ async def run_pipeline(
     if intents == [Intent(IntentType.UNCLEAR)]:
         intents = await classify_with_llm(client_message, llm,
                                           {"last_bot_message": last_bot})
+        # Règle marchand : un message AMBIGU ne peut JAMAIS conclure une vente.
+        # Le classifieur informe ; il n'a aucun pouvoir d'acceptation.
+        intents = [i for i in intents if i.type != IntentType.ACCEPT_PRICE] \
+            or [Intent(IntentType.UNCLEAR)]
 
     # ③ Décider
     ctx = PolicyContext(
@@ -77,6 +81,7 @@ async def run_pipeline(
         persona=persona,
         memory_block=memory_block,
         client_message=client_message,
+        product_description=product.get("description"),
     )
     text = await render(plan, sctx, llm)
 

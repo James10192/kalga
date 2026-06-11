@@ -398,7 +398,13 @@ async def generate_response(
 
     # === FALLBACK si DeepSeek échoue ===
     if not agentic_result:
-        logger.info("DeepSeek indisponible — fallback sur conversation_engine")
+        # ERROR (pas info) : en silencieux, le bot tourne sur le moteur à mots-clés
+        # pendant des jours sans que personne ne le voie (vécu le 2026-06-11 : clé
+        # 401 → 114 échecs → toutes les conversations dégradées sans alerte).
+        logger.error(
+            "DeepSeek INDISPONIBLE — le bot répond via le moteur de secours à mots-clés. "
+            "Vérifier DEEPSEEK_API_KEY (401 = clé invalide/expirée)."
+        )
         if tracer:
             tracer.set_fallback("deepseek_unavailable")
         return await _fallback_to_engine(

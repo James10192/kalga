@@ -47,6 +47,20 @@ async def test_pipeline_system_only_message_returns_none():
     assert result is None      # → le chemin v1 garde la main
 
 
+async def test_pipeline_classifier_can_never_close_a_deal():
+    """Règle marchand : un message AMBIGU ne conclut jamais — même si le
+    classifieur LLM (faillible) prétend que c'est une acceptation."""
+    rogue = FakeLLMClient(classify_result=[{"type": "accept_price"}])
+    result = await run_pipeline(
+        client_message="le machin là même",   # ambigu, sans mot-clé
+        db_status="negotiating",
+        history=[{"content": "Je peux te faire 18 000 F !", "is_from_client": False}],
+        product=_product(), current_offer=18000.0, llm=rogue,
+    )
+    assert all(a.type.value != "confirm_deal" for a in result.plan.actions)
+    assert result.db_status == "negotiating"
+
+
 async def test_pipeline_confirm_uses_last_bot_price_from_history():
     result = await run_pipeline(
         client_message="ok",

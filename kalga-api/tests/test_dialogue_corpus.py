@@ -27,6 +27,9 @@ CORPUS = [
     ("tu as d'autres couleurs ?", None, [T.ASK_VARIANTS]),
     ("tu vends quoi d'autre ?", None, [T.ASK_OTHER_PRODUCTS]),
     ("c'est du cuir véritable ?", None, [T.ASK_INFO]),
+    ("c'est l'original", None, [T.ASK_INFO]),  # bug terrain n°4 : question qualité sans «?», JAMAIS une vente
+    ('[Répond à la photo: "Venez faire votre commande #K023"] c\'est l\'original',
+     None, [T.ASK_INFO]),
     ("où vous êtes ?", None, [T.ASK_LOCATION]),
     ("comment payer ? wave ?", None, [T.ASK_PAYMENT]),
     ("c'est combien la livraison ?", None, [T.ASK_DELIVERY_INFO]),

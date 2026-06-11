@@ -307,6 +307,12 @@ _PRICE_QUESTION_PATTERNS = ("c'est combien", "combien ça coûte", "combien ca c
                             "quel est le prix", "le prix ?", "ça coûte combien",
                             "ca coute combien", "combien")
 
+# Questions qualité/authenticité — souvent posées SANS « ? » (« c'est l'original »).
+# Bug terrain : le FSM historique les prenait pour une acceptation de vente.
+_QUALITY_PATTERNS = ("original", "authentique", "c'est du vrai", "vrai ou faux",
+                     "bonne qualité", "bonne qualite", "la qualité", "la qualite",
+                     "garantie", "garanti", "contrefaçon", "contrefacon")
+
 
 def extract_intents(message: str, last_bot_message: Optional[str] = None) -> List[Intent]:
     """Point d'entrée de l'étage ② : message brut → intentions ordonnées.
@@ -337,6 +343,11 @@ def extract_intents(message: str, last_bot_message: Optional[str] = None) -> Lis
                                    IntentType.ASK_DELIVERY_INFO)
                         for i in collected)):
         collected.append(Intent(IntentType.ASK_INFO, text="prix"))
+
+    # Question qualité/authenticité (avec ou sans « ? ») → ASK_INFO(qualité)
+    if (any(p in low for p in _QUALITY_PATTERNS)
+            and not any(i.type == IntentType.ASK_INFO for i in collected)):
+        collected.append(Intent(IntentType.ASK_INFO, text="qualité"))
 
     # Question générique non couverte → ASK_INFO
     substantive = [i for i in collected if i.type != IntentType.GREETING]

@@ -49,6 +49,18 @@ async def test_voice_legit_conclusion_speaks_delivery():
     assert "9 000" in text and "livraison" in text.lower()
 
 
+async def test_voice_bug4_cest_loriginal_answers_quality_never_sells():
+    """Capture du 2026-06-11 12:21 : « c'est l'original » (réponse à un Statut)
+    concluait la vente à 18 000 F. Désormais : réponse qualité, zéro clôture."""
+    plan, text = await speak_through_pipeline(
+        '[Répond à la photo: "Venez faire votre commande #K023"] c\'est l\'original',
+        SaleState.NEGOCIATION, None, current_offer=18000.0)
+    assert all(a.type.value != "confirm_deal" for a in plan.actions)
+    assert "livraison" not in text.lower() and "magasin" not in text.lower()
+    assert "qualité" in text.lower() or "garantit" in text.lower()
+    assert plan.new_state == SaleState.NEGOCIATION
+
+
 async def test_voice_hold_floor_varies_with_seed():
     intents = extract_intents("5000 dernier prix")
     plan = decide_plan(intents, PolicyContext(

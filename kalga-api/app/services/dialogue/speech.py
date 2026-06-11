@@ -26,6 +26,7 @@ class SpeechContext:
     persona: Optional[dict] = None      # bot_tone / bot_style / bot_catchphrase
     memory_block: Optional[str] = None  # contexte épisodique/LTM déjà formaté
     client_message: str = ""
+    product_description: Optional[str] = None  # pour répondre aux questions produit
 
 
 def _fmt(price: Optional[float]) -> str:
@@ -97,6 +98,11 @@ def _action_text(action: Action, sctx: SpeechContext) -> str:
     if any(f.startswith("info") for f in facts):
         if "info:prix" in facts:
             return f"Le {sctx.product_name} est à {_fmt(sctx.listed_price)} F."
+        if "info:qualité" in facts:
+            desc = f" {sctx.product_description}." if sctx.product_description else ""
+            return f"Oui, c'est de la bonne qualité !{desc} Le vendeur le garantit 👍"
+        if sctx.product_description:
+            return f"Bonne question ! {sctx.product_description} 😊"
         return f"Bonne question ! Le {sctx.product_name} : je te confirme ça tout de suite."
     return "Je ne suis pas sûr d'avoir compris — tu peux préciser ? 😊"
 
@@ -124,6 +130,7 @@ def build_brief(plan: ActionPlan, sctx: SpeechContext) -> dict:
         "product_name": sctx.product_name,
         "listed_price": sctx.listed_price,
         "client_message": sctx.client_message,
+        "product_description": sctx.product_description,
         "persona": sctx.persona or {},
         "memory": sctx.memory_block,
         "forbidden": forbidden,
