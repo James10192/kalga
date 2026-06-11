@@ -156,7 +156,9 @@
     "call": "Call",
     "markDone": "Done",
     "saleMarkedDone": "Sale marked as done",
-    "popularProducts": "Popular products"
+    "popularProducts": "Popular products",
+    "whatsappConnected": "WhatsApp Connected",
+    "whatsappDisconnected": "WhatsApp Disconnected"
   },
   "admin": {
     "welcomeTitle": "Welcome, {email}",
