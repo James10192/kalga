@@ -13,6 +13,7 @@ import type { RestockInput, StockMode } from '../types'
 export const stockKeys = {
   all: ['stock'] as const,
   overview: (merchantId: number) => ['stock', 'overview', merchantId] as const,
+  critique: (merchantId: number) => ['stock', 'critique', merchantId] as const,
 }
 
 /** Vue d'ensemble du stock du marchand. */
@@ -20,6 +21,16 @@ export function useStockOverview(merchantId: MaybeRef<number>) {
   return useQuery({
     queryKey: computed(() => stockKeys.overview(unref(merchantId))),
     queryFn: () => stockApi.getOverview(unref(merchantId)),
+    staleTime: CACHE_STALE_TIME_DEFAULT,
+    enabled: computed(() => unref(merchantId) > 0),
+  })
+}
+
+/** Synthèse « stock critique » pour le widget de l'Aperçu. */
+export function useStockCritique(merchantId: MaybeRef<number>) {
+  return useQuery({
+    queryKey: computed(() => stockKeys.critique(unref(merchantId))),
+    queryFn: () => stockApi.getCritique(unref(merchantId)),
     staleTime: CACHE_STALE_TIME_DEFAULT,
     enabled: computed(() => unref(merchantId) > 0),
   })

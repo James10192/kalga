@@ -20,6 +20,8 @@ import { useProductsList } from '@/features/products/composables/useProducts'
 import { groupProductsByVariant } from '@/features/products/utils/groupVariants'
 import KpiCard from '@/features/stats/components/KpiCard.vue'
 import { useMerchantStats } from '@/features/stats/composables/useStats'
+import StockCritiqueWidget from '@/features/stock/components/StockCritiqueWidget.vue'
+import { useStockCritique } from '@/features/stock/composables/useStock'
 import { formatPhone, formatPriceFCFA } from '@/utils/format'
 import { ROUTES } from '@/utils/routes'
 
@@ -52,6 +54,14 @@ const pendingSales = computed(() => pending.value?.items ?? [])
 const { data: products } = useProductsList(merchantId, firstPage)
 const popularProducts = computed(() =>
   groupProductsByVariant(products.value?.items ?? []).slice(0, 5),
+)
+
+// --- Stock critique (widget affiché seulement en cas d'alerte) ---
+const { data: critique } = useStockCritique(merchantId)
+const hasStockAlert = computed(
+  () =>
+    !!critique.value &&
+    (critique.value.out_of_stock_count > 0 || critique.value.low_stock_count > 0),
 )
 
 // --- Vitrine en ligne (lien public partageable) ---
@@ -111,6 +121,9 @@ useHead({ title: t('nav.overview') })
         :value="formatPriceFCFA(kpis.revenue)"
       />
     </section>
+
+    <!-- 1b. Stock critique (uniquement en cas d'alerte rupture/stock bas) -->
+    <StockCritiqueWidget v-if="hasStockAlert && critique" :critique="critique" />
 
     <!-- 2. Votre Vitrine en ligne -->
     <section class="rounded-lg border border-border bg-card p-4">

@@ -103,3 +103,25 @@ export const restockInputSchema = z.object({
   broadcast_waitlist: z.boolean(),
   store_name: z.string(),
 })
+
+// =============================================================================
+// STOCK CRITIQUE (widget Aperçu)
+// Réf : GET /stock/merchant/{id}/critique + dashboard/static/app.js
+//       (loadStockCritiqueWidget). Les champs produit en trop sont ignorés.
+// =============================================================================
+
+export const criticalStockProductSchema = z.object({
+  id: z.number().int().positive(),
+  name: z.string(),
+  code: z.string(),
+  stock_status: z.enum(['out_of_stock', 'low_stock']),
+  waitlist_count: z.number().int().min(0),
+})
+
+export const stockCritiqueSchema = z.object({
+  out_of_stock_count: z.number().int().min(0),
+  low_stock_count: z.number().int().min(0),
+  total_waitlist: z.number().int().min(0),
+  lost_revenue_estimate: z.number().int().min(0),
+  critical_products: z.array(criticalStockProductSchema),
+})

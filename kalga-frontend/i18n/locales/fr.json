@@ -460,6 +460,13 @@
     "invalidQty": "Entrez une quantité valide",
     "qtyPlaceholder": "Qté",
     "empty": "Aucun produit",
-    "loadError": "Impossible de charger le stock"
+    "loadError": "Impossible de charger le stock",
+    "critiqueTitle": "Stock Critique",
+    "manage": "Gérer",
+    "kpiOutOfStock": "En rupture",
+    "kpiLowStock": "Stock bas",
+    "kpiWaitlist": "En attente",
+    "kpiLostRevenue": "Revenus perdus (7j)",
+    "waitingCount": "{count} en attente"
   }
 }
