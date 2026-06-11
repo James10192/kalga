@@ -2,7 +2,7 @@
   Sélecteur de langue — bouton avec dropdown des locales disponibles.
   Référence : ARCHITECTURE_FRONTEND.md section 7.7 (i18n)
 
-  Switch entre fr/en/ar (RTL automatique sur ar via Nuxt i18n).
+  Switch entre français et anglais.
 -->
 
 <script setup lang="ts">
@@ -40,7 +40,7 @@ function handleToggle(): void {
 
 async function handleSelect(code: string): Promise<void> {
   open.value = false
-  await setLocale(code as 'fr' | 'en' | 'ar')
+  await setLocale(code as 'fr' | 'en')
 }
 </script>
 
