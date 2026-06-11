@@ -287,7 +287,8 @@ class ChatService:
             price_offer = engine_v2.new_offer
             new_status = engine_v2.new_status
             send_location = engine_v2.send_location
-            use_voice = False
+            # Le client a parlé en vocal → on lui répond en vocal (TTS aval)
+            use_voice = "[🎤 Vocal transcrit" in (message.message or "")
             deal_accepted = new_status in ("agreed", "pending_delivery", "pending_pickup")
             images_v2 = engine_v2.images_to_send
             human_takeover_v2 = engine_v2.human_takeover

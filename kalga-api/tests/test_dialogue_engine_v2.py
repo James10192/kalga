@@ -282,6 +282,26 @@ async def test_e2e_notification_carries_negotiated_price(temp_db, monkeypatch):
     assert recorded[-1]["price"] != product["price"]
 
 
+async def test_e2e_vocal_in_gets_vocal_out(temp_db, monkeypatch):
+    """P5a : un client qui envoie un vocal reçoit une réponse vocale (TTS)."""
+    monkeypatch.setattr(app_settings, "dialogue_engine", "v2")
+    monkeypatch.setattr(app_settings, "deepseek_api_key", None)
+    import app.services.tts_service as tts
+
+    async def fake_tts(text, lang="fr"):
+        return b"OGGDATA"
+    monkeypatch.setattr(tts, "text_to_ogg", fake_tts)
+
+    merchant, product, _ = await _seed()
+    await _conversation_for(merchant, product, "negotiating",
+                            [("hello", True), ("Salut !", False)])
+    svc = ChatService()
+    resp = await svc.handle_incoming_message(IncomingMessage(
+        merchant_phone=merchant["phone"], client_phone="2250700000077",
+        message="[🎤 Vocal transcrit (fr)]: c'est combien ?"))
+    assert resp.audio_base64, "le vocal doit recevoir un vocal"
+
+
 async def test_e2e_v1_path_untouched_when_flag_off(temp_db, monkeypatch):
     monkeypatch.setattr(app_settings, "dialogue_engine", "v1")
     monkeypatch.setattr(app_settings, "deepseek_api_key", None)
