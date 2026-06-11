@@ -29,8 +29,9 @@ class Settings(BaseSettings):
     deepseek_max_retries: int = 3
 
     # === Moteur de dialogue (refonte 2026-06-11) ===
-    # "v1" = ancien chemin (generate_response) ; "v2" = pipeline dialogue/ (opt-in)
-    dialogue_engine: str = "v1"
+    # "v2" = pipeline dialogue/ (DÉFAUT depuis P5a) ; "v1" = ancien chemin (legacy,
+    # retour arrière en une ligne d'env le temps de la période de validation)
+    dialogue_engine: str = "v2"
 
     # === WhatsApp Bridge ===
     whatsapp_bridge_url: str = "http://localhost:3001"

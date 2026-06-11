@@ -121,6 +121,14 @@ async def test_engine_is_defensive_on_bad_input(temp_db):
     assert out is None                      # jamais d'exception → v1 garde la main
 
 
+def test_v2_is_the_default_engine(monkeypatch):
+    """P5a : v2 est le moteur par défaut (v1 = opt-out explicite, legacy)."""
+    monkeypatch.delenv("DIALOGUE_ENGINE", raising=False)
+    from app.core.config import Settings
+    assert Settings(_env_file=None, jwt_secret_key="x" * 32,
+                    admin_password="test-password").dialogue_engine == "v2"
+
+
 # === Bout-en-bout : handle_incoming_message avec DIALOGUE_ENGINE=v2 ===
 # ⚠️ deepseek_api_key est neutralisée (None) dans CHAQUE test e2e : la vraie clé
 # est dans .env et _default_llm() construirait sinon un adaptateur RÉSEAU.
