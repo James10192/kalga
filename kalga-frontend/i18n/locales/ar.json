@@ -377,6 +377,8 @@
     "noProductsYet": "لم يتم نشر أي منتج بعد.",
     "productsList": "قائمة المنتجات",
     "outOfStock": "نفد",
+    "variantCount": "{count} أنواع",
+    "chooseVariant": "اختر نوعاً",
     "outOfStockNotice": "المنتج نفد. تحدّث مع المتجر ليتم تنبيهك عند عودته.",
     "productFallback": "المنتج",
     "productNotFound": "المنتج غير موجود",

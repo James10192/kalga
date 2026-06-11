@@ -24,6 +24,8 @@ const code = computed(() => {
 const { data, isLoading, isError } = useStorefrontProduct(code)
 const product = computed(() => data.value?.product)
 const merchant = computed(() => data.value?.merchant)
+const variants = computed(() => data.value?.variants ?? [])
+const hasVariants = computed(() => variants.value.length > 1)
 
 useHead({
   title: () => product.value?.name ?? t('storefront.productFallback'),
@@ -102,6 +104,26 @@ const orderHref = computed(() =>
         <p v-if="product.description" class="text-sm leading-relaxed text-muted-foreground">
           {{ product.description }}
         </p>
+
+        <!-- Sélecteur de variantes -->
+        <div v-if="hasVariants" class="space-y-2">
+          <p class="text-sm font-medium text-foreground">{{ $t('storefront.chooseVariant') }}</p>
+          <div class="flex flex-wrap gap-2">
+            <NuxtLink
+              v-for="variant in variants"
+              :key="variant.id"
+              :to="ROUTES.storefront.product(variant.code)"
+              :class="[
+                'rounded-md border px-3 py-1.5 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                variant.code === product.code
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-border bg-card text-foreground hover:bg-muted',
+              ]"
+            >
+              {{ variant.variant_name || variant.name }}
+            </NuxtLink>
+          </div>
+        </div>
 
         <div
           v-if="!product.in_stock"

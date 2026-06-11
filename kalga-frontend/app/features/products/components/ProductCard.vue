@@ -16,7 +16,7 @@ import type { Product } from '../types'
 import type { ProductGroup } from '../utils/groupVariants'
 
 interface Props {
-  group: ProductGroup
+  group: ProductGroup<Product>
 }
 
 const props = defineProps<Props>()
