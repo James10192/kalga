@@ -27,7 +27,7 @@ from .memory import stm as stm_module
 from .memory import ltm as ltm_module
 from .memory import episodic as episodic_module
 from .tools import TOOLS, TOOL_NAMES
-from .deal_guard import resolve_accept_deal, is_explicit_photo_request
+from .deal_guard import resolve_accept_deal, is_explicit_photo_request, wants_other_photos
 from .detectors import (
     detect_delivery_request,
     detect_pickup_request,
@@ -139,15 +139,30 @@ async def generate_response(
             tracer.set_mode("end_conversation")
         return None, current_offer, False, "ended", False, False
 
-    # === PRIORITÉ 3.5: Demande de photo explicite (déterministe, hors LLM) ===
+    # === PRIORITÉ 3.5: Demandes visuelles explicites (déterministe, hors LLM) ===
     # Une demande de photo doit TOUJOURS être honorée — même en phase de clôture,
     # où le LLM tend à se fixer sur la livraison et à ignorer la photo.
+    # Les détecteurs ne voient que les mots du client (préfixes bridge assainis).
     if is_explicit_photo_request(client_message):
         logger.info(f"Demande de photo explicite détectée → send_photo (déterministe): {client_message[:40]}")
         if tracer:
             tracer.set_mode("photo_request")
             tracer.event("BUSINESS", "explicit_photo_request", message=client_message[:60])
         encoded = f"{_TOOL_PREFIX}send_photo:{json.dumps({'message': 'Bien sûr, je te montre ça !'}, ensure_ascii=False)}"
+        return encoded, current_offer, False, conversation_status, False, False
+
+    # « D'autres photos » : montrer les autres modèles s'il y en a, sinon
+    # renvoyer honnêtement la photo du produit (une seule photo par produit).
+    if wants_other_photos(client_message):
+        if product.get('group_id'):
+            tool, msg_txt = "send_variants", "Voilà les autres modèles en photo !"
+        else:
+            tool, msg_txt = "send_photo", "Voilà ! C'est la seule photo que j'ai pour l'instant 😊"
+        logger.info(f"Demande d'autres photos → {tool} (déterministe): {client_message[:40]}")
+        if tracer:
+            tracer.set_mode("photo_request")
+            tracer.event("BUSINESS", "other_photos_request", tool=tool, message=client_message[:60])
+        encoded = f"{_TOOL_PREFIX}{tool}:{json.dumps({'message': msg_txt}, ensure_ascii=False)}"
         return encoded, current_offer, False, conversation_status, False, False
 
     # === AJUSTEMENT FIDÉLITÉ (règle business) ===

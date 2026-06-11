@@ -13,6 +13,7 @@ l'action vers le bon tool, pour laisser le client « aller au bout ».
 """
 from typing import Optional, Dict
 import logging
+import re
 
 from .detectors import (
     detect_photo_request,
@@ -27,6 +28,29 @@ logger = logging.getLogger("kalga.ai.deal_guard")
 # pris à tort pour une demande de photo.
 _VISUAL_TOKENS = ("photo", "image", "montre", "voir", "ressemble", "aperçu", "apercu")
 
+# Préfixes de contexte ajoutés par le bridge ou le système, ex. :
+#   [Répond à la photo: "#K053"] Hello          (réponse à un Statut/image)
+#   [Répond à: "..."] texte                      (réponse à un message)
+#   [🎤 Vocal transcrit (fr)]: texte             (note vocale transcrite)
+# Ces blocs contiennent des mots déclencheurs (« photo »…) qui n'appartiennent
+# PAS au client : les détecteurs ne doivent jamais les voir.
+_CONTEXT_PREFIX_RE = re.compile(r"^\s*\[[^\]]*\]:?\s*")
+
+
+def strip_context_prefix(message: str) -> str:
+    """Retire les préfixes de contexte [bridge/système] en tête de message.
+
+    Ne garde que les mots réellement tapés par le client. Si le message n'est
+    QU'un bloc de contexte (ex. instruction de recherche visuelle), retourne ""
+    — les détecteurs ne s'appliquent alors pas et le LLM garde la main.
+    """
+    msg = message or ""
+    while True:
+        stripped = _CONTEXT_PREFIX_RE.sub("", msg, count=1)
+        if stripped == msg:
+            return msg
+        msg = stripped
+
 
 def is_explicit_photo_request(client_message: str) -> bool:
     """
@@ -37,10 +61,29 @@ def is_explicit_photo_request(client_message: str) -> bool:
     Exclut les demandes d'AUTRES variantes (gérées ailleurs) et les « envoie moi … »
     sans token visuel (ex. « envoie moi la localisation »).
     """
-    msg = client_message or ""
+    msg = strip_context_prefix(client_message)
+    if not msg:
+        return False
     if detect_variant_request(msg):
         return False
     return detect_photo_request(msg) and any(tok in msg.lower() for tok in _VISUAL_TOKENS)
+
+
+def wants_other_photos(client_message: str) -> bool:
+    """
+    True si le client demande D'AUTRES photos/images (« je veux d'autres photos »).
+
+    Les détecteurs classent ces tournures comme demande de variantes ; on les
+    repère ici pour les honorer visuellement de façon déterministe : photos des
+    autres modèles s'il y en a, sinon renvoi honnête de la photo du produit.
+    Sans mot visuel (« d'autres couleurs ? »), ce n'est pas une demande de photo.
+    """
+    msg = strip_context_prefix(client_message)
+    if not msg:
+        return False
+    low = msg.lower()
+    has_visual_word = "photo" in low or "image" in low
+    return has_visual_word and detect_variant_request(msg)
 
 
 def resolve_accept_deal(
@@ -62,7 +105,8 @@ def resolve_accept_deal(
     (variante > photo > contre-offre), afin de ne jamais conclure « dans le dos »
     du client.
     """
-    msg = client_message or ""
+    # N'analyser que les mots réels du client (jamais les métadonnées bridge).
+    msg = strip_context_prefix(client_message)
     msg_lower = msg.lower()
 
     # 1. Demande d'autres variantes/modèles → montrer les variantes, ne pas conclure.
