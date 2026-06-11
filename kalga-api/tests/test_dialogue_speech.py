@@ -142,3 +142,20 @@ async def test_brief_contains_plan_persona_and_forbidden():
     assert brief["actions"][0]["type"] == "counter_offer"
     assert brief["persona"]["bot_catchphrase"] == "On est ensemble !"
     assert any("conclure" in f for f in brief["forbidden"])
+
+
+async def test_brief_confirm_deal_imposes_delivery_question():
+    """P5a : à la conclusion, le LLM DOIT poser la question livraison/retrait
+    (terrain : il demandait le moyen de paiement à la place)."""
+    plan = _plan(Action(ActionType.CONFIRM_DEAL, price=9000.0),
+                 state=SaleState.CONCLUSION)
+    brief = build_brief(plan, _sctx())
+    assert brief["must"] and "livraison" in brief["must"]
+
+
+async def test_brief_catalog_forbids_inventing_products():
+    """P5a : avec un catalogue déterministe ajouté après, le LLM n'énumère rien
+    (terrain : il annonçait des fleurs abordables qui n'existaient pas)."""
+    plan = _plan(Action(ActionType.SEND_TEXT, facts=("catalogue", "moins_cher")))
+    brief = build_brief(plan, _sctx())
+    assert brief["note"] and "AUCUN produit" in brief["note"]

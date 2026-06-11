@@ -129,11 +129,22 @@ def build_brief(plan: ActionPlan, sctx: SpeechContext) -> dict:
     if plan.new_state not in _DEAL_STATES:
         forbidden.append("conclure la vente ou parler de livraison/retrait")
 
+    # Directives fermes selon le plan (le LLM rédige, il ne dévie pas)
+    must = None
+    note = None
+    if any(a.type == ActionType.CONFIRM_DEAL for a in plan.actions):
+        must = "Terminer OBLIGATOIREMENT par la question : livraison ou tu passes chercher ?"
+    if any(a.type == ActionType.SEND_TEXT and "catalogue" in a.facts for a in plan.actions):
+        note = ("Une liste exacte de produits sera ajoutée automatiquement après ton "
+                "message — n'énumère AUCUN produit toi-même, annonce juste la liste.")
+
     return {
         "actions": [
             {"type": a.type.value, "price": a.price, "facts": list(a.facts)}
             for a in plan.actions
         ],
+        "must": must,
+        "note": note,
         "state": plan.new_state.value,
         "product_name": sctx.product_name,
         "listed_price": sctx.listed_price,

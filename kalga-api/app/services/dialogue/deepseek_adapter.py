@@ -70,6 +70,8 @@ class DeepSeekAdapter:
             memory_line = f"Contexte client : {brief['memory']}\n" if brief.get("memory") else ""
             desc_line = (f"Description produit : {brief['product_description']}\n"
                          if brief.get("product_description") else "")
+            must_line = f"OBLIGATOIRE : {brief['must']}\n" if brief.get("must") else ""
+            note_line = f"NOTE : {brief['note']}\n" if brief.get("note") else ""
             user = (
                 f"Produit : {brief.get('product_name')} à {brief.get('listed_price')} F\n"
                 f"{desc_line}"
@@ -77,6 +79,7 @@ class DeepSeekAdapter:
                 f"{memory_line}{persona_line}"
                 f"PLAN À EXPRIMER (dans cet ordre) : {json.dumps(brief.get('actions', []), ensure_ascii=False)}\n"
                 f"INTERDITS : {' ; '.join(brief.get('forbidden', []))}\n"
+                f"{must_line}{note_line}"
                 f"Rédige le message."
             )
             raw = await self._ds.chat_completion(
