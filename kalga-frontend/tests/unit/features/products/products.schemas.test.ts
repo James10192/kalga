@@ -7,7 +7,6 @@ import { describe, expect, it } from 'vitest'
 import {
   productCreateInputSchema,
   productSchema,
-  productUpdateInputSchema,
   storefrontProductSchema,
 } from '../../../../app/features/products/schemas'
 
@@ -106,18 +105,6 @@ describe('productCreateInputSchema (form marchand)', () => {
     if (result.success) {
       expect(result.data.out_of_stock_mode).toBe('waitlist')
     }
-  })
-})
-
-describe('productUpdateInputSchema', () => {
-  it('accepte une mise à jour partielle (seul name)', () => {
-    const result = productUpdateInputSchema.safeParse({ name: 'Nouveau nom' })
-    expect(result.success).toBe(true)
-  })
-
-  it('accepte un objet vide', () => {
-    const result = productUpdateInputSchema.safeParse({})
-    expect(result.success).toBe(true)
   })
 })
 

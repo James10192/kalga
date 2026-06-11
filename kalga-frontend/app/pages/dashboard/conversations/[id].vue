@@ -12,7 +12,6 @@ import {
   useConversation,
   useConversationMessages,
 } from '@/features/conversations/composables/useConversations'
-import { useProduct } from '@/features/products/composables/useProducts'
 import { formatPhone } from '@/utils/format'
 import { ROUTES } from '@/utils/routes'
 
@@ -28,8 +27,6 @@ const conversationId = computed(() => {
 })
 
 const { data: conversation, isLoading, isError } = useConversation(conversationId)
-const productId = computed(() => conversation.value?.product_id ?? 0)
-const { data: product } = useProduct(productId)
 const {
   data: messages,
   isLoading: messagesLoading,
@@ -94,23 +91,17 @@ const lastClientMessage = computed<string>(() => {
           <StatusBadge :status="conversation.status" />
         </div>
 
-        <!-- Bloc produit -->
+        <!-- Bloc produit (infos portées par la conversation, pas de page détail) -->
         <div
-          v-if="product"
+          v-if="conversation.product_code"
           class="mt-4 flex items-center gap-3 rounded-md border border-border bg-muted/30 p-3"
         >
-          <div
-            class="rounded-md bg-primary px-2 py-1 text-xs font-semibold text-warning"
-          >
-            {{ product.code }}
+          <div class="rounded-md bg-primary px-2 py-1 text-xs font-semibold text-primary-foreground">
+            {{ conversation.product_code }}
           </div>
-          <p class="text-sm font-medium text-foreground">{{ product.name }}</p>
-          <NuxtLink
-            :to="ROUTES.dashboard.productDetail(product.id)"
-            class="ml-auto text-xs text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {{ $t('conversations.openProduct') }}
-          </NuxtLink>
+          <p v-if="conversation.product_name" class="text-sm font-medium text-foreground">
+            {{ conversation.product_name }}
+          </p>
         </div>
 
         <div v-if="conversation.current_offer" class="mt-2 text-xs text-muted-foreground">

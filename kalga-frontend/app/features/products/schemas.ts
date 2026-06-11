@@ -82,17 +82,8 @@ export const productCreateInputSchema = productInputBaseSchema.refine(
   },
 )
 
-/**
- * Form d'édition produit — tous les champs optionnels. La garde prix ne
- * s'applique que si `price` ET `min_price` sont fournis dans le patch.
- */
-export const productUpdateInputSchema = productInputBaseSchema.partial().refine(
-  (data) => data.price == null || data.min_price == null || data.min_price <= data.price,
-  {
-    path: ['min_price'],
-    message: 'Le prix minimum doit être inférieur ou égal au prix de vente',
-  },
-)
+// (Pas de schéma de mise à jour produit : KALGA n'édite pas un produit —
+//  on supprime et on recrée. Cf. guide utilisateur.)
 
 // =============================================================================
 // PRODUIT VITRINE PUBLIQUE (sans min_price !)

@@ -30,7 +30,6 @@ export const ROUTES = {
     home: '/dashboard',
     products: '/dashboard/produits',
     productNew: '/dashboard/produits/nouveau',
-    productDetail: (id: number): string => `/dashboard/produits/${id}`,
     conversations: '/dashboard/conversations',
     conversationDetail: (id: number): string => `/dashboard/conversations/${id}`,
     stats: '/dashboard/stats',

@@ -1,6 +1,10 @@
 <!--
-  Liste paginée des produits du marchand.
-  Référence : ARCHITECTURE_FRONTEND.md sections 3 + 9.1 (workflow feature)
+  Liste des produits du marchand — alignée sur dashboard/static/app.js.
+  Référence : ARCHITECTURE_FRONTEND.md sections 3 + 9.1.
+
+  Les produits sont REGROUPÉS par variantes (group_id) : une carte par groupe.
+  Actions par carte : Stock (modal), Copier le code, Supprimer. Pas d'édition
+  (KALGA ne permet pas la modification d'un produit — on supprime et on recrée).
 -->
 
 <script setup lang="ts">
@@ -8,24 +12,45 @@ import { ChevronLeft, ChevronRight, Loader2, Plus } from 'lucide-vue-next'
 
 import ProductCard from '@/features/products/components/ProductCard.vue'
 import ProductEmptyState from '@/features/products/components/ProductEmptyState.vue'
-import { useProductsList } from '@/features/products/composables/useProducts'
+import StockModal from '@/features/products/components/StockModal.vue'
+import { useDeleteProduct, useProductsList } from '@/features/products/composables/useProducts'
+import type { Product } from '@/features/products/types'
+import { groupProductsByVariant } from '@/features/products/utils/groupVariants'
 import { ROUTES } from '@/utils/routes'
 
 definePageMeta({ layout: 'dashboard' })
 
 const { t } = useI18n()
 const { user } = useAuth()
+const { push } = useToast()
 
 const page = ref(1)
 const merchantId = computed(() => user.value?.merchant_id ?? 0)
 
 const { data, isLoading, isError, refetch } = useProductsList(merchantId, page)
+const { mutateAsync: deleteMutate } = useDeleteProduct()
 
-useHead({ title: t('nav.products') })
+/** Produits de la page courante, regroupés par variante (1 carte par groupe). */
+const groups = computed(() => groupProductsByVariant(data.value?.items ?? []))
 
 const totalPages = computed(() =>
   data.value ? Math.max(1, Math.ceil(data.value.total / data.value.per_page)) : 1,
 )
+
+/** Produit dont on gère le stock (null = modal fermé). */
+const stockProduct = ref<Product | null>(null)
+
+async function handleDelete(product: Product): Promise<void> {
+  if (!window.confirm(t('products.deleteConfirm', { name: product.name }))) return
+  try {
+    await deleteMutate(product.id)
+    push.success(t('products.deleteSuccess'))
+  } catch (error) {
+    push.error(extractApiErrorMessage(error, t('products.deleteError')))
+  }
+}
+
+useHead({ title: t('nav.products') })
 </script>
 
 <template>
@@ -40,7 +65,7 @@ const totalPages = computed(() =>
 
       <NuxtLink
         :to="ROUTES.dashboard.productNew"
-        class="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-warning transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        class="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Plus class="h-4 w-4" aria-hidden="true" />
         {{ $t('products.createNew') }}
@@ -75,13 +100,19 @@ const totalPages = computed(() =>
     <!-- Vide -->
     <ProductEmptyState v-else-if="data && data.total === 0" />
 
-    <!-- Liste -->
+    <!-- Liste regroupée -->
     <template v-else-if="data && data.items.length > 0">
       <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        <ProductCard v-for="product in data.items" :key="product.id" :product="product" />
+        <ProductCard
+          v-for="group in groups"
+          :key="group.main.id"
+          :group="group"
+          @manage-stock="stockProduct = $event"
+          @delete="handleDelete"
+        />
       </div>
 
-      <!-- Pagination -->
+      <!-- Pagination (sur les produits bruts) -->
       <nav
         v-if="totalPages > 1"
         class="flex items-center justify-center gap-2 pt-4"
@@ -112,5 +143,8 @@ const totalPages = computed(() =>
         </button>
       </nav>
     </template>
+
+    <!-- Modal de gestion du stock -->
+    <StockModal v-if="stockProduct" :product="stockProduct" @close="stockProduct = null" />
   </div>
 </template>

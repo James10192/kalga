@@ -4,6 +4,9 @@
  * Wrappers TanStack Query : on mocke @tanstack/vue-query (capture des options),
  * on stub les globals Nuxt (computed/unref/$fetch/useRuntimeConfig) et on vérifie
  * le câblage queryKey / queryFn / onSuccess de chaque composable.
+ *
+ * KALGA n'édite pas un produit (pas de useProduct/useUpdateProduct) : on couvre
+ * liste, création, suppression et mise à jour du stock.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -20,10 +23,8 @@ import {
   productsKeys,
   useCreateProduct,
   useDeleteProduct,
-  useProduct,
   useProductsList,
-  useProductVariants,
-  useUpdateProduct,
+  useUpdateStock,
 } from '../../../../app/features/products/composables/useProducts'
 
 beforeEach(() => {
@@ -39,8 +40,6 @@ describe('productsKeys', () => {
   it('génère des clés de cache stables et hiérarchiques', () => {
     expect(productsKeys.all).toEqual(['products'])
     expect(productsKeys.list(1, 2)).toEqual(['products', 'list', 1, 2])
-    expect(productsKeys.detail(7)).toEqual(['products', 'detail', 7])
-    expect(productsKeys.variants(3)).toEqual(['products', 'variants', 3])
   })
 })
 
@@ -60,23 +59,6 @@ describe('useProductsList', () => {
   })
 })
 
-describe('useProduct / useProductVariants', () => {
-  it('useProduct câble la clé détail et désactive si id<=0', async () => {
-    const opts = useProduct(9) as Record<string, any>
-    expect(opts.queryKey.value).toEqual(['products', 'detail', 9])
-    await opts.queryFn()
-    expect(fetchMock).toHaveBeenCalledOnce()
-    expect((useProduct(0) as Record<string, any>).enabled.value).toBe(false)
-  })
-
-  it('useProductVariants câble la clé variantes', async () => {
-    const opts = useProductVariants(4) as Record<string, any>
-    expect(opts.queryKey.value).toEqual(['products', 'variants', 4])
-    await opts.queryFn()
-    expect(fetchMock).toHaveBeenCalledOnce()
-  })
-})
-
 describe('mutations products', () => {
   it('useCreateProduct appelle l’API et invalide la liste au succès', async () => {
     const opts = useCreateProduct(5) as Record<string, any>
@@ -87,19 +69,18 @@ describe('mutations products', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['products'] })
   })
 
-  it('useUpdateProduct invalide le détail ET la liste au succès', async () => {
-    const opts = useUpdateProduct() as Record<string, any>
-    await opts.mutationFn({ id: 9, data: { name: 'Maj' } })
-    expect(fetchMock).toHaveBeenCalledOnce()
-
-    opts.onSuccess({ id: 9 })
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['products', 'detail', 9] })
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['products'] })
-  })
-
   it('useDeleteProduct invalide la liste au succès', async () => {
     const opts = useDeleteProduct() as Record<string, any>
     await opts.mutationFn(9)
+    expect(fetchMock).toHaveBeenCalledOnce()
+
+    opts.onSuccess()
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['products'] })
+  })
+
+  it('useUpdateStock appelle l’API (PUT stock) et invalide la liste au succès', async () => {
+    const opts = useUpdateStock() as Record<string, any>
+    await opts.mutationFn({ code: '#K001', data: { quantity: 10, low_stock_threshold: 3 } })
     expect(fetchMock).toHaveBeenCalledOnce()
 
     opts.onSuccess()
