@@ -75,3 +75,45 @@ def test_question_price_is_still_an_offer():
     # « tu peux faire 9000 ? » est bien une offre à négocier
     intents = detect_price_intents("tu peux faire 9000 ?", None)
     assert Intent(IntentType.PRICE_OFFER, amount=9000.0) in intents
+
+
+# === Demandes visuelles & produits ===
+from app.services.dialogue.understanding import detect_visual_intents
+
+
+def test_photo_request():
+    for msg in ("envoie la photo", "tu as une image ?", "montre-moi",
+                "je peux voir le produit ?", "à quoi ça ressemble"):
+        intents = detect_visual_intents(msg.lower())
+        assert Intent(IntentType.ASK_PHOTO) in intents, msg
+
+
+def test_other_photos_request():
+    for msg in ("je veux d'autres photos", "je peux avoir d'autre photo",
+                "envoie moi plus de photos"):
+        intents = detect_visual_intents(msg.lower())
+        assert Intent(IntentType.ASK_OTHER_PHOTOS) in intents, msg
+
+
+def test_variants_request():
+    for msg in ("tu as d'autres couleurs ?", "il existe en rouge ?",
+                "autre taille ?", "autre modèle ?"):
+        intents = detect_visual_intents(msg.lower())
+        assert Intent(IntentType.ASK_VARIANTS) in intents, msg
+
+
+def test_other_products_request():
+    for msg in ("tu vends quoi d'autre ?", "vous avez autre chose ?",
+                "montre ton catalogue"):
+        intents = detect_visual_intents(msg.lower())
+        assert Intent(IntentType.ASK_OTHER_PRODUCTS) in intents, msg
+
+
+def test_location_send_is_not_a_photo():
+    assert detect_visual_intents("envoie moi la localisation") == []
+
+
+def test_variant_beats_photo_for_same_phrase():
+    # « d'autres couleurs » ne doit pas déclencher ASK_PHOTO en plus
+    intents = detect_visual_intents("tu as d'autres couleurs ?")
+    assert Intent(IntentType.ASK_PHOTO) not in intents

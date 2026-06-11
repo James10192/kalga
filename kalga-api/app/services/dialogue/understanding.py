@@ -106,3 +106,63 @@ def detect_price_intents(text: str, last_bot_message: Optional[str]) -> List[Int
         return [Intent(IntentType.PRICE_OFFER)]
 
     return []
+
+
+# ─────────────────────────────────────────────────────────────
+# Demandes visuelles & produits
+# ─────────────────────────────────────────────────────────────
+
+_PHOTO_KEYWORDS = (
+    "photo", "image", "montre moi", "montre-moi", "montre",
+    "a quoi ca ressemble", "à quoi ça ressemble", "je peux voir",
+    "fais voir", "fait voir",
+)
+_VISUAL_TOKENS = ("photo", "image", "montre", "voir", "ressemble", "aperçu", "apercu")
+
+_OTHER_PHOTOS_PATTERNS = (
+    "d'autres photos", "d'autre photo", "autres photos", "autre photo",
+    "d'autres images", "d'autre image", "plus de photo", "plus de photos",
+    "plus d'image", "plus d'images", "encore des photos", "encore une photo",
+)
+
+_VARIANT_PATTERNS = (
+    "autre couleur", "autres couleurs", "d'autres couleurs", "quelle couleur",
+    "quelles couleurs", "coloris", "en noir", "en blanc", "en rouge", "en bleu",
+    "en vert", "en jaune", "en rose", "en gris", "en marron",
+    "autre taille", "autres tailles", "taille différente", "plus grand",
+    "plus petit", "en xl", "en xxl", "du xl", "du l ", "du m ", "du s ",
+    "autre modèle", "autres modèles", "d'autres modèles", "autre model",
+    "variante", "variantes", "autre version",
+    "il existe en", "tu as la même en", "tu as la meme en",
+)
+
+_OTHER_PRODUCTS_PATTERNS = (
+    "quoi d'autre", "tu as quoi", "vous avez quoi", "tu vends quoi",
+    "vous vendez quoi", "autre chose", "autres articles", "autres produits",
+    "d'autres articles", "d'autres produits", "catalogue", "tous tes produits",
+    "tous vos produits", "liste de produits",
+)
+
+
+def detect_visual_intents(text: str) -> List[Intent]:
+    """ASK_PHOTO / ASK_OTHER_PHOTOS / ASK_VARIANTS / ASK_OTHER_PRODUCTS.
+
+    Ordre de spécificité : catalogue > variantes > autres-photos > photo.
+    Un même message peut porter variantes ET photo explicite distinctes, mais
+    une formulation unique ne produit qu'une seule de ces intentions.
+    """
+    low = text.lower()
+    intents: List[Intent] = []
+
+    if any(p in low for p in _OTHER_PRODUCTS_PATTERNS):
+        intents.append(Intent(IntentType.ASK_OTHER_PRODUCTS))
+    elif any(p in low for p in _VARIANT_PATTERNS):
+        intents.append(Intent(IntentType.ASK_VARIANTS))
+    elif any(p in low for p in _OTHER_PHOTOS_PATTERNS):
+        intents.append(Intent(IntentType.ASK_OTHER_PHOTOS))
+    elif any(k in low for k in _PHOTO_KEYWORDS) and any(t in low for t in _VISUAL_TOKENS):
+        # Double condition : mot-clé de demande + token visuel — exclut
+        # « envoie moi la localisation » (aucun token visuel).
+        intents.append(Intent(IntentType.ASK_PHOTO))
+
+    return intents
