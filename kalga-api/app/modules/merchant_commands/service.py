@@ -269,6 +269,38 @@ class MerchantCommandService:
         if message_lower.startswith('supprimer') or message_lower.startswith('retirer'):
             return await self.help_handler.handle_delete_product(message, merchant, db)
 
+        # === ORPHELINS DE SESSION (bug terrain n°11) ===
+        # Les sessions vivent en mémoire : un redémarrage de l'API les efface.
+        # Une photo ou « fini »/« annuler » hors session = un marchand au milieu
+        # d'un flux perdu → lui répondre TOUJOURS (le bridge jette les UNKNOWN).
+        if image_path and not message:
+            return CommandResponse(
+                response=(
+                    "📸 J'ai bien reçu ta photo, mais aucune création n'est en cours "
+                    "(la session a peut-être expiré).\n\n"
+                    "• Écris *produit* pour créer un produit\n"
+                    "• Écris *variante #K0xx* pour ajouter une variante\n"
+                    "Puis renvoie tes photos 👍"
+                ),
+                action=CommandAction.ERROR
+            )
+
+        if message_lower in ['fini', 'fin', 'terminé', 'termine']:
+            return CommandResponse(
+                response=(
+                    "⚠️ Aucun envoi de photos en cours (la session a peut-être expiré).\n\n"
+                    "Recommence : écris *produit*, puis réponds *photos* à la dernière "
+                    "étape et renvoie tes images."
+                ),
+                action=CommandAction.ERROR
+            )
+
+        if message_lower in ['annuler', 'cancel', 'stop']:
+            return CommandResponse(
+                response="Rien à annuler — aucune création en cours. 👍",
+                action=CommandAction.CANCELLED
+            )
+
         # === COMMANDE NON RECONNUE ===
         return CommandResponse(
             response="Je n'ai pas compris. Écris *aide* pour voir les commandes disponibles.",

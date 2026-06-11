@@ -319,7 +319,15 @@ class WhatsAppService {
             text: messageText.substring(0, 80),
         });
 
-        // Message du marchand
+        // Ignorer groupes et status broadcast — AVANT la branche marchand :
+        // sinon les messages du marchand dans ses groupes partent en commandes
+        // (terrain 2026-06-11 16:36 : « Hum vraiment » dans un groupe → API).
+        if (remoteJid.includes('@g.us') || remoteJid === 'status@broadcast') {
+            logger.debug('Message ignoré (groupe ou broadcast)');
+            return;
+        }
+
+        // Message du marchand (conversation avec lui-même = canal de commandes)
         if (fromMe) {
             const hasImage = !!message.message?.imageMessage;
             const hasText = !!messageText || !!message.message?.imageMessage?.caption;
@@ -327,12 +335,6 @@ class WhatsAppService {
             if ((hasText || hasImage) && this.onMerchantCommand) {
                 await this.onMerchantCommand(merchantPhone, sock, message);
             }
-            return;
-        }
-
-        // Ignorer groupes et status broadcast
-        if (remoteJid.includes('@g.us') || remoteJid === 'status@broadcast') {
-            logger.debug('Message ignoré (groupe ou broadcast)');
             return;
         }
 
