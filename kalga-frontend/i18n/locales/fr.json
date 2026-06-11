@@ -393,6 +393,8 @@
     "noProductsYet": "Aucun produit publié pour le moment.",
     "productsList": "Liste des produits",
     "outOfStock": "Rupture",
+    "variantCount": "{count} variantes",
+    "chooseVariant": "Choisir une variante",
     "outOfStockNotice": "Produit en rupture de stock. Discutez avec la boutique pour être prévenu de son retour.",
     "productFallback": "Produit",
     "productNotFound": "Produit introuvable",

@@ -393,6 +393,8 @@
     "noProductsYet": "No products published yet.",
     "productsList": "Products list",
     "outOfStock": "Out of stock",
+    "variantCount": "{count} variants",
+    "chooseVariant": "Choose a variant",
     "outOfStockNotice": "Out of stock. Chat with the shop to be notified when it's back.",
     "productFallback": "Product",
     "productNotFound": "Product not found",
