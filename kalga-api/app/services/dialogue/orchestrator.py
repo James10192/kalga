@@ -55,9 +55,12 @@ async def run_pipeline(
     if intents == [Intent(IntentType.UNCLEAR)]:
         intents = await classify_with_llm(client_message, llm,
                                           {"last_bot_message": last_bot})
-        # Règle marchand : un message AMBIGU ne peut JAMAIS conclure une vente.
-        # Le classifieur informe ; il n'a aucun pouvoir d'acceptation.
-        intents = [i for i in intents if i.type != IntentType.ACCEPT_PRICE] \
+        # Règle marchand : un message AMBIGU ne peut JAMAIS conclure une vente
+        # NI clore la conversation (terrain : « Je t'en prie » classé au revoir
+        # → conversation terminée → client muré). Le classifieur informe ;
+        # il n'a aucun pouvoir transactionnel ni de clôture.
+        intents = [i for i in intents
+                   if i.type not in (IntentType.ACCEPT_PRICE, IntentType.GOODBYE)] \
             or [Intent(IntentType.UNCLEAR)]
 
     # ③ Décider

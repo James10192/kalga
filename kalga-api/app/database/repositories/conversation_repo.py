@@ -62,6 +62,38 @@ class ConversationRepository(BaseRepository):
             row = await cursor.fetchone()
             return dict(row) if row else None
 
+    async def get_recent_closed(
+        self,
+        merchant_id: int,
+        client_phone: str,
+        within_hours: int = 48
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Dernière conversation récemment clôturée (completed/ended) du client.
+
+        Une vente conclue ne doit pas devenir une porte fermée : le client qui
+        revient (photos, SAV, « vous livrez à X ? », nouvelle négo) retrouve son
+        contexte au lieu du silence (bug terrain 2026-06-11 15:17 :
+        « PAS DE RÉPONSE - conversation terminée »).
+        """
+        async with get_connection() as db:
+            cursor = await db.execute(
+                """
+                SELECT c.*, p.name as product_name, p.code as product_code, p.price
+                FROM conversations c
+                JOIN products p ON c.product_id = p.id
+                WHERE c.merchant_id = ?
+                AND c.client_phone = ?
+                AND c.status IN ('completed', 'ended')
+                AND c.updated_at >= datetime('now', ?)
+                ORDER BY c.updated_at DESC
+                LIMIT 1
+                """,
+                (merchant_id, client_phone, f"-{int(within_hours)} hours")
+            )
+            row = await cursor.fetchone()
+            return dict(row) if row else None
+
     async def create(
         self,
         merchant_id: int,

@@ -66,3 +66,10 @@ def test_honest_handoff_passes():
     v = guard_output("C'est noté ! Le vendeur te contacte très vite pour organiser la livraison 🚚",
                      plan, floor_price=8000)
     assert v.ok
+
+
+def test_meta_leak_blocked():
+    """Terrain 15:20 : « Voici le message pour le client : … » — fuite du cadre."""
+    v = guard_output("Avec plaisir ! Voici le message pour le client :\n\nBonjour…",
+                     _plan(ActionType.SEND_TEXT), floor_price=8000)
+    assert not v.ok and any("fuite" in x for x in v.violations)

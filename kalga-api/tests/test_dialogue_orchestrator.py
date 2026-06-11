@@ -61,6 +61,20 @@ async def test_pipeline_classifier_can_never_close_a_deal():
     assert result.db_status == "negotiating"
 
 
+async def test_pipeline_classifier_can_never_end_conversation():
+    """Terrain 15:16 : « Je t'en prie » classé au revoir → client muré.
+    Un message ambigu ne clôt JAMAIS la conversation."""
+    rogue = FakeLLMClient(classify_result=[{"type": "goodbye"}])
+    result = await run_pipeline(
+        client_message="je t'en prie",
+        db_status="negotiating",
+        history=[{"content": "Merci pour ta confiance !", "is_from_client": False}],
+        product=_product(), current_offer=19000.0, llm=rogue,
+    )
+    assert all(a.type.value != "end_conversation" for a in result.plan.actions)
+    assert result.db_status != "ended"
+
+
 async def test_pipeline_confirm_uses_last_bot_price_from_history():
     result = await run_pipeline(
         client_message="ok",

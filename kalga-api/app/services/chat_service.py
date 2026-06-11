@@ -563,6 +563,17 @@ class ChatService:
                 merchant['id'],
                 client_phone
             )
+            if not conversation:
+                # Client qui revient après une clôture récente : ré-ouvrir son
+                # contexte (photos, SAV, nouvelle négo) au lieu du silence.
+                conversation = await self.conversations.get_recent_closed(
+                    merchant['id'], client_phone
+                )
+                if conversation:
+                    logger.info(
+                        f"Conversation {conversation['id']} ré-ouverte "
+                        f"(retour client après clôture)"
+                    )
             if conversation:
                 product = await self.products.get_by_id(conversation['product_id'])
 

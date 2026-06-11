@@ -212,6 +212,24 @@ async def test_e2e_v2_full_delivery_handoff_flow(temp_db, monkeypatch):
     assert row["status"] == "completed"
 
 
+async def test_e2e_client_returns_after_closed_sale_is_never_walled(temp_db, monkeypatch):
+    """Terrain 15:17 : « Je peux avoir des photos ? » après clôture →
+    « PAS DE RÉPONSE - conversation terminée ». La vente conclue doit rester
+    une porte OUVERTE : photos, SAV, nouvelle négo."""
+    monkeypatch.setattr(app_settings, "dialogue_engine", "v2")
+    monkeypatch.setattr(app_settings, "deepseek_api_key", None)
+    merchant, product, _ = await _seed()
+    await _conversation_for(merchant, product, "completed",
+                            [("ok je prends", True),
+                             ("Merci pour ton achat !", False)])
+    svc = ChatService()
+    resp = await svc.handle_incoming_message(IncomingMessage(
+        merchant_phone=merchant["phone"], client_phone="2250700000077",
+        message="Je peux avoir des photos de l'article ?"))
+    assert not resp.no_response, "le client qui revient ne doit JAMAIS être muré"
+    assert resp.images_to_send, "la photo doit partir"
+
+
 async def test_e2e_v1_path_untouched_when_flag_off(temp_db, monkeypatch):
     monkeypatch.setattr(app_settings, "dialogue_engine", "v1")
     monkeypatch.setattr(app_settings, "deepseek_api_key", None)

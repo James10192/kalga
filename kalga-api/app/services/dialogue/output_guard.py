@@ -34,6 +34,12 @@ _FALSE_PROMISE_PATTERNS = (
     "je te confirme l'heure", "je te confirme la livraison demain",
 )
 
+# Fuite du cadre interne (terrain 15:20 : « Voici le message pour le client : »)
+_META_LEAK_PATTERNS = (
+    "voici le message pour le client", "message pour le client",
+    "voici la réponse au client", "voici ma réponse :", "en tant que vendeur, je",
+)
+
 # « je peux (te) faire 7 000 », « je descends à 7000 », « d'accord pour 7 000 »…
 _PROPOSAL_RE = re.compile(
     r"(?:je peux (?:te |vous )?faire|je te fais|je descends? à|je te laisse à"
@@ -62,6 +68,9 @@ def guard_output(text: str, plan: ActionPlan, floor_price: float) -> GuardVerdic
 
     if any(p in low for p in _FALSE_PROMISE_PATTERNS):
         violations.append("promesse de livraison inventée (le vendeur organise)")
+
+    if any(p in low for p in _META_LEAK_PATTERNS):
+        violations.append("fuite du cadre interne (méta-texte destiné au système)")
 
     for m in _PROPOSAL_RE.finditer(low):
         digits = re.sub(r"[\s.]", "", m.group(1))
