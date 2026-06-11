@@ -83,6 +83,16 @@ export function useUpdateBotPersona() {
   })
 }
 
+/** Upload logo/bannière (multipart). Invalide le marchand après succès. */
+export function useUploadMerchantImage() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, formData }: { id: number; formData: FormData }) =>
+      merchantsApi.uploadImage(id, formData),
+    onSuccess: (_data, variables) => invalidateMerchant(queryClient, variables.id),
+  })
+}
+
 export function useUpdateAwayMode() {
   const queryClient = useQueryClient()
   return useMutation({
