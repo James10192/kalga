@@ -50,6 +50,22 @@ async def test_engine_variants_request_returns_variant_images(temp_db):
     assert "banco" not in out.message.lower()
 
 
+async def test_engine_chosen_variant_sends_only_that_image(temp_db):
+    """Quand selected_variant_id est mémorisé, la confirmation du choix renvoie
+    UNIQUEMENT la photo de cette variante — pas le catalogue."""
+    merchant, product, variant = await _seed(group=True)
+    conv = {"id": 1, "status": "negotiating", "current_offer": None,
+            "selected_variant_id": variant["id"]}
+    out = await respond(
+        '[Répond à la photo: "Modèle Bleu"] je veux celle la mais il faut revoir le prix',
+        conv, product, merchant, history=[], llm=None)
+    assert out is not None
+    assert len(out.images_to_send) == 1
+    assert out.images_to_send[0]["image_path"] == "bleu.jpg"
+    assert "banco" not in out.message.lower()
+    assert out.new_status == "negotiating"
+
+
 async def test_engine_location_request_sets_flag(temp_db):
     merchant, product, _ = await _seed()
     conv = {"id": 1, "status": "agreed", "current_offer": 9000.0,

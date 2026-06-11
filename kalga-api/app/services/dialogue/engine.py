@@ -69,8 +69,11 @@ async def _resolve_images(plan, conversation, product) -> Optional[List[dict]]:
                                "caption": product["name"]})
         elif action.type == ActionType.SEND_VARIANTS and product.get("group_id"):
             variants = await repo.get_other_variants(product["id"], product["group_id"])
+            seen_labels = set()
             for v in variants:
-                if v.get("image_path"):
+                label = (v.get("variant_name") or v["name"]).strip().lower()
+                if v.get("image_path") and label not in seen_labels:
+                    seen_labels.add(label)
                     images.append({"image_path": v["image_path"],
                                    "caption": f"Modèle {v.get('variant_name') or v['name']}"})
     return images or None

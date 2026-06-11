@@ -20,6 +20,7 @@ class IntentType(str, Enum):
     ASK_OTHER_PHOTOS = "ask_other_photos"  # « d'autres photos »
     ASK_VARIANTS = "ask_variants"        # autres couleurs/tailles/modèles
     ASK_OTHER_PRODUCTS = "ask_other_products"  # catalogue du marchand
+    CHOOSE_VARIANT = "choose_variant"    # le client désigne UNE variante (réponse à sa photo)
     ASK_INFO = "ask_info"                # description, qualité, dispo, prix…
     ASK_LOCATION = "ask_location"        # adresse / localisation
     ASK_PAYMENT = "ask_payment"          # moyens de paiement

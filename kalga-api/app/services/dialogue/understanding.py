@@ -13,7 +13,7 @@ import re
 from typing import List, Optional
 
 from .intents import Intent, IntentType
-from .sanitizer import normalize
+from .sanitizer import normalize, get_replied_photo_label
 
 # ─────────────────────────────────────────────────────────────
 # Montants FCFA
@@ -49,7 +49,9 @@ def extract_price_amount(text: str) -> Optional[float]:
 _PRICE_OBJECTIONS = (
     "trop cher", "c'est cher", "fais un effort", "baisse", "diminue", "réduis",
     "reduis", "pas les moyens", "au-dessus de mon budget", "dernier prix",
-    "moins cher", "tu peux faire mieux",
+    "moins cher", "tu peux faire mieux", "revoir le prix", "revois le prix",
+    "prix élevé", "prix est élevé", "prix eleve", "négocier", "negocier",
+    "on discute le prix",
 )
 
 # Acceptations fortes : concluent même sans chiffre (le verrou P2 tranchera)
@@ -335,6 +337,20 @@ def extract_intents(message: str, last_bot_message: Optional[str] = None) -> Lis
     collected += detect_visual_intents(low)
     collected += detect_logistics_intents(low, last_bot_message)
     collected += detect_price_intents(low, last_bot_message)
+
+    # Choix d'une variante : le client répond à la photo « Modèle X » (légende
+    # posée par le bot). Le préfixe bridge est ici un SIGNAL : il désigne SA
+    # variante — sauf s'il demande explicitement d'autres modèles/photos.
+    reply_label = get_replied_photo_label(message)
+    if reply_label:
+        variant_match = re.match(r"Modèle\s+(.+)", reply_label, re.IGNORECASE)
+        wants_others = any(i.type in (IntentType.ASK_VARIANTS,
+                                      IntentType.ASK_OTHER_PHOTOS,
+                                      IntentType.ASK_OTHER_PRODUCTS)
+                           for i in collected)
+        if variant_match and not wants_others:
+            collected.append(Intent(IntentType.CHOOSE_VARIANT,
+                                    text=variant_match.group(1).strip()))
 
     # Question prix explicite → ASK_INFO(prix) — sauf si déjà transactionnel
     # ou si le « combien » porte sur la livraison (ASK_DELIVERY_INFO).

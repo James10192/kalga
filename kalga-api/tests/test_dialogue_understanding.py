@@ -251,3 +251,33 @@ def test_quality_words_are_ask_info():
     for msg in ("c'est authentique ?", "c'est du vrai ?", "il y a garantie ?"):
         intents = extract_intents(msg)
         assert Intent(IntentType.ASK_INFO, text="qualité") in intents, msg
+
+
+# === Choix d'une variante (réponse à SA photo) — bug terrain n°5 ===
+
+def test_reply_to_variant_photo_is_choose_variant():
+    """« je veux celle la » en réponse à la photo « Modèle Fleur » = choix de
+    CETTE variante + négociation — jamais un envoi du catalogue entier."""
+    intents = extract_intents(
+        '[Répond à la photo: "Modèle Fleur"] je veux celle la mais il faut revoir le prix')
+    assert Intent(IntentType.CHOOSE_VARIANT, text="Fleur") in intents
+    assert Intent(IntentType.PRICE_OFFER) in intents          # « revoir le prix »
+    assert all(i.type != IntentType.ASK_VARIANTS for i in intents)
+    assert all(i.type != IntentType.UNCLEAR for i in intents)
+
+
+def test_reply_to_variant_photo_asking_other_colors_is_not_a_choice():
+    intents = extract_intents('[Répond à la photo: "Modèle Fleur"] tu as d\'autres couleurs ?')
+    assert Intent(IntentType.ASK_VARIANTS) in intents
+    assert all(i.type != IntentType.CHOOSE_VARIANT for i in intents)
+
+
+def test_reply_to_status_is_not_a_variant_choice():
+    # La légende d'un Statut (#K053…) n'est pas un label « Modèle X »
+    intents = extract_intents('[Répond à la photo: "#K053"] Hello')
+    assert intents == [Intent(IntentType.GREETING)]
+
+
+def test_revoir_le_prix_is_negotiation():
+    intents = extract_intents("il faut revoir le prix")
+    assert Intent(IntentType.PRICE_OFFER) in intents

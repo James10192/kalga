@@ -22,8 +22,8 @@ from .sale_state import SaleState
 
 _REQUEST_TYPES = {
     IntentType.ASK_PHOTO, IntentType.ASK_OTHER_PHOTOS, IntentType.ASK_VARIANTS,
-    IntentType.ASK_OTHER_PRODUCTS, IntentType.ASK_INFO, IntentType.ASK_LOCATION,
-    IntentType.ASK_PAYMENT, IntentType.ASK_DELIVERY_INFO,
+    IntentType.ASK_OTHER_PRODUCTS, IntentType.CHOOSE_VARIANT, IntentType.ASK_INFO,
+    IntentType.ASK_LOCATION, IntentType.ASK_PAYMENT, IntentType.ASK_DELIVERY_INFO,
 }
 _DEAL_STATES = {SaleState.CONCLUSION, SaleState.LOGISTIQUE_LIVRAISON,
                 SaleState.LOGISTIQUE_RETRAIT}
@@ -50,6 +50,12 @@ def _handle_request(intent: Intent, ctx: PolicyContext) -> Action:
             else Action(ActionType.SEND_PHOTO, facts=("only_photo",))
     if t == IntentType.ASK_VARIANTS:
         return Action(ActionType.SEND_VARIANTS)
+    if t == IntentType.CHOOSE_VARIANT:
+        # Confirmer SON choix : renvoyer la photo de SA variante uniquement
+        # (l'exécution résout l'image via selected_variant_id, déjà mémorisé
+        # par chat_service._find_and_save_selected_variant).
+        return Action(ActionType.SEND_PHOTO, facts=("chosen_variant",),
+                      reason=intent.text)
     if t == IntentType.ASK_OTHER_PRODUCTS:
         return Action(ActionType.SEND_TEXT, facts=("catalogue",))
     if t == IntentType.ASK_LOCATION:

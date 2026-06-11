@@ -44,3 +44,21 @@ def test_normalize_collapses_whitespace_and_strips():
 
 def test_normalize_strips_context_prefix_first():
     assert normalize('[Répond à la photo: "#K053"]   Hello  ') == "Hello"
+
+
+# === Le préfixe de réponse est un SIGNAL, pas un déchet ===
+from app.services.dialogue.sanitizer import get_replied_photo_label
+
+
+def test_replied_photo_label_extracted():
+    msg = '[Répond à la photo: "Modèle Fleur"] je veux celle la'
+    assert get_replied_photo_label(msg) == "Modèle Fleur"
+
+
+def test_replied_photo_label_none_without_prefix():
+    assert get_replied_photo_label("je veux celle la") is None
+
+
+def test_replied_photo_label_on_status_caption():
+    # Une réponse à un Statut porte la légende du statut, pas un label de variante
+    assert get_replied_photo_label('[Répond à la photo: "#K053"] Hello') == "#K053"

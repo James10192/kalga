@@ -5,10 +5,10 @@ from app.services.dialogue.intents import Intent, IntentType, PRIORITY
 def test_catalog_is_closed_and_complete():
     expected = {
         "GREETING", "ASK_INFO", "ASK_PHOTO", "ASK_OTHER_PHOTOS", "ASK_VARIANTS",
-        "ASK_OTHER_PRODUCTS", "ASK_LOCATION", "ASK_PAYMENT", "ASK_DELIVERY_INFO",
-        "PRICE_OFFER", "ACCEPT_PRICE", "CHOOSE_DELIVERY", "CHOOSE_PICKUP",
-        "GIVE_ADDRESS", "GOODBYE", "FRUSTRATION", "CORRECTION", "HUMAN_REQUEST",
-        "UNCLEAR",
+        "ASK_OTHER_PRODUCTS", "CHOOSE_VARIANT", "ASK_LOCATION", "ASK_PAYMENT",
+        "ASK_DELIVERY_INFO", "PRICE_OFFER", "ACCEPT_PRICE", "CHOOSE_DELIVERY",
+        "CHOOSE_PICKUP", "GIVE_ADDRESS", "GOODBYE", "FRUSTRATION", "CORRECTION",
+        "HUMAN_REQUEST", "UNCLEAR",
     }
     assert {t.name for t in IntentType} == expected
 

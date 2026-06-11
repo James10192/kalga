@@ -17,6 +17,8 @@ CORPUS = [
     ("Je veux d'autres photos", None, [T.ASK_OTHER_PHOTOS]),
     ("Je peux avoir d'autre photo", None, [T.ASK_OTHER_PHOTOS]),
     ("Je veux me faire livré", None, [T.CHOOSE_DELIVERY]),
+    ('[Répond à la photo: "Modèle Fleur"] je veux celle la mais il faut revoir le prix',
+     None, [T.CHOOSE_VARIANT, T.PRICE_OFFER]),  # bug n°5 : choix variante + négo, pas le catalogue
     # ── Accueil / social ──
     ("hello", None, [T.GREETING]),
     ("Bonjour, c'est disponible ?", None, [T.ASK_INFO, T.GREETING]),  # tri canonique : demandes avant social

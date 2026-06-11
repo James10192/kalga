@@ -219,3 +219,18 @@ def test_stock_out_offers_waitlist_instead_of_deal():
 def test_unclear_clarifies():
     plan = decide_plan([Intent(IntentType.UNCLEAR)], _ctx())
     assert any("clarify" in a.facts for a in plan.actions)
+
+
+def test_choose_variant_sends_only_chosen_photo_and_negotiates():
+    """Bug terrain n°5 : choix d'une variante + « revoir le prix » →
+    photo de SA variante + contre-offre — JAMAIS le catalogue entier."""
+    intents = [Intent(IntentType.CHOOSE_VARIANT, text="Fleur"),
+               Intent(IntentType.PRICE_OFFER)]
+    plan = decide_plan(intents, _ctx(state=SaleState.NEGOCIATION, has_variants=True))
+    types = [a.type for a in plan.actions]
+    assert ActionType.SEND_PHOTO in types
+    assert ActionType.SEND_VARIANTS not in types
+    assert ActionType.COUNTER_OFFER in types
+    assert ActionType.CONFIRM_DEAL not in types
+    photo = next(a for a in plan.actions if a.type == ActionType.SEND_PHOTO)
+    assert "chosen_variant" in photo.facts and photo.reason == "Fleur"

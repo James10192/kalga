@@ -45,6 +45,9 @@ def _action_text(action: Action, sctx: SpeechContext) -> str:
     p = _fmt(action.price)
 
     if t == ActionType.SEND_PHOTO:
+        if "chosen_variant" in facts:
+            label = f" {action.reason}" if action.reason else ""
+            return f"Très bon choix !{label} 😍 Je te la remontre pour confirmer."
         return "C'est la seule photo que j'ai pour l'instant, la voilà ! 😊" \
             if "only_photo" in facts else "Voilà la photo ! 😊"
     if t == ActionType.SEND_VARIANTS:

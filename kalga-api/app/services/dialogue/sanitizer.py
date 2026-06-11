@@ -12,10 +12,23 @@ Aucun détecteur en aval ne doit jamais voir ces blocs : seuls les mots
 réellement tapés (ou dits) par le client comptent.
 """
 import re
+from typing import Optional
 
 _CONTEXT_PREFIX_RE = re.compile(r"^\s*\[[^\]]*\]:?\s*")
 _MOBILE_APOSTROPHES = {"’": "'", "‘": "'"}
 _WHITESPACE_RE = re.compile(r"\s+")
+
+# Le préfixe « réponse à une photo » n'est pas un déchet : il porte le CHOIX du
+# client (à quelle image il répond). On l'extrait AVANT de nettoyer.
+# Format bridge : [Répond à la photo: "Modèle Fleur"] message
+_REPLY_PHOTO_RE = re.compile(r'^\s*\[Répond à la photo:\s*"([^"]+)"\]')
+
+
+def get_replied_photo_label(message) -> Optional[str]:
+    """Légende de la photo à laquelle le client répond, si le message est une
+    réponse à une image (variante choisie, Statut…). None sinon."""
+    m = _REPLY_PHOTO_RE.match(message or "")
+    return m.group(1).strip() if m else None
 
 
 def strip_context_prefix(message) -> str:

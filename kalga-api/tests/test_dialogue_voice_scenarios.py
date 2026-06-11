@@ -61,6 +61,20 @@ async def test_voice_bug4_cest_loriginal_answers_quality_never_sells():
     assert plan.new_state == SaleState.NEGOCIATION
 
 
+async def test_voice_bug5_chosen_variant_confirms_choice_not_catalog():
+    """Capture du 2026-06-11 13:14 : réponse à la photo « Modèle Fleur » avec
+    « je veux celle la mais il faut revoir le prix » → photo de SA fleur +
+    contre-offre. Plus jamais le catalogue entier."""
+    plan, text = await speak_through_pipeline(
+        '[Répond à la photo: "Modèle Fleur"] je veux celle la mais il faut revoir le prix',
+        SaleState.NEGOCIATION, None)
+    types = [a.type.value for a in plan.actions]
+    assert "send_photo" in types and "send_variants" not in types
+    assert "confirm_deal" not in types
+    assert "9 000" in text or "9 500" in text or "8 000" in text  # une contre-offre chiffrée
+    assert plan.new_state == SaleState.NEGOCIATION
+
+
 async def test_voice_hold_floor_varies_with_seed():
     intents = extract_intents("5000 dernier prix")
     plan = decide_plan(intents, PolicyContext(
