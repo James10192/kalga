@@ -13,13 +13,13 @@ l'action vers le bon tool, pour laisser le client « aller au bout ».
 """
 from typing import Optional, Dict
 import logging
-import re
 
 from .detectors import (
     detect_photo_request,
     detect_variant_request,
     extract_price_offer,
 )
+from ..dialogue.sanitizer import strip_context_prefix
 
 logger = logging.getLogger("kalga.ai.deal_guard")
 
@@ -27,29 +27,6 @@ logger = logging.getLogger("kalga.ai.deal_guard")
 # présent, pour éviter qu'un simple « envoie moi … » (ex. la localisation) soit
 # pris à tort pour une demande de photo.
 _VISUAL_TOKENS = ("photo", "image", "montre", "voir", "ressemble", "aperçu", "apercu")
-
-# Préfixes de contexte ajoutés par le bridge ou le système, ex. :
-#   [Répond à la photo: "#K053"] Hello          (réponse à un Statut/image)
-#   [Répond à: "..."] texte                      (réponse à un message)
-#   [🎤 Vocal transcrit (fr)]: texte             (note vocale transcrite)
-# Ces blocs contiennent des mots déclencheurs (« photo »…) qui n'appartiennent
-# PAS au client : les détecteurs ne doivent jamais les voir.
-_CONTEXT_PREFIX_RE = re.compile(r"^\s*\[[^\]]*\]:?\s*")
-
-
-def strip_context_prefix(message: str) -> str:
-    """Retire les préfixes de contexte [bridge/système] en tête de message.
-
-    Ne garde que les mots réellement tapés par le client. Si le message n'est
-    QU'un bloc de contexte (ex. instruction de recherche visuelle), retourne ""
-    — les détecteurs ne s'appliquent alors pas et le LLM garde la main.
-    """
-    msg = message or ""
-    while True:
-        stripped = _CONTEXT_PREFIX_RE.sub("", msg, count=1)
-        if stripped == msg:
-            return msg
-        msg = stripped
 
 
 def is_explicit_photo_request(client_message: str) -> bool:
