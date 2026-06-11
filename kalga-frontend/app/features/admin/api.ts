@@ -7,6 +7,7 @@
 
 import type { Paginated } from '@/types/api'
 import type { AuditLogEntry } from '@/types/domain'
+import type { AdminDashboard } from './types'
 
 function proxyUrl(path: string): string {
   const config = useRuntimeConfig()
@@ -17,6 +18,10 @@ function proxyUrl(path: string): string {
 }
 
 export const adminApi = {
+  /** Statistiques globales de la plateforme (overview admin). */
+  getDashboard: (): Promise<AdminDashboard> =>
+    $fetch<AdminDashboard>(proxyUrl('/admin/dashboard')),
+
   /** Journal d'audit paginé (action admin / changements sensibles). */
   listAuditLogs: (page = 1): Promise<Paginated<AuditLogEntry>> =>
     $fetch<Paginated<AuditLogEntry>>(proxyUrl('/admin/audit-logs'), { query: { page } }),

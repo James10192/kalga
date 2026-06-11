@@ -43,9 +43,16 @@ ou "comment venir ?" ou "localisation ?"
 → send_location  (même s'il a déjà demandé — renvoie la GPS)
 → NE PAS utiliser accept_deal en même temps si le deal n'est pas encore conclu
 
-Le client dit "ok", "deal", "je prends", "vendu", "c'est bon",
-ou fait une offre >= prix minimum
+Le client ACCEPTE FERMEMENT un prix déjà annoncé ("ok je prends", "deal",
+"vendu", "c'est bon je prends", "ça marche pour 10 000") OU fait une offre >= prix minimum
 → accept_deal
+
+⚠️ NE PAS conclure (accept_deal) si, dans le MÊME message, le client :
+  • demande encore une photo / d'autres modèles → send_photo / send_variants D'ABORD
+  • propose un NOUVEAU prix plus bas → counter_offer
+  • dit juste "oui"/"ok" en réponse à une question d'intérêt ("ça t'intéresse ?")
+    SANS qu'un prix précis n'ait été accepté → réponds en texte, ne conclus pas
+Toujours satisfaire la demande (photo, modèle, négociation) AVANT de conclure la vente.
 
 Le client fait une offre < prix minimum ou dit "c'est trop cher, fais un effort"
 → counter_offer  avec un prix entre son offre et le prix affiché
@@ -192,10 +199,13 @@ TOOLS = [
             "name": "accept_deal",
             "description": (
                 "Confirme la vente et demande au client s\\'il préfère la livraison ou le retrait en magasin. "
-                "Utilise ce tool quand le client accepte clairement le prix "
-                "('ok', 'deal', 'je prends', 'vendu', 'd\\'accord', 'c\\'est bon', 'ok ça marche') "
+                "Utilise ce tool quand le client accepte clairement un PRIX DÉJÀ ANNONCÉ "
+                "('ok je prends', 'deal', 'vendu', 'c\\'est bon je prends', 'ça marche pour ce prix') "
                 "ou quand son offre est >= au prix minimum acceptable. "
-                "NE PAS utiliser quand le client demande juste la localisation sans avoir accepté le prix."
+                "NE PAS utiliser si le client demande une photo / d\\'autres modèles, "
+                "ou propose un NOUVEAU prix plus bas (→ counter_offer), "
+                "ou demande juste la localisation sans avoir accepté le prix. "
+                "Un simple 'oui'/'ok' en réponse à 'ça t\\'intéresse ?' n\\'est PAS une acceptation de prix."
             ),
             "parameters": {
                 "type": "object",
