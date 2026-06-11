@@ -145,7 +145,17 @@
     "defaultMerchantName": "تاجر",
     "recentConversations": "أحدث المحادثات",
     "viewAll": "عرض الكل",
-    "noActivity": "لا يوجد نشاط بعد."
+    "noActivity": "لا يوجد نشاط بعد.",
+    "storefrontTitle": "متجرك على الإنترنت",
+    "storefrontHint": "شارك هذا الرابط مع عملائك ليطّلعوا على منتجاتك.",
+    "copy": "نسخ",
+    "open": "فتح",
+    "linkCopied": "تم نسخ الرابط",
+    "pendingSales": "مبيعات قيد الانتظار",
+    "call": "اتصال",
+    "markDone": "تم",
+    "saleMarkedDone": "تم تعليم البيع كمنجَز",
+    "popularProducts": "المنتجات الرائجة"
   },
   "admin": {
     "welcomeTitle": "مرحباً، {email}",

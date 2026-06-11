@@ -145,7 +145,17 @@
     "defaultMerchantName": "Merchant",
     "recentConversations": "Recent conversations",
     "viewAll": "View all",
-    "noActivity": "No activity yet."
+    "noActivity": "No activity yet.",
+    "storefrontTitle": "Your online storefront",
+    "storefrontHint": "Share this link with your customers so they can see your products.",
+    "copy": "Copy",
+    "open": "Open",
+    "linkCopied": "Link copied to clipboard",
+    "pendingSales": "Pending sales",
+    "call": "Call",
+    "markDone": "Done",
+    "saleMarkedDone": "Sale marked as done",
+    "popularProducts": "Popular products"
   },
   "admin": {
     "welcomeTitle": "Welcome, {email}",

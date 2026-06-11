@@ -145,7 +145,17 @@
     "defaultMerchantName": "Marchand",
     "recentConversations": "Dernières conversations",
     "viewAll": "Tout voir",
-    "noActivity": "Aucune activité pour le moment."
+    "noActivity": "Aucune activité pour le moment.",
+    "storefrontTitle": "Votre vitrine en ligne",
+    "storefrontHint": "Partagez ce lien avec vos clients pour qu'ils voient vos produits.",
+    "copy": "Copier",
+    "open": "Ouvrir",
+    "linkCopied": "Lien copié dans le presse-papier",
+    "pendingSales": "Ventes en attente",
+    "call": "Appeler",
+    "markDone": "Fait",
+    "saleMarkedDone": "Vente marquée comme faite",
+    "popularProducts": "Produits populaires"
   },
   "admin": {
     "welcomeTitle": "Bienvenue, {email}",
