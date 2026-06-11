@@ -1,24 +1,34 @@
 <!--
-  Détail d'une conversation : header + thread messages + human takeover form.
+  Détail d'une conversation (option 2 : reconstruit depuis la LISTE + messages).
+  Porté fidèlement depuis dashboard/static/app.js (loadConversationDetail).
+
+  Le backend n'expose PAS « une conversation par id » → on récupère la
+  conversation dans la liste du marchand (cache TanStack partagé avec la page
+  liste) et on charge ses messages. Reprise humaine : Accepter / Refuser l'offre
+  (POST /accept, /reject) + réponse manuelle.
 -->
 
 <script setup lang="ts">
-import { ArrowLeft, Loader2, RefreshCcw } from 'lucide-vue-next'
+import { ArrowLeft, Check, Loader2, RefreshCcw, X } from 'lucide-vue-next'
 
 import MerchantReplyForm from '@/features/conversations/components/MerchantReplyForm.vue'
 import MessageBubble from '@/features/conversations/components/MessageBubble.vue'
 import StatusBadge from '@/features/conversations/components/StatusBadge.vue'
 import {
-  useConversation,
+  useAcceptConversation,
   useConversationMessages,
+  useConversationsList,
+  useRejectConversation,
 } from '@/features/conversations/composables/useConversations'
-import { formatPhone } from '@/utils/format'
+import { formatPhone, formatPriceFCFA } from '@/utils/format'
 import { ROUTES } from '@/utils/routes'
 
 definePageMeta({ layout: 'dashboard' })
 
 const { t } = useI18n()
 const route = useRoute()
+const { user } = useAuth()
+const { push } = useToast()
 
 const conversationId = computed(() => {
   const raw = route.params.id
@@ -26,12 +36,24 @@ const conversationId = computed(() => {
   return Number.isFinite(id) && id > 0 ? id : 0
 })
 
-const { data: conversation, isLoading, isError } = useConversation(conversationId)
+const merchantPhone = computed(() => user.value?.merchant_phone ?? '')
+const allStatus = ref<string | undefined>(undefined)
+const firstPage = ref(1)
+
+// La conversation vient de la liste (même cache que /dashboard/conversations).
+const { data: list, isLoading, isError } = useConversationsList(merchantPhone, allStatus, firstPage)
+const conversation = computed(
+  () => list.value?.items.find((c) => c.id === conversationId.value) ?? null,
+)
+
 const {
   data: messages,
   isLoading: messagesLoading,
   refetch: refetchMessages,
 } = useConversationMessages(conversationId)
+
+const { mutateAsync: acceptOffer, isPending: accepting } = useAcceptConversation()
+const { mutateAsync: rejectOffer, isPending: rejecting } = useRejectConversation()
 
 useHead({
   title: () =>
@@ -41,13 +63,33 @@ useHead({
 })
 
 const lastClientMessage = computed<string>(() => {
-  const list = messages.value ?? []
-  for (let i = list.length - 1; i >= 0; i--) {
-    const m = list[i]
-    if (m?.is_from_client) return m.content
+  const items = messages.value ?? []
+  for (let i = items.length - 1; i >= 0; i--) {
+    const message = items[i]
+    if (message?.is_from_client) return message.content
   }
   return ''
 })
+
+async function onAccept(): Promise<void> {
+  try {
+    await acceptOffer(conversationId.value)
+    push.success(t('conversations.accepted'))
+    await refetchMessages()
+  } catch (error) {
+    push.error(extractApiErrorMessage(error, t('conversations.actionError')))
+  }
+}
+
+async function onReject(): Promise<void> {
+  try {
+    await rejectOffer(conversationId.value)
+    push.success(t('conversations.rejected'))
+    await refetchMessages()
+  } catch (error) {
+    push.error(extractApiErrorMessage(error, t('conversations.actionError')))
+  }
+}
 </script>
 
 <template>
@@ -60,7 +102,7 @@ const lastClientMessage = computed<string>(() => {
       {{ $t('conversations.backToList') }}
     </NuxtLink>
 
-    <!-- Loading conversation -->
+    <!-- Loading -->
     <div
       v-if="isLoading"
       class="flex items-center justify-center rounded-lg border border-border bg-card py-16"
@@ -77,7 +119,7 @@ const lastClientMessage = computed<string>(() => {
     </div>
 
     <template v-else>
-      <!-- Header conversation -->
+      <!-- Header -->
       <header class="rounded-lg border border-border bg-card p-4">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -91,7 +133,6 @@ const lastClientMessage = computed<string>(() => {
           <StatusBadge :status="conversation.status" />
         </div>
 
-        <!-- Bloc produit (infos portées par la conversation, pas de page détail) -->
         <div
           v-if="conversation.product_code"
           class="mt-4 flex items-center gap-3 rounded-md border border-border bg-muted/30 p-3"
@@ -102,11 +143,6 @@ const lastClientMessage = computed<string>(() => {
           <p v-if="conversation.product_name" class="text-sm font-medium text-foreground">
             {{ conversation.product_name }}
           </p>
-        </div>
-
-        <div v-if="conversation.current_offer" class="mt-2 text-xs text-muted-foreground">
-          {{ $t('conversations.currentOffer') }}:
-          <span class="font-medium text-primary">{{ conversation.current_offer }}</span>
         </div>
       </header>
 
@@ -142,7 +178,41 @@ const lastClientMessage = computed<string>(() => {
         </div>
       </section>
 
-      <!-- Human takeover form -->
+      <!-- Reprise humaine : offre + Accepter/Refuser -->
+      <section class="rounded-lg border border-border bg-card p-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <p v-if="conversation.current_offer" class="text-sm text-muted-foreground">
+            {{ $t('conversations.currentOffer') }} :
+            <span class="font-semibold text-gold">
+              {{ formatPriceFCFA(conversation.current_offer) }}
+            </span>
+          </p>
+          <span v-else class="text-sm text-muted-foreground">{{ $t('conversations.noOffer') }}</span>
+
+          <div class="flex gap-2">
+            <button
+              type="button"
+              :disabled="accepting"
+              class="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary-hi disabled:opacity-60"
+              @click="onAccept"
+            >
+              <Check class="h-4 w-4" aria-hidden="true" />
+              {{ $t('conversations.accept') }}
+            </button>
+            <button
+              type="button"
+              :disabled="rejecting"
+              class="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition hover:bg-muted disabled:opacity-60"
+              @click="onReject"
+            >
+              <X class="h-4 w-4" aria-hidden="true" />
+              {{ $t('conversations.reject') }}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Réponse manuelle -->
       <section v-if="lastClientMessage">
         <MerchantReplyForm
           :conversation="conversation"

@@ -52,13 +52,16 @@ export const conversationsApi = {
     }
   },
 
-  /** Détail d'une conversation par ID. */
-  getById: (id: number): Promise<Conversation> =>
-    $fetch<Conversation>(proxyUrl(`/chat/conversations/${id}`)),
-
-  /** Liste ordonnée des messages d'une conversation. */
+  /**
+   * Liste ordonnée des messages d'une conversation.
+   * Le backend renvoie { conversation_id, messages, count } → on extrait `messages`.
+   * (Il n'existe PAS d'endpoint « une conversation par id » : le détail est
+   *  reconstruit depuis la liste — cf. dashboard/static/app.js selectConversation.)
+   */
   getMessages: (conversationId: number): Promise<Message[]> =>
-    $fetch<Message[]>(proxyUrl(`/chat/conversations/${conversationId}/messages`)),
+    $fetch<{ messages: Message[] }>(
+      proxyUrl(`/chat/conversations/${conversationId}/messages`),
+    ).then((r) => r.messages),
 
   /** Marchand répond manuellement (human takeover). */
   sendMerchantReply: (data: MerchantReplyInput): Promise<{ sent: boolean }> =>

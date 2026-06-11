@@ -38,15 +38,6 @@ export function useConversationsList(
   })
 }
 
-export function useConversation(id: MaybeRef<number>) {
-  return useQuery({
-    queryKey: computed(() => conversationsKeys.detail(unref(id))),
-    queryFn: () => conversationsApi.getById(unref(id)),
-    staleTime: CACHE_STALE_TIME_DEFAULT,
-    enabled: computed(() => unref(id) > 0),
-  })
-}
-
 /**
  * Messages d'une conversation.
  * Refetch plus fréquent (30 s) pour donner un effet "presque temps réel"
