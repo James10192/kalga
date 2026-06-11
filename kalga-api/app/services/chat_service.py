@@ -234,17 +234,49 @@ class ChatService:
                 has_negotiation_context=bool(negotiation_context)
             )
 
-        bot_response, price_offer, deal_accepted, new_status, send_location, use_voice = await generate_response(
-            client_message=message.message,
-            product=product,
-            conversation_history=history,
-            current_offer=conversation.get('current_offer'),
-            conversation_status=current_status,
-            negotiation_context=negotiation_context,
-            merchant_data=merchant,
-            tracer=tracer,
-            client_phone=message.client_phone
-        )
+        # === MOTEUR V2 (drapeau DIALOGUE_ENGINE) — spec refonte 2026-06-11 ===
+        # v2 remplace UNIQUEMENT le cerveau+voix ; tout l'aval (persistance,
+        # notifications, localisation, goodbye, relances) reste le chemin commun.
+        # Défensif : v2 → None ⇒ v1 reprend la main, rien ne casse.
+        engine_v2 = None
+        from ..core.config import settings as _settings
+        if _settings.dialogue_engine == "v2":
+            from .dialogue.engine import respond as dialogue_respond
+            engine_v2 = await dialogue_respond(
+                client_message=message.message,
+                conversation=conversation,
+                product=product,
+                merchant=merchant,
+                history=history,
+            )
+            if tracer:
+                tracer.event("CHAT", "dialogue_v2",
+                             used=engine_v2 is not None,
+                             facts=engine_v2.facts if engine_v2 else None)
+
+        images_v2 = None
+        human_takeover_v2 = False
+        if engine_v2 is not None:
+            bot_response = engine_v2.message
+            price_offer = engine_v2.new_offer
+            new_status = engine_v2.new_status
+            send_location = engine_v2.send_location
+            use_voice = False
+            deal_accepted = new_status in ("agreed", "pending_delivery", "pending_pickup")
+            images_v2 = engine_v2.images_to_send
+            human_takeover_v2 = engine_v2.human_takeover
+        else:
+            bot_response, price_offer, deal_accepted, new_status, send_location, use_voice = await generate_response(
+                client_message=message.message,
+                product=product,
+                conversation_history=history,
+                current_offer=conversation.get('current_offer'),
+                conversation_status=current_status,
+                negotiation_context=negotiation_context,
+                merchant_data=merchant,
+                tracer=tracer,
+                client_phone=message.client_phone
+            )
 
         logger.info(f"Réponse IA: {bot_response[:80] if bot_response else 'NONE'}... | Status: {new_status} | Location: {send_location}")
         if tracer:
@@ -254,9 +286,9 @@ class ChatService:
                 response_len=len(bot_response) if bot_response else 0
             )
 
-        # 6.1 Dispatcher le tool_call si DeepSeek a choisi une action
-        images_to_send = None
-        if bot_response and is_tool_call(bot_response):
+        # 6.1 Dispatcher le tool_call si DeepSeek a choisi une action (chemin v1 uniquement)
+        images_to_send = images_v2
+        if engine_v2 is None and bot_response and is_tool_call(bot_response):
             tool = parse_tool_call(bot_response)
             if tool:
                 bot_response, new_status, send_location, images_to_send = await self._execute_tool(
@@ -347,7 +379,7 @@ class ChatService:
 
         # Construire les données de localisation à passer au bridge
         merchant_location = None
-        human_takeover = False
+        human_takeover = human_takeover_v2
         if send_location:
             latitude = merchant.get('latitude')
             longitude = merchant.get('longitude')

@@ -74,3 +74,75 @@ async def test_engine_is_defensive_on_bad_input(temp_db):
     out = await respond("photo svp", {"status": "???"}, {"name": "X"},  # produit invalide
                         merchant, history=[], llm=None)
     assert out is None                      # jamais d'exception → v1 garde la main
+
+
+# === Bout-en-bout : handle_incoming_message avec DIALOGUE_ENGINE=v2 ===
+# ⚠️ deepseek_api_key est neutralisée (None) dans CHAQUE test e2e : la vraie clé
+# est dans .env et _default_llm() construirait sinon un adaptateur RÉSEAU.
+# Sans clé → gabarits déterministes, zéro réseau, tests stables.
+from app.core.config import settings as app_settings
+from app.models.schemas import IncomingMessage
+from app.services.chat_service import ChatService
+
+
+async def _conversation_for(merchant, product, status, history_msgs):
+    async with get_connection() as db:
+        cur = await db.execute(
+            "INSERT INTO conversations (merchant_id, product_id, client_phone, status) "
+            "VALUES (?, ?, ?, ?)",
+            (merchant["id"], product["id"], "2250700000077", status),
+        )
+        conv_id = cur.lastrowid
+        for content, from_client in history_msgs:
+            await db.execute(
+                "INSERT INTO messages (conversation_id, content, is_from_client) "
+                "VALUES (?, ?, ?)", (conv_id, content, int(from_client)),
+            )
+        await db.commit()
+    return conv_id
+
+
+async def test_e2e_v2_photo_request_sends_photo_no_goodbye(temp_db, monkeypatch):
+    """LE bug des captures, rejoué à travers TOUT le service en v2."""
+    monkeypatch.setattr(app_settings, "dialogue_engine", "v2")
+    monkeypatch.setattr(app_settings, "deepseek_api_key", None)
+    merchant, product, _ = await _seed()
+    await _conversation_for(merchant, product, "negotiating",
+                            [("je veux ça à 9000", True),
+                             ("Je peux te faire 9 500 F !", False)])
+    svc = ChatService()
+    resp = await svc.handle_incoming_message(IncomingMessage(
+        merchant_phone=merchant["phone"], client_phone="2250700000077",
+        message="je veux des photos"))
+    assert resp.images_to_send, "la photo doit partir"
+    assert resp.goodbye_message is None
+    assert "banco" not in (resp.message or "").lower()
+
+
+async def test_e2e_v2_bare_ok_after_priced_bot_concludes(temp_db, monkeypatch):
+    monkeypatch.setattr(app_settings, "dialogue_engine", "v2")
+    monkeypatch.setattr(app_settings, "deepseek_api_key", None)
+    merchant, product, _ = await _seed()
+    await _conversation_for(merchant, product, "negotiating",
+                            [("9000 ?", True),
+                             ("Je peux te faire 9 500 F !", False)])
+    svc = ChatService()
+    resp = await svc.handle_incoming_message(IncomingMessage(
+        merchant_phone=merchant["phone"], client_phone="2250700000077",
+        message="ok je prends"))
+    assert "9 500" in resp.message
+    assert "livraison" in resp.message.lower()
+
+
+async def test_e2e_v1_path_untouched_when_flag_off(temp_db, monkeypatch):
+    monkeypatch.setattr(app_settings, "dialogue_engine", "v1")
+    monkeypatch.setattr(app_settings, "deepseek_api_key", None)
+    merchant, product, _ = await _seed()
+    await _conversation_for(merchant, product, "negotiating",
+                            [("hello", True), ("Salut !", False)])
+    svc = ChatService()
+    resp = await svc.handle_incoming_message(IncomingMessage(
+        merchant_phone=merchant["phone"], client_phone="2250700000077",
+        message="envoie la photo"))
+    # v1 : l'interception déterministe existante sert déjà la photo
+    assert resp.images_to_send

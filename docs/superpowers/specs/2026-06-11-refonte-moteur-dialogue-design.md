@@ -188,7 +188,7 @@ Absorbés à terme : `detectors.py` (→ understanding), `deal_guard.py` (→ po
 | P1 | sanitizer + intents + understanding | extraction multi-intentions testée sur corpus — ✅ fait |
 | P2 | sale_state + policy + negotiation | le cerveau complet décide juste, sans LLM, au test — ✅ fait |
 | P3 | llm_protocol + speech + output_guard + llm_classifier | conversations complètes au FakeLLM — ✅ fait |
-| P4 | orchestrator + branchement `chat_service` derrière `DIALOGUE_ENGINE` (`v1` défaut, `v2` opt-in) | test réel WhatsApp sur le numéro du marchand, comparaison test-chat |
+| P4 | orchestrator + branchement `chat_service` derrière `DIALOGUE_ENGINE` (`v1` défaut, `v2` opt-in) | test réel WhatsApp sur le numéro du marchand, comparaison test-chat — ✅ branché et testé e2e ; test WhatsApp réel : au marchand |
 | P5 | bascule `v2` par défaut + **suppression** de l'ancien chemin | zéro code mort (règle du projet) |
 
 Chaque phase : commitée, testée, démontrable. Le bot en production ne casse jamais.
