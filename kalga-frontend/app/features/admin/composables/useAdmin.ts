@@ -9,7 +9,17 @@ import { CACHE_STALE_TIME_DEFAULT } from '@/utils/constants'
 import { adminApi } from '../api'
 
 export const adminKeys = {
+  dashboard: () => ['admin', 'dashboard'] as const,
   auditLogs: (page: number) => ['admin', 'audit-logs', page] as const,
+}
+
+/** Statistiques globales de la plateforme (overview admin). */
+export function useAdminDashboard() {
+  return useQuery({
+    queryKey: adminKeys.dashboard(),
+    queryFn: () => adminApi.getDashboard(),
+    staleTime: CACHE_STALE_TIME_DEFAULT,
+  })
 }
 
 export function useAuditLogs(page: MaybeRef<number>) {
