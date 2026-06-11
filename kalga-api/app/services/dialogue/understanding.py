@@ -42,6 +42,25 @@ def extract_price_amount(text: str) -> Optional[float]:
     return None
 
 
+def extract_all_amounts(text: str) -> List[float]:
+    """TOUS les montants d'un texte, dans l'ordre d'apparition.
+
+    Indispensable pour les messages du bot qui citent plusieurs prix
+    (« Au lieu de 20 000 F, je te fais 19 000 F ») : prendre le premier
+    revenait à conclure au prix affiché (bug terrain n°9).
+    """
+    low = (text or "").lower()
+    found = []
+    for m in _K_AMOUNT_RE.finditer(low):
+        found.append((m.start(1), float(m.group(1)) * 1000))
+    for m in _SPACED_AMOUNT_RE.finditer(low):
+        found.append((m.start(1), float(m.group(1).replace(" ", ""))))
+    for m in _PLAIN_AMOUNT_RE.finditer(low):
+        found.append((m.start(1), float(m.group(1))))
+    found.sort(key=lambda x: x[0])
+    return [v for _, v in found]
+
+
 # ─────────────────────────────────────────────────────────────
 # Prix & acceptation
 # ─────────────────────────────────────────────────────────────
@@ -87,8 +106,14 @@ def _is_strong_acceptance(low: str) -> bool:
     return False
 
 
-def detect_price_intents(text: str, last_bot_message: Optional[str]) -> List[Intent]:
-    """Intentions transactionnelles d'un message (déjà normalisé)."""
+def detect_price_intents(text: str, last_bot_message: Optional[str],
+                         has_standing_offer: bool = False) -> List[Intent]:
+    """Intentions transactionnelles d'un message (déjà normalisé).
+
+    has_standing_offer : un prix est déjà sur la table (contre-offre persistée) —
+    un « ok » faible vaut alors acceptation même si le dernier texte du bot
+    ne contient pas de montant.
+    """
     low = text.lower().strip()
     if not low:
         return []
@@ -99,7 +124,7 @@ def detect_price_intents(text: str, last_bot_message: Optional[str]) -> List[Int
 
     if low in _WEAK_AFFIRMATIONS:
         bot_priced = bool(last_bot_message) and extract_price_amount(last_bot_message) is not None
-        return [Intent(IntentType.ACCEPT_PRICE)] if bot_priced else []
+        return [Intent(IntentType.ACCEPT_PRICE)] if (bot_priced or has_standing_offer) else []
 
     if amount is not None:
         return [Intent(IntentType.PRICE_OFFER, amount=amount)]
@@ -338,7 +363,8 @@ _QUALITY_PATTERNS = ("original", "authentique", "c'est du vrai", "vrai ou faux",
                      "garantie", "garanti", "contrefaçon", "contrefacon")
 
 
-def extract_intents(message: str, last_bot_message: Optional[str] = None) -> List[Intent]:
+def extract_intents(message: str, last_bot_message: Optional[str] = None,
+                    has_standing_offer: bool = False) -> List[Intent]:
     """Point d'entrée de l'étage ② : message brut → intentions ordonnées.
 
     - Assainit (préfixes bridge/système) et normalise.
@@ -358,7 +384,7 @@ def extract_intents(message: str, last_bot_message: Optional[str] = None) -> Lis
     collected += detect_signal_intents(low)
     collected += detect_visual_intents(low)
     collected += detect_logistics_intents(low, last_bot_message)
-    collected += detect_price_intents(low, last_bot_message)
+    collected += detect_price_intents(low, last_bot_message, has_standing_offer)
 
     # Alternatives moins chères ≠ négociation du produit en cours : quand le
     # client demande d'AUTRES produits abordables, on ne baisse PAS le prix

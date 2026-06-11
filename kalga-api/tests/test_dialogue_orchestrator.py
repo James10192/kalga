@@ -75,6 +75,51 @@ async def test_pipeline_classifier_can_never_end_conversation():
     assert result.db_status != "ended"
 
 
+async def test_pipeline_bare_ok_confirms_at_counter_not_listed_price():
+    """Bug terrain n°9 : « Au lieu de 20 000 F, je te fais 19 000 F » + « ok »
+    → la vente partait à 20 000 (premier montant du texte). Le prix accepté
+    doit être la CONTRE-OFFRE, jamais le prix affiché."""
+    result = await run_pipeline(
+        client_message="ok je prends",
+        db_status="negotiating", history=[
+            {"content": "c'est trop cher", "is_from_client": True},
+            {"content": "Au lieu de 20 000 F, je te fais 19 000 F, mon meilleur prix !",
+             "is_from_client": False},
+        ],
+        product=_product(price=20000.0, min_price=18000.0),
+        current_offer=None, llm=None,
+    )
+    assert result.db_status == "agreed"
+    assert result.new_offer == 19000.0          # PAS 20 000
+
+
+async def test_pipeline_persisted_offer_beats_text_guessing():
+    """Le prix persistant (current_offer) fait autorité sur l'extraction texte."""
+    result = await run_pipeline(
+        client_message="ok",
+        db_status="negotiating", history=[
+            {"content": "Allez, un dernier geste et on conclut 🌹",  # aucun montant
+             "is_from_client": False},
+        ],
+        product=_product(price=20000.0, min_price=18000.0),
+        current_offer=18500.0, llm=None,
+    )
+    assert result.db_status == "agreed"
+    assert result.new_offer == 18500.0
+
+
+async def test_pipeline_counter_persists_standing_price():
+    """Une contre-offre du bot PERSISTE son prix (plus de devinette au tour suivant)."""
+    result = await run_pipeline(
+        client_message="c'est trop cher",
+        db_status="negotiating", history=[],
+        product=_product(price=20000.0, min_price=18000.0),
+        current_offer=None, llm=None,
+    )
+    assert result.plan.actions[-1].type.value == "counter_offer"
+    assert result.new_offer == 19000.0          # milieu(20 000, 18 000), persisté
+
+
 async def test_pipeline_confirm_uses_last_bot_price_from_history():
     result = await run_pipeline(
         client_message="ok",

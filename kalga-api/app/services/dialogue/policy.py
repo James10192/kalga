@@ -121,7 +121,10 @@ def decide_plan(intents: List[Intent], ctx: PolicyContext) -> ActionPlan:
                 actions.append(Action(ActionType.COUNTER_OFFER, price=decision.price,
                                       facts=(kind,)))
                 state = SaleState.NEGOCIATION
-                offer = None  # plus d'accord sur la table
+                # Le prix de la contre-offre est PERSISTÉ : c'est le prix sur la
+                # table — un « ok » au tour suivant conclut à CE prix exact,
+                # plus jamais au prix affiché deviné dans le texte (bug n°9).
+                offer = decision.price
 
         elif intent.type == IntentType.ACCEPT_PRICE:
             amount = intent.amount if intent.amount is not None else ctx.last_bot_price
@@ -134,7 +137,7 @@ def decide_plan(intents: List[Intent], ctx: PolicyContext) -> ActionPlan:
                 actions.append(Action(ActionType.COUNTER_OFFER, price=decision.price,
                                       facts=("counter",)))
                 state = SaleState.NEGOCIATION
-                offer = None
+                offer = decision.price
             elif has_request:
                 offer = float(amount)
                 actions.append(Action(ActionType.SEND_TEXT,

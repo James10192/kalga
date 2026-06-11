@@ -230,6 +230,36 @@ async def test_e2e_client_returns_after_closed_sale_is_never_walled(temp_db, mon
     assert resp.images_to_send, "la photo doit partir"
 
 
+async def test_e2e_notification_carries_negotiated_price(temp_db, monkeypatch):
+    """Bug terrain n°9 : le marchand recevait le PRIX AFFICHÉ dans la
+    notification au lieu du prix négocié. On capture l'appel réel."""
+    monkeypatch.setattr(app_settings, "dialogue_engine", "v2")
+    monkeypatch.setattr(app_settings, "deepseek_api_key", None)
+    merchant, product, _ = await _seed()       # 10 000 F affiché, plancher 8 000
+    await _conversation_for(merchant, product, "negotiating",
+                            [("hello", True), ("Salut !", False)])
+    svc = ChatService()
+    recorded = []
+
+    async def fake_notify_sale(**kw):
+        recorded.append(kw)
+        return True
+    monkeypatch.setattr(svc.notifications, "notify_sale", fake_notify_sale)
+
+    def msg(t):
+        return IncomingMessage(merchant_phone=merchant["phone"],
+                               client_phone="2250700000077", message=t)
+
+    await svc.handle_incoming_message(msg("c'est trop cher"))    # contre → 9 000 persisté
+    r2 = await svc.handle_incoming_message(msg("ok je prends"))  # conclut à 9 000
+    assert "9 000" in r2.message
+    await svc.handle_incoming_message(msg("je veux être livré")) # transition → notification
+
+    assert recorded, "le marchand doit être notifié"
+    assert recorded[-1]["price"] == 9000.0, "le prix NÉGOCIÉ, pas le prix affiché"
+    assert recorded[-1]["price"] != product["price"]
+
+
 async def test_e2e_v1_path_untouched_when_flag_off(temp_db, monkeypatch):
     monkeypatch.setattr(app_settings, "dialogue_engine", "v1")
     monkeypatch.setattr(app_settings, "deepseek_api_key", None)

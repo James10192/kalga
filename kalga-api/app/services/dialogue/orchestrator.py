@@ -16,7 +16,7 @@ from .llm_protocol import LLMClient
 from .policy import PolicyContext, decide_plan
 from .sale_state import DB_STATUS, from_db_status
 from .speech import SpeechContext, render
-from .understanding import extract_intents, extract_price_amount
+from .understanding import extract_intents, extract_all_amounts
 
 
 @dataclass
@@ -45,9 +45,20 @@ async def run_pipeline(
     memory_block: Optional[str] = None,
 ) -> Optional[DialogueResult]:
     last_bot = _last_bot_message(history)
+    floor_price = float(product.get("effective_min_price") or product["min_price"])
+
+    # Prix sur la table (« standing ask ») : la donnée PERSISTÉE fait autorité.
+    # En secours seulement : extraction du dernier message bot, en prenant le
+    # PLUS BAS montant ≥ plancher — « Au lieu de 20 000 F, je te fais 19 000 F »
+    # doit donner 19 000, jamais le prix affiché (bug terrain n°9).
+    standing_ask = current_offer
+    if standing_ask is None and last_bot:
+        candidates = [a for a in extract_all_amounts(last_bot) if a >= floor_price]
+        standing_ask = min(candidates) if candidates else None
 
     # ①② Comprendre (multi-intentions, métadonnées assainies)
-    intents = extract_intents(client_message, last_bot_message=last_bot)
+    intents = extract_intents(client_message, last_bot_message=last_bot,
+                              has_standing_offer=standing_ask is not None)
     if not intents:
         return None  # message 100 % système → chemin v1
 
@@ -67,11 +78,11 @@ async def run_pipeline(
     ctx = PolicyContext(
         state=from_db_status(db_status, message_count=len(history)),
         listed_price=float(product["price"]),
-        floor_price=float(product.get("effective_min_price") or product["min_price"]),
+        floor_price=floor_price,
         current_offer=current_offer,
         has_variants=bool(product.get("group_id")),
         has_photo=bool(product.get("image_path")),
-        last_bot_price=extract_price_amount(last_bot) if last_bot else None,
+        last_bot_price=standing_ask,
     )
     plan = decide_plan(intents, ctx)
 
