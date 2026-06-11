@@ -71,6 +71,10 @@ _PRICE_OBJECTIONS = (
     "moins cher", "tu peux faire mieux", "revoir le prix", "revois le prix",
     "prix élevé", "prix est élevé", "prix eleve", "négocier", "negocier",
     "on discute le prix",
+    # vocabulaire courant du marchandage ivoirien (bug terrain n°10)
+    "rabais", "remise", "réduction", "reduction", "un geste", "petit geste",
+    "fais un prix", "fais-moi un prix", "fais moi un prix", "bon prix pour moi",
+    "casse le prix", "arrange-moi", "arrange moi",
 )
 
 # Acceptations fortes : concluent même sans chiffre (le verrou P2 tranchera)

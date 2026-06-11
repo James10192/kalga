@@ -40,6 +40,9 @@ CORPUS = [
     ("je te donne 15 000", None, [T.PRICE_OFFER]),
     ("18K et on est bons", None, [T.PRICE_OFFER]),
     ("c'est trop cher, fais un effort", None, [T.PRICE_OFFER]),
+    ("on peut avoir un rabais sur le prix ?", None, [T.PRICE_OFFER]),  # bug n°10 : « rabais » = négo
+    ("tu peux me faire une petite remise ?", None, [T.PRICE_OFFER]),
+    ("fais-moi un geste sur le prix", None, [T.PRICE_OFFER]),
     ("tu peux faire 9000 ?", None, [T.PRICE_OFFER]),
     # ── Conclusion ──
     ("ok pour 18 000", None, [T.ACCEPT_PRICE]),
