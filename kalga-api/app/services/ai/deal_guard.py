@@ -28,6 +28,21 @@ logger = logging.getLogger("kalga.ai.deal_guard")
 _VISUAL_TOKENS = ("photo", "image", "montre", "voir", "ressemble", "aperçu", "apercu")
 
 
+def is_explicit_photo_request(client_message: str) -> bool:
+    """
+    True si le client demande EXPLICITEMENT une photo du produit actuel.
+
+    Sert à honorer la demande de façon déterministe, sans dépendre du choix du
+    LLM (qui, une fois en phase de clôture, fixe la livraison et ignore la photo).
+    Exclut les demandes d'AUTRES variantes (gérées ailleurs) et les « envoie moi … »
+    sans token visuel (ex. « envoie moi la localisation »).
+    """
+    msg = client_message or ""
+    if detect_variant_request(msg):
+        return False
+    return detect_photo_request(msg) and any(tok in msg.lower() for tok in _VISUAL_TOKENS)
+
+
 def resolve_accept_deal(
     client_message: str,
     current_offer: Optional[float],

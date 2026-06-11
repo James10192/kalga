@@ -27,7 +27,7 @@ from .memory import stm as stm_module
 from .memory import ltm as ltm_module
 from .memory import episodic as episodic_module
 from .tools import TOOLS, TOOL_NAMES
-from .deal_guard import resolve_accept_deal
+from .deal_guard import resolve_accept_deal, is_explicit_photo_request
 from .detectors import (
     detect_delivery_request,
     detect_pickup_request,
@@ -138,6 +138,17 @@ async def generate_response(
         if tracer:
             tracer.set_mode("end_conversation")
         return None, current_offer, False, "ended", False, False
+
+    # === PRIORITÉ 3.5: Demande de photo explicite (déterministe, hors LLM) ===
+    # Une demande de photo doit TOUJOURS être honorée — même en phase de clôture,
+    # où le LLM tend à se fixer sur la livraison et à ignorer la photo.
+    if is_explicit_photo_request(client_message):
+        logger.info(f"Demande de photo explicite détectée → send_photo (déterministe): {client_message[:40]}")
+        if tracer:
+            tracer.set_mode("photo_request")
+            tracer.event("BUSINESS", "explicit_photo_request", message=client_message[:60])
+        encoded = f"{_TOOL_PREFIX}send_photo:{json.dumps({'message': 'Bien sûr, je te montre ça !'}, ensure_ascii=False)}"
+        return encoded, current_offer, False, conversation_status, False, False
 
     # === AJUSTEMENT FIDÉLITÉ (règle business) ===
     if negotiation_context:
