@@ -31,6 +31,9 @@ const config = {
 
     // Messages
     maxMessageLength: parseInt(process.env.MAX_MESSAGE_LENGTH || '2000', 10),
+    // Fenêtre d'agrégation des rafales client (ms) — les messages rapprochés
+    // sont fusionnés et traités en un seul appel API (réponse cohérente unique)
+    messageBufferMs: parseInt(process.env.MESSAGE_BUFFER_MS || '3000', 10),
 
     // Logging
     logLevel: process.env.LOG_LEVEL || 'info',

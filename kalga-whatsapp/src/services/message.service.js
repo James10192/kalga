@@ -5,12 +5,22 @@
 const { logger } = require('../utils/logger');
 const { extractPhone, isGroupJid, isStatusBroadcast } = require('../utils/jid');
 const { simulateHumanBehavior } = require('../utils/humanBehavior');
+const { MessageBuffer } = require('../utils/messageBuffer');
+const { config } = require('../config');
 const { kalgaApiService } = require('./kalga-api.service');
 const { mediaService } = require('./media.service');
 const { whatsappService } = require('./whatsapp.service');
 
 class MessageService {
     constructor() {
+        // Rafales : les clients écrivent souvent en 2-3 messages rapprochés.
+        // On les fusionne et on répond UNE fois (sérialisé par conversation).
+        this.clientTextBuffer = new MessageBuffer({
+            windowMs: config.messageBufferMs,
+            onFlush: (key, items) => this._processClientBatch(key, items),
+            onError: (error, key) => logger.error('Erreur traitement rafale',
+                { key, error: error.message }),
+        });
         // Préfixes de réponses du bot à ignorer
         this.botPrefixes = ['📦', '✅', '📋', '🛒', '🏷️', '💰', '💵', '👉', '❌', '⚠️', '⏳', '🔧', '📸'];
 
@@ -44,6 +54,9 @@ class MessageService {
         if (message.message?.audioMessage) {
             const isPtt = message.message.audioMessage.ptt === true;
             if (!isPtt) return; // Ignorer l'audio non-PTT (musique, etc.)
+
+            // Vider la rafale texte en attente AVANT le média (ordre préservé)
+            await this.clientTextBuffer.flushNow(`${merchantPhone}|${senderPhone}`);
 
             const voiceData = await mediaService.downloadVoiceNote(sock, message);
             if (!voiceData) {
@@ -88,6 +101,7 @@ class MessageService {
 
         // Traiter les images client sans légende (recherche visuelle de produit)
         if (message.message?.imageMessage && !messageText) {
+            await this.clientTextBuffer.flushNow(`${merchantPhone}|${senderPhone}`);
             const imageName = await mediaService.downloadAndSaveImage(sock, message, senderPhone);
             if (imageName) {
                 const fullPath = require('path').join(require('../config').config.uploadsDir, imageName);
@@ -135,94 +149,69 @@ class MessageService {
             return;
         }
 
-        // Extraire le code produit
-        const productCode = this._extractProductCode(message, messageText);
+        // Rafale : agréger les messages rapprochés du client et répondre UNE
+        // seule fois, de façon cohérente (le traitement part de _processClientBatch).
+        this.clientTextBuffer.push(`${merchantPhone}|${senderPhone}`, {
+            sock,
+            message,
+            messageText,
+            senderJid,
+            senderPhone,
+        });
+    }
 
+    /**
+     * Traite un LOT de messages client (rafale fusionnée, sérialisé par client).
+     * Le moteur multi-intentions de l'API reçoit la rafale entière en un appel
+     * et répond une seule fois — plus de réponses croisées.
+     */
+    async _processClientBatch(key, items) {
+        const merchantPhone = key.split('|')[0];
+        const last = items[items.length - 1];
+        const { sock, senderJid, senderPhone } = last;
+
+        const combinedText = items.map(i => i.messageText).join('\n');
+        const productCode = items
+            .map(i => this._extractProductCode(i.message, i.messageText))
+            .find(Boolean) || null;
+
+        if (items.length > 1) {
+            logger.info('Rafale fusionnée en un seul message', {
+                count: items.length, clientPhone: senderPhone,
+            });
+        }
         logger.message('MESSAGE CLIENT', {
             merchantPhone,
             clientPhone: senderPhone,
-            text: messageText,
+            text: combinedText,
             productCode,
         });
 
         try {
-            // Nom WhatsApp du client (pushName)
-            const clientName = message.pushName || '';
-
-            // Appeler l'API KALGA
             const response = await kalgaApiService.sendIncomingMessage({
                 merchantPhone,
                 clientPhone: senderPhone,
-                message: messageText,
+                message: combinedText,
                 productCode,
-                clientName,
+                clientName: last.message.pushName || '',
             });
 
-            // Vérifier si on doit répondre
             if (response.no_response) {
                 logger.warn('PAS DE RÉPONSE - conversation terminée', { senderPhone });
                 return;
             }
 
-            const botResponse = response.message;
-            if (!botResponse || botResponse.trim() === '') {
-                logger.warn('MESSAGE VIDE reçu de l\'API', { senderPhone });
-                return;
-            }
-
-            // Simuler comportement humain (vocal → 'recording', texte → 'composing')
             const presenceType = response.audio_base64 ? 'recording' : 'composing';
             await simulateHumanBehavior(
                 sock,
-                message.key,
+                last.message.key,
                 senderJid,
                 merchantPhone,
                 () => whatsappService.isClientReady(merchantPhone),
                 presenceType
             );
 
-            // Envoyer vocal PTT ou texte EN PREMIER
-            let sent = false;
-            if (response.audio_base64) {
-                const audioBuffer = Buffer.from(response.audio_base64, 'base64');
-                sent = await whatsappService.sendVoiceNote(merchantPhone, senderJid, audioBuffer);
-                if (sent) logger.info('RÉPONSE VOCALE ENVOYÉE', { to: senderJid, bytes: audioBuffer.length });
-            } else {
-                sent = await whatsappService.sendMessage(merchantPhone, senderJid, botResponse);
-                if (sent) logger.info('RÉPONSE ENVOYÉE', { to: senderJid });
-            }
-
-            // Envoyer les images si présentes (variantes)
-            if (response.images_to_send && response.images_to_send.length > 0) {
-                await this._sendImages(merchantPhone, senderJid, response.images_to_send);
-            }
-
-            // Envoyer la localisation APRÈS le texte
-            if (response.send_location && response.merchant_location) {
-                const loc = response.merchant_location;
-                if (loc.latitude && loc.longitude) {
-                    await whatsappService.sendLocation(merchantPhone, senderJid, {
-                        latitude: loc.latitude,
-                        longitude: loc.longitude,
-                        name: loc.name || 'Ma boutique',
-                        address: loc.address || '',
-                    });
-                    logger.info('LOCALISATION ENVOYÉE', { to: senderJid });
-                } else if (loc.address) {
-                    await whatsappService.sendMessage(
-                        merchantPhone, senderJid,
-                        `📍 Voici l'adresse de la boutique:\n\n${loc.address}`
-                    );
-                    logger.info('ADRESSE ENVOYÉE (texte)', { to: senderJid });
-                }
-            }
-
-            // Envoyer le message de fin EN DERNIER (après texte + images + localisation)
-            if (response.goodbye_message) {
-                await new Promise(resolve => setTimeout(resolve, 800));
-                await whatsappService.sendMessage(merchantPhone, senderJid, response.goodbye_message);
-                logger.info('GOODBYE ENVOYÉ', { to: senderJid });
-            }
+            await this._sendBotResponse(merchantPhone, sock, senderJid, last.message, response);
 
         } catch (error) {
             logger.error('Erreur traitement message client', { error: error.message });
