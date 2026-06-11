@@ -135,6 +135,11 @@ async def lifespan(app: FastAPI):
     await stock_alert.start_scheduler(interval_seconds=300)
     logger.info("Scheduler alertes stock démarré")
 
+    # Précharger le modèle de transcription (38 s à froid sinon, payés
+    # par le premier client qui envoie un vocal)
+    from .services.transcription_service import warm_model_in_background
+    warm_model_in_background()
+
     logger.info("KALGA API prête!")
     yield
     # Shutdown

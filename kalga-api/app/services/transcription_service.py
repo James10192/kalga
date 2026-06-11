@@ -50,6 +50,21 @@ def _transcribe_sync(audio_bytes: bytes) -> Tuple[str, str]:
         Path(tmp_path).unlink(missing_ok=True)
 
 
+def warm_model_in_background() -> None:
+    """Précharge le modèle dans un thread au démarrage de l'API.
+
+    Terrain 2026-06-11 17:30 : le premier vocal d'un client attendait 38 s
+    le chargement à froid ; les suivants répondaient en ~10 s. On paie le
+    chargement au boot, pas sur le dos du premier client.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+        loop.run_in_executor(None, _get_model)
+        logger.info("Préchauffage du modèle de transcription lancé en arrière-plan")
+    except Exception as e:
+        logger.warning(f"Préchauffage transcription impossible (non bloquant): {e}")
+
+
 async def transcribe_voice_note(audio_bytes: bytes) -> Tuple[str, str]:
     """
     Transcrit une note vocale OGG/Opus.

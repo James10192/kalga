@@ -13,11 +13,40 @@ Voix supportées :
 import asyncio
 import logging
 import os
+import re
 import subprocess
 import tempfile
 from typing import Optional
 
 logger = logging.getLogger("kalga.tts")
+
+# Émojis et symboles que la voix ne doit JAMAIS lire (terrain : le client
+# entendait « visage souriant », « fraise » au milieu des phrases).
+_EMOJI_RE = re.compile(
+    "["
+    "\U0001F000-\U0001FAFF"   # émojis, symboles, pictogrammes (incl. 🤝 🍓 🌹)
+    "\U00002600-\U000027BF"   # divers symboles + dingbats (☀ ✅ ✊ ➡)
+    "\U00002B00-\U00002BFF"   # flèches et symboles divers
+    "\U0001F1E6-\U0001F1FF"   # drapeaux
+    "\U0000FE0F\U0000200D"    # sélecteurs de variante + ZWJ
+    "\U00002190-\U000021FF"   # flèches
+    "]+"
+)
+_MARKDOWN_RE = re.compile(r"[*_~`]")
+_PRODUCT_CODE_RE = re.compile(r"#K(\d+)", re.IGNORECASE)
+
+
+def clean_for_speech(text: str) -> str:
+    """Prépare un texte pour la synthèse vocale : sans émojis, sans Markdown,
+    codes produit prononçables. Ne touche ni aux accents ni à la ponctuation."""
+    cleaned = _EMOJI_RE.sub(" ", text or "")
+    cleaned = _MARKDOWN_RE.sub("", cleaned)
+    cleaned = _PRODUCT_CODE_RE.sub(r"code K \1", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    # Espace orphelin avant , . ; : (la typographie française GARDE l'espace
+    # avant ! et ? — on n'y touche pas)
+    cleaned = re.sub(r"\s+([.,;:])", r"\1", cleaned)
+    return cleaned
 
 # Mapping langue → voix Edge TTS
 _VOICE_MAP = {
@@ -105,6 +134,11 @@ async def text_to_ogg(text: str, lang: str = "fr") -> Optional[bytes]:
         import edge_tts
     except ImportError:
         logger.warning("edge-tts non installe — TTS indisponible")
+        return None
+
+    text = clean_for_speech(text)
+    if not text:
+        logger.debug("TTS: texte vide après nettoyage, pas de vocal")
         return None
 
     voice = _VOICE_MAP.get(lang, _DEFAULT_VOICE)
