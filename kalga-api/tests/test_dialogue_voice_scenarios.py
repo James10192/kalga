@@ -75,6 +75,26 @@ async def test_voice_bug5_chosen_variant_confirms_choice_not_catalog():
     assert plan.new_state == SaleState.NEGOCIATION
 
 
+async def test_voice_bug6_full_delivery_handoff():
+    """Capture du 2026-06-11 13:38-40 : bascule en livraison + adresse →
+    transitions d'état réelles + notification marchand + zéro promesse inventée."""
+    # 1. « je veux être livré » en CONCLUSION → demande d'adresse + LOGISTIQUE
+    plan1, text1 = await speak_through_pipeline(
+        "j'ai changé d'avis je veux être livré", SaleState.CONCLUSION,
+        None, current_offer=16000.0)
+    assert any(a.type.value == "request_address" for a in plan1.actions)
+    assert plan1.new_state == SaleState.LOGISTIQUE_LIVRAISON
+
+    # 2. L'adresse → vente bouclée + marchand notifié + pas de promesse d'horaire
+    plan2, text2 = await speak_through_pipeline(
+        "Gonwaquville", SaleState.LOGISTIQUE_LIVRAISON, None,
+        last_bot="Parfait ! Donne-moi ton adresse de livraison ?")
+    assert any(a.type.value == "notify_merchant" for a in plan2.actions)
+    assert plan2.new_state == SaleState.APRES_VENTE
+    assert "demain" not in text2.lower()
+    assert "vendeur" in text2.lower()        # c'est LUI qui organise
+
+
 async def test_voice_hold_floor_varies_with_seed():
     intents = extract_intents("5000 dernier prix")
     plan = decide_plan(intents, PolicyContext(

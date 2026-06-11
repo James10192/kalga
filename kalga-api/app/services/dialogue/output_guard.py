@@ -26,6 +26,14 @@ _CLOSING_PATTERNS = (
 )
 _SECRET_PATTERNS = ("prix minimum", "prix plancher", "mon minimum", "en dessous de mon prix")
 
+# Promesses logistiques que le bot ne peut PAS tenir (le vendeur organise) —
+# vu sur le terrain : « On te livre demain dans la matinée », « le livreur sera en route ».
+_FALSE_PROMISE_PATTERNS = (
+    "on te livre demain", "livraison demain", "demain matin", "demain dans la matinée",
+    "demain dans la matinee", "le livreur sera", "livreur est en route",
+    "je te confirme l'heure", "je te confirme la livraison demain",
+)
+
 # « je peux (te) faire 7 000 », « je descends à 7000 », « d'accord pour 7 000 »…
 _PROPOSAL_RE = re.compile(
     r"(?:je peux (?:te |vous )?faire|je te fais|je descends? à|je te laisse à"
@@ -51,6 +59,9 @@ def guard_output(text: str, plan: ActionPlan, floor_price: float) -> GuardVerdic
 
     if any(p in low for p in _SECRET_PATTERNS):
         violations.append("secret du prix plancher révélé")
+
+    if any(p in low for p in _FALSE_PROMISE_PATTERNS):
+        violations.append("promesse de livraison inventée (le vendeur organise)")
 
     for m in _PROPOSAL_RE.finditer(low):
         digits = re.sub(r"[\s.]", "", m.group(1))

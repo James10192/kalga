@@ -30,6 +30,7 @@ class EngineResponse:
     images_to_send: Optional[List[dict]] = None
     human_takeover: bool = False
     notify_reason: Optional[str] = None
+    delivery_address: Optional[str] = None
     facts: List[str] = field(default_factory=list)
 
 
@@ -119,6 +120,9 @@ async def respond(
 
         notify = next((a.reason for a in plan.actions
                        if a.type == ActionType.NOTIFY_MERCHANT), None)
+        address = next((a.reason for a in plan.actions
+                        if a.type == ActionType.SEND_TEXT
+                        and "address_confirmed" in a.facts), None)
 
         return EngineResponse(
             message=message,
@@ -128,6 +132,7 @@ async def respond(
             images_to_send=await _resolve_images(plan, conversation, product),
             human_takeover=ActionType.HANDOVER_HUMAN in types,
             notify_reason=notify,
+            delivery_address=address,
             facts=[f for a in plan.actions for f in a.facts],
         )
     except Exception as e:

@@ -265,6 +265,28 @@ class ChatService:
             deal_accepted = new_status in ("agreed", "pending_delivery", "pending_pickup")
             images_v2 = engine_v2.images_to_send
             human_takeover_v2 = engine_v2.human_takeover
+
+            # Prise de main du marchand — notifications explicites du moteur v2.
+            # (Le passage en pending_* est déjà couvert par _handle_notifications ;
+            # ici : l'adresse collectée = vente bouclée, le marchand prend le relais.)
+            if engine_v2.notify_reason == "delivery_address":
+                await self.notifications.notify_sale(
+                    merchant_phone=message.merchant_phone,
+                    product_name=product['name'],
+                    price=engine_v2.new_offer or conversation.get('current_offer') or product['price'],
+                    client_phone=message.client_phone,
+                    product_code=product.get('code', ''),
+                    delivery_type="delivery",
+                    client_name=message.client_name or "",
+                    delivery_address=engine_v2.delivery_address or "",
+                )
+            elif engine_v2.notify_reason == "human_request":
+                await self.notifications.send_message(
+                    merchant_phone=message.merchant_phone,
+                    to=message.merchant_phone,
+                    message=(f"\U0001f64b *Le client {message.client_phone} demande à te parler "
+                             f"directement* ({product['name']}). Prends le relais !"),
+                )
         else:
             bot_response, price_offer, deal_accepted, new_status, send_location, use_voice = await generate_response(
                 client_message=message.message,

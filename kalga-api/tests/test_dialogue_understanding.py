@@ -281,3 +281,25 @@ def test_reply_to_status_is_not_a_variant_choice():
 def test_revoir_le_prix_is_negotiation():
     intents = extract_intents("il faut revoir le prix")
     assert Intent(IntentType.PRICE_OFFER) in intents
+
+
+# === Bug terrain n°6 : la livraison passive et l'adresse vs téléphone ===
+
+def test_passive_delivery_form_is_choose_delivery():
+    for msg in ("j'ai changé d'avis je veux être livré", "je veux être livrée",
+                "je préfère être livré"):
+        intents = extract_intents(msg)
+        assert Intent(IntentType.CHOOSE_DELIVERY) in intents, msg
+
+
+def test_phone_number_is_not_an_address():
+    # « oui 0544210112 » répond à la demande d'adresse mais N'EST PAS une adresse
+    intents = extract_intents("oui 0544210112",
+                              last_bot_message="Tu peux me donner ton adresse ?")
+    assert all(i.type != IntentType.GIVE_ADDRESS for i in intents)
+
+
+def test_real_address_is_give_address():
+    intents = extract_intents("Gonwaquville",
+                              last_bot_message="peux-tu me confirmer ton adresse précise ?")
+    assert any(i.type == IntentType.GIVE_ADDRESS for i in intents)

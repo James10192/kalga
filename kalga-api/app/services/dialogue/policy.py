@@ -158,7 +158,10 @@ def decide_plan(intents: List[Intent], ctx: PolicyContext) -> ActionPlan:
                 state = SaleState.LOGISTIQUE_RETRAIT
             else:
                 actions.append(Action(ActionType.SEND_LOCATION))
-        elif intent.type == IntentType.GIVE_ADDRESS and state == SaleState.LOGISTIQUE_LIVRAISON:
+        elif intent.type == IntentType.GIVE_ADDRESS and state in (
+                SaleState.LOGISTIQUE_LIVRAISON, SaleState.CONCLUSION):
+            # Adresse acceptée dès la CONCLUSION aussi (le client peut la donner
+            # avant que l'état logistique soit posé — vu sur le terrain).
             actions.append(Action(ActionType.SEND_TEXT, facts=("address_confirmed",),
                                   reason=intent.text))
             actions.append(Action(ActionType.NOTIFY_MERCHANT, reason="delivery_address"))

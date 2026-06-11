@@ -194,6 +194,9 @@ _DELIVERY_CHOICE_PATTERNS = (
     "livre-moi", "livrez-moi", "livre moi", "livrer chez moi", "en livraison",
     "ok livraison", "oui livraison", "je préfère la livraison",
     "je prefere la livraison", "pour la livraison",
+    # formes passives (bug terrain : « je veux être livré » non reconnu)
+    "être livré", "etre livre", "être livrée", "etre livree",
+    "qu'on me livre", "vous me livrez", "tu me livres",
 )
 _PICKUP_PATTERNS = (
     "je viens chercher", "je viens le chercher", "je passe chercher",
@@ -222,9 +225,11 @@ def detect_logistics_intents(text: str, last_bot_message: Optional[str]) -> List
         intents.append(Intent(IntentType.CHOOSE_PICKUP))
 
     # GIVE_ADDRESS : uniquement si le bot vient de demander l'adresse, que le
-    # message ressemble à un lieu (assez long, lettres) et ne porte rien d'autre.
+    # message ressemble à un lieu (assez de LETTRES — un numéro de téléphone
+    # « oui 0544210112 » n'est pas une adresse) et ne porte rien d'autre.
     bot_asked_address = bool(last_bot_message) and "adresse" in last_bot_message.lower()
-    if bot_asked_address and not intents and len(low) >= 8 and any(c.isalpha() for c in low):
+    letter_count = sum(1 for c in low if c.isalpha())
+    if bot_asked_address and not intents and len(low) >= 8 and letter_count >= 6:
         intents.append(Intent(IntentType.GIVE_ADDRESS, text=text.strip()))
 
     return intents

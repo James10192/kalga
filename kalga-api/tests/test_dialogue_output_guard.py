@@ -51,3 +51,18 @@ def test_clean_text_passes():
     v = guard_output("Je peux te faire 9 000 F, c'est un bon prix !",
                      _plan(ActionType.COUNTER_OFFER), floor_price=8000)
     assert v.ok
+
+
+def test_invented_delivery_promise_blocked():
+    """Terrain : « On te livre demain dans la matinée » — le bot ne peut PAS le tenir."""
+    plan = _plan(ActionType.SEND_TEXT, state=SaleState.LOGISTIQUE_LIVRAISON)
+    v = guard_output("Gonwaquville c'est noté ! On te livre demain dans la matinée.",
+                     plan, floor_price=8000)
+    assert not v.ok and any("promesse" in x for x in v.violations)
+
+
+def test_honest_handoff_passes():
+    plan = _plan(ActionType.SEND_TEXT, state=SaleState.LOGISTIQUE_LIVRAISON)
+    v = guard_output("C'est noté ! Le vendeur te contacte très vite pour organiser la livraison 🚚",
+                     plan, floor_price=8000)
+    assert v.ok

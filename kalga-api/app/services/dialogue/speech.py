@@ -93,7 +93,8 @@ def _action_text(action: Action, sctx: SpeechContext) -> str:
     if "out_of_stock" in facts:
         return f"Le {sctx.product_name} est momentanément épuisé 😕"
     if "address_confirmed" in facts:
-        return "C'est noté ! On te livre très vite 🚚"
+        # Jamais de promesse d'horaire : c'est le VENDEUR qui organise.
+        return "C'est noté ! Le vendeur te contacte très vite pour organiser la livraison 🚚"
     if "delivery_noted" in facts:
         return "Noté pour la livraison ! On règle d'abord le prix 😊"
     if "only_photo" in facts:
@@ -119,7 +120,9 @@ def render_fallback(plan: ActionPlan, sctx: SpeechContext) -> str:
 def build_brief(plan: ActionPlan, sctx: SpeechContext) -> dict:
     """Brief verrouillé envoyé au LLM : la décision, les faits, les interdits."""
     forbidden = ["mentionner le prix minimum/plancher",
-                 f"proposer un prix sous {int(sctx.floor_price)} F"]
+                 f"proposer un prix sous {int(sctx.floor_price)} F",
+                 "promettre un horaire ou un délai de livraison "
+                 "(c'est le vendeur qui organise et contacte le client)"]
     from .output_guard import _DEAL_STATES  # même définition que le filet
     if plan.new_state not in _DEAL_STATES:
         forbidden.append("conclure la vente ou parler de livraison/retrait")
