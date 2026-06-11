@@ -41,8 +41,11 @@ class ConversationRepository(BaseRepository):
                 )
             else:
                 # Sans product_id = message sans code produit.
-                # Exclure aussi pending_pickup/pending_delivery car ces conversations
-                # sont "terminées" côté bot et ne doivent pas capturer de nouveaux messages.
+                # pending_pickup/pending_delivery sont des états VIVANTS : le client
+                # peut encore donner son adresse, changer livraison↔retrait,
+                # redemander la localisation. Les exclure faisait perdre l'adresse
+                # de livraison (bug terrain 2026-06-11 : « Gonwaquville » →
+                # « Pas de conversation active » → bot muet).
                 cursor = await db.execute(
                     """
                     SELECT c.*, p.name as product_name, p.code as product_code, p.price
@@ -50,7 +53,7 @@ class ConversationRepository(BaseRepository):
                     JOIN products p ON c.product_id = p.id
                     WHERE c.merchant_id = ?
                     AND c.client_phone = ?
-                    AND c.status NOT IN ('ended', 'completed', 'abandoned', 'pending_pickup', 'pending_delivery')
+                    AND c.status NOT IN ('ended', 'completed', 'abandoned')
                     ORDER BY c.updated_at DESC
                     LIMIT 1
                     """,

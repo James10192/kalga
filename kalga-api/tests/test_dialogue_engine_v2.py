@@ -150,6 +150,39 @@ async def test_e2e_v2_bare_ok_after_priced_bot_concludes(temp_db, monkeypatch):
     assert "livraison" in resp.message.lower()
 
 
+async def test_e2e_v2_full_delivery_handoff_flow(temp_db, monkeypatch):
+    """Le parcours complet de la capture 13:38-40, corrigé de bout en bout :
+    conclusion → bascule livraison (forme passive) → adresse → APRES_VENTE.
+    La conversation reste joignable en pending_delivery (fix get_active)."""
+    monkeypatch.setattr(app_settings, "dialogue_engine", "v2")
+    monkeypatch.setattr(app_settings, "deepseek_api_key", None)
+    merchant, product, _ = await _seed()
+    conv_id = await _conversation_for(merchant, product, "negotiating",
+                                      [("9000 ?", True),
+                                       ("Je peux te faire 9 500 F !", False)])
+    svc = ChatService()
+
+    def msg(text):
+        return IncomingMessage(merchant_phone=merchant["phone"],
+                               client_phone="2250700000077", message=text)
+
+    r1 = await svc.handle_incoming_message(msg("ok je prends"))
+    assert "9 500" in r1.message                      # conclusion
+
+    r2 = await svc.handle_incoming_message(msg("j'ai changé d'avis je veux être livré"))
+    assert "adresse" in r2.message.lower()            # demande d'adresse
+
+    r3 = await svc.handle_incoming_message(msg("Gonwaquville, près du marché"))
+    assert r3.message, "le bot ne doit JAMAIS rester muet sur l'adresse"
+    assert "vendeur" in r3.message.lower()            # le marchand prend la main
+    assert "demain" not in r3.message.lower()         # zéro promesse inventée
+
+    async with get_connection() as db:
+        cur = await db.execute("SELECT status FROM conversations WHERE id = ?", (conv_id,))
+        row = await cur.fetchone()
+    assert row["status"] == "completed"
+
+
 async def test_e2e_v1_path_untouched_when_flag_off(temp_db, monkeypatch):
     monkeypatch.setattr(app_settings, "dialogue_engine", "v1")
     monkeypatch.setattr(app_settings, "deepseek_api_key", None)
