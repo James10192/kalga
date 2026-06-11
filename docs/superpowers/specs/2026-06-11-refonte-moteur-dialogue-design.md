@@ -185,7 +185,7 @@ Absorbés à terme : `detectors.py` (→ understanding), `deal_guard.py` (→ po
 
 | Phase | Contenu | Livrable vérifiable |
 |---|---|---|
-| P1 | sanitizer + intents + understanding | extraction multi-intentions testée sur corpus |
+| P1 | sanitizer + intents + understanding | extraction multi-intentions testée sur corpus — ✅ fait |
 | P2 | sale_state + policy + negotiation | le cerveau complet décide juste, sans LLM, au test |
 | P3 | llm_protocol + speech + output_guard + llm_classifier | conversations complètes au FakeLLM |
 | P4 | orchestrator + branchement `chat_service` derrière `DIALOGUE_ENGINE` (`v1` défaut, `v2` opt-in) | test réel WhatsApp sur le numéro du marchand, comparaison test-chat |
