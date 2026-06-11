@@ -395,6 +395,8 @@
     "outOfStock": "نفد",
     "variantCount": "{count} أنواع",
     "chooseVariant": "اختر نوعاً",
+    "prevVariant": "النوع السابق",
+    "nextVariant": "النوع التالي",
     "outOfStockNotice": "المنتج نفد. تحدّث مع المتجر ليتم تنبيهك عند عودته.",
     "productFallback": "المنتج",
     "productNotFound": "المنتج غير موجود",
