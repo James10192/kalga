@@ -6,7 +6,7 @@
  * (cf. server/api/proxy/[...path].ts). Le code produit est transmis sans « # ».
  */
 
-import type { RestockInput, StockMode, StockOverviewItem } from './types'
+import type { RestockInput, StockCritique, StockMode, StockOverviewItem } from './types'
 
 function proxyUrl(path: string): string {
   const config = useRuntimeConfig()
@@ -25,6 +25,10 @@ export const stockApi = {
   /** Vue d'ensemble du stock du marchand (table). */
   getOverview: (merchantId: number): Promise<StockOverviewItem[]> =>
     $fetch<StockOverviewItem[]>(proxyUrl(`/stock/merchant/${merchantId}/overview`)),
+
+  /** Synthèse « stock critique » (compteurs + revenus perdus + produits). */
+  getCritique: (merchantId: number): Promise<StockCritique> =>
+    $fetch<StockCritique>(proxyUrl(`/stock/merchant/${merchantId}/critique`)),
 
   /** Change le mode appliqué en rupture pour un produit. */
   updateMode: (code: string, mode: StockMode, merchantId: number): Promise<unknown> =>
