@@ -395,6 +395,8 @@
     "outOfStock": "Rupture",
     "variantCount": "{count} variantes",
     "chooseVariant": "Choisir une variante",
+    "prevVariant": "Variante précédente",
+    "nextVariant": "Variante suivante",
     "outOfStockNotice": "Produit en rupture de stock. Discutez avec la boutique pour être prévenu de son retour.",
     "productFallback": "Produit",
     "productNotFound": "Produit introuvable",
