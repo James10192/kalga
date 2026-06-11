@@ -27,6 +27,7 @@ from .memory import stm as stm_module
 from .memory import ltm as ltm_module
 from .memory import episodic as episodic_module
 from .tools import TOOLS, TOOL_NAMES
+from .deal_guard import resolve_accept_deal
 from .detectors import (
     detect_delivery_request,
     detect_pickup_request,
@@ -403,17 +404,30 @@ async def generate_response(
 
         logger.info(f"DeepSeek tool_call: {name}({args})")
 
-        # Garde-fou : si accept_deal avec prix < min → rejeter
+        # Garde-fou accept_deal : ne pas conclure si le message contient une
+        # demande non satisfaite (photo/variante) ou une contre-offre à la baisse.
         if name == "accept_deal":
-            offered = args.get("price") or current_offer
-            if offered and offered < min_price:
-                logger.warning(
-                    f"accept_deal rejeté: {offered} < min {min_price} — converti en counter_offer"
-                )
-                min_f = f"{int(min_price):,}".replace(",", " ")
-                price_f = f"{int(offered):,}".replace(",", " ")
-                counter_msg = f"{price_f} F c'est un peu bas! Je peux faire {min_f} F, c'est mon dernier prix."
-                return counter_msg, offered, False, "negotiating", False, False
+            override = resolve_accept_deal(
+                client_message=client_message,
+                current_offer=current_offer,
+                min_price=min_price,
+                listed_price=product['price'],
+            )
+            if override is not None:
+                logger.info(f"accept_deal rétrogradé en {override['name']} par le garde-fou")
+                name = override["name"]
+                args = override["args"]
+            else:
+                # Filet de sécurité : prix d'accord sous le minimum (si le LLM passe un prix).
+                offered = args.get("price") or current_offer
+                if offered and offered < min_price:
+                    logger.warning(
+                        f"accept_deal rejeté: {offered} < min {min_price} — converti en counter_offer"
+                    )
+                    min_f = f"{int(min_price):,}".replace(",", " ")
+                    price_f = f"{int(offered):,}".replace(",", " ")
+                    counter_msg = f"{price_f} F c'est un peu bas! Je peux faire {min_f} F, c'est mon dernier prix."
+                    return counter_msg, offered, False, "negotiating", False, False
 
         # Retourner le tool_call encodé — chat_service dispatch et exécute
         encoded = f"{_TOOL_PREFIX}{name}:{json.dumps(args, ensure_ascii=False)}"
