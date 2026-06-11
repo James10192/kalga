@@ -66,6 +66,35 @@ async def test_engine_chosen_variant_sends_only_that_image(temp_db):
     assert out.new_status == "negotiating"
 
 
+async def test_engine_cheaper_alternatives_lists_real_catalog(temp_db):
+    """Bug n°7 : « d'autres fleurs moins cher » → catalogue RÉEL trié par prix,
+    et le prix du produit en cours ne bouge pas."""
+    merchant, product, _ = await _seed()          # Chemise à 10 000 F
+    repo = ProductRepository()
+    await repo.create(merchant_id=merchant["id"], name="Rose simple", price=7000,
+                      min_price=6000)
+    await repo.create(merchant_id=merchant["id"], name="Bouquet luxe", price=25000,
+                      min_price=20000)
+    conv = {"id": 1, "status": "negotiating", "current_offer": None,
+            "selected_variant_id": None}
+    out = await respond("Tu n'aurais pas d'autres fleurs moins cher !?",
+                        conv, product, merchant, history=[], llm=None)
+    assert out is not None
+    assert "Rose simple" in out.message and "7 000" in out.message
+    assert "Bouquet luxe" not in out.message       # plus cher → exclu
+    assert "9 " not in out.message and "8 " not in out.message[:60]  # pas de rabais du produit courant
+    assert out.new_status == "negotiating"
+
+
+async def test_engine_cheaper_alternatives_honest_when_none(temp_db):
+    merchant, product, _ = await _seed()
+    conv = {"id": 1, "status": "negotiating", "current_offer": None,
+            "selected_variant_id": None}
+    out = await respond("Tu n'aurais pas d'autres fleurs moins cher !?",
+                        conv, product, merchant, history=[], llm=None)
+    assert "meilleure offre" in out.message        # honnête : rien de moins cher
+
+
 async def test_engine_location_request_sets_flag(temp_db):
     merchant, product, _ = await _seed()
     conv = {"id": 1, "status": "agreed", "current_offer": 9000.0,

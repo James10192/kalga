@@ -145,6 +145,13 @@ _OTHER_PRODUCTS_PATTERNS = (
     "tous vos produits", "liste de produits",
 )
 
+# « moins cher » accolé à une demande d'AUTRES choses = alternatives abordables
+_CHEAPER_WORDS = ("moins cher", "moins chère", "moins chers", "moins chères",
+                  "pas cher", "plus abordable", "abordable", "économique", "economique")
+
+# Forme polie-négative : « tu n'aurais pas d'autres … ? » / « vous n'auriez pas d'autres … »
+_POLITE_OTHERS_RE = re.compile(r"n'(?:aurais|auriez|avez|as)\s+pas\s+d'autres?")
+
 
 def detect_visual_intents(text: str) -> List[Intent]:
     """ASK_PHOTO / ASK_OTHER_PHOTOS / ASK_VARIANTS / ASK_OTHER_PRODUCTS.
@@ -156,12 +163,22 @@ def detect_visual_intents(text: str) -> List[Intent]:
     low = text.lower()
     intents: List[Intent] = []
 
-    if any(p in low for p in _OTHER_PRODUCTS_PATTERNS):
-        intents.append(Intent(IntentType.ASK_OTHER_PRODUCTS))
+    wants_cheaper = any(w in low for w in _CHEAPER_WORDS)
+
+    if (any(p in low for p in _OTHER_PRODUCTS_PATTERNS)
+            or ("d'autre" in low and wants_cheaper)):
+        # « d'autres fleurs moins cher » = alternatives abordables (bug n°7),
+        # même si le nom du produit n'est pas dans nos listes génériques.
+        intents.append(Intent(IntentType.ASK_OTHER_PRODUCTS,
+                              text="moins cher" if wants_cheaper else None))
     elif any(p in low for p in _VARIANT_PATTERNS):
         intents.append(Intent(IntentType.ASK_VARIANTS))
     elif any(p in low for p in _OTHER_PHOTOS_PATTERNS):
         intents.append(Intent(IntentType.ASK_OTHER_PHOTOS))
+    elif _POLITE_OTHERS_RE.search(low):
+        # « tu n'aurais pas d'autres … ? » sans précision → catalogue
+        intents.append(Intent(IntentType.ASK_OTHER_PRODUCTS,
+                              text="moins cher" if wants_cheaper else None))
     elif any(k in low for k in _PHOTO_KEYWORDS) and any(t in low for t in _VISUAL_TOKENS):
         # Double condition : mot-clé de demande + token visuel — exclut
         # « envoie moi la localisation » (aucun token visuel).
@@ -342,6 +359,14 @@ def extract_intents(message: str, last_bot_message: Optional[str] = None) -> Lis
     collected += detect_visual_intents(low)
     collected += detect_logistics_intents(low, last_bot_message)
     collected += detect_price_intents(low, last_bot_message)
+
+    # Alternatives moins chères ≠ négociation du produit en cours : quand le
+    # client demande d'AUTRES produits abordables, on ne baisse PAS le prix
+    # actuel (bug n°7 : le bot saignait sa marge au lieu de montrer la gamme).
+    if any(i.type == IntentType.ASK_OTHER_PRODUCTS and i.text == "moins cher"
+           for i in collected):
+        collected = [i for i in collected
+                     if not (i.type == IntentType.PRICE_OFFER and i.amount is None)]
 
     # Choix d'une variante : le client répond à la photo « Modèle X » (légende
     # posée par le bot). Le préfixe bridge est ici un SIGNAL : il désigne SA

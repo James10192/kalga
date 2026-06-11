@@ -57,7 +57,9 @@ def _handle_request(intent: Intent, ctx: PolicyContext) -> Action:
         return Action(ActionType.SEND_PHOTO, facts=("chosen_variant",),
                       reason=intent.text)
     if t == IntentType.ASK_OTHER_PRODUCTS:
-        return Action(ActionType.SEND_TEXT, facts=("catalogue",))
+        facts = ("catalogue", "moins_cher") if intent.text == "moins cher" \
+            else ("catalogue",)
+        return Action(ActionType.SEND_TEXT, facts=facts)
     if t == IntentType.ASK_LOCATION:
         return Action(ActionType.SEND_LOCATION)
     if t == IntentType.ASK_PAYMENT:

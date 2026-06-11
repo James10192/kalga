@@ -89,6 +89,8 @@ def _action_text(action: Action, sctx: SpeechContext) -> str:
     if "delivery_info" in facts:
         return "Pour les frais et délais de livraison, le vendeur te confirme ça vite !"
     if "catalogue" in facts:
+        if "moins_cher" in facts:
+            return "Bien sûr ! Voici ce qu'on a de plus abordable 👇"
         return "On a d'autres articles en boutique ! Dis-moi ce que tu cherches."
     if "out_of_stock" in facts:
         return f"Le {sctx.product_name} est momentanément épuisé 😕"

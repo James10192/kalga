@@ -118,6 +118,29 @@ async def respond(
             if payment:
                 message = f"{message}\n{payment}"
 
+        # Catalogue réel : la liste vient de la BASE (jamais inventée par le LLM).
+        # « moins_cher » → uniquement les produits sous le prix actuel, triés.
+        catalog_action = next((a for a in plan.actions
+                               if a.type == ActionType.SEND_TEXT
+                               and "catalogue" in a.facts), None)
+        if catalog_action is not None and product.get("id") is not None:
+            repo = ProductRepository()
+            others = [p for p in await repo.get_by_merchant(merchant["id"])
+                      if p["id"] != product["id"]]
+            cheaper_only = "moins_cher" in catalog_action.facts
+            if cheaper_only:
+                others = [p for p in others if p["price"] < product["price"]]
+            others.sort(key=lambda p: p["price"])
+            if others:
+                lines = [
+                    f"• {p['name']} — {int(p['price']):,} F ({p['code']})".replace(",", " ")
+                    for p in others[:4]
+                ]
+                message = f"{message}\n" + "\n".join(lines)
+            elif cheaper_only:
+                message = (f"{message}\nPour l'instant, le {product['name']} est notre "
+                           f"meilleure offre dans cette gamme 😉")
+
         notify = next((a.reason for a in plan.actions
                        if a.type == ActionType.NOTIFY_MERCHANT), None)
         address = next((a.reason for a in plan.actions

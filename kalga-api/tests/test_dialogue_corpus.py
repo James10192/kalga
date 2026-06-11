@@ -28,6 +28,7 @@ CORPUS = [
     ("envoie la photo", None, [T.ASK_PHOTO]),
     ("tu as d'autres couleurs ?", None, [T.ASK_VARIANTS]),
     ("tu vends quoi d'autre ?", None, [T.ASK_OTHER_PRODUCTS]),
+    ("Tu n'aurais pas d'autres fleurs moins cher !?", None, [T.ASK_OTHER_PRODUCTS]),  # bug n°7 : alternatives, PAS un rabais
     ("c'est du cuir véritable ?", None, [T.ASK_INFO]),
     ("c'est l'original", None, [T.ASK_INFO]),  # bug terrain n°4 : question qualité sans «?», JAMAIS une vente
     ('[Répond à la photo: "Venez faire votre commande #K023"] c\'est l\'original',

@@ -303,3 +303,25 @@ def test_real_address_is_give_address():
     intents = extract_intents("Gonwaquville",
                               last_bot_message="peux-tu me confirmer ton adresse précise ?")
     assert any(i.type == IntentType.GIVE_ADDRESS for i in intents)
+
+
+# === Bug terrain n°7 : « d'autres fleurs moins cher » = alternatives, PAS un rabais ===
+
+def test_cheaper_alternatives_is_catalog_not_discount():
+    """Le client demande d'AUTRES produits moins chers : montrer le catalogue
+    abordable — ne JAMAIS baisser le prix du produit en cours."""
+    intents = extract_intents("Tu n'aurais pas d'autres fleurs moins cher !?")
+    assert Intent(IntentType.ASK_OTHER_PRODUCTS, text="moins cher") in intents
+    assert all(i.type != IntentType.PRICE_OFFER for i in intents)
+
+
+def test_polite_negative_others_is_catalog():
+    intents = extract_intents("vous n'auriez pas d'autres modèles ?")
+    assert any(i.type in (IntentType.ASK_OTHER_PRODUCTS, IntentType.ASK_VARIANTS)
+               for i in intents)
+
+
+def test_plain_price_objection_still_negotiates():
+    # Sans demande d'alternatives, « moins cher » reste une négociation
+    intents = extract_intents("tu peux faire moins cher ?")
+    assert Intent(IntentType.PRICE_OFFER) in intents
