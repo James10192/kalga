@@ -31,6 +31,9 @@ export const conversationSchema = z.object({
   ),
   current_offer: z.number().int().min(PRICE_MIN).max(PRICE_MAX).nullable(),
   selected_variant_id: z.number().int().positive().nullable(),
+  /** Produit concerné (renvoyés par la liste backend) — affichage sans fetch. */
+  product_name: z.string().nullable().optional(),
+  product_code: z.string().nullable().optional(),
   created_at: z.string().datetime(),
   updated_at: z.string().datetime(),
 })

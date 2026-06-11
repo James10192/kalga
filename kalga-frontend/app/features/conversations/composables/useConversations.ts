@@ -84,3 +84,25 @@ export function useSendMerchantReply() {
     },
   })
 }
+
+/** Mutation : accepte l'offre / marque la vente faite. Invalide les listes. */
+export function useAcceptConversation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => conversationsApi.accept(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: conversationsKeys.all })
+    },
+  })
+}
+
+/** Mutation : rejette l'offre du client. Invalide les listes. */
+export function useRejectConversation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => conversationsApi.reject(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: conversationsKeys.all })
+    },
+  })
+}

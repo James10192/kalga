@@ -27,7 +27,8 @@ async function handleSubmit(data: ProductCreateInput): Promise<void> {
   try {
     const created = await mutateAsync(data)
     push.success(t('products.createSuccess', { code: created.code }))
-    await router.push(ROUTES.dashboard.productDetail(created.id))
+    // Pas de page détail produit (KALGA n'édite pas un produit) → retour à la liste.
+    await router.push(ROUTES.dashboard.products)
   } catch (err) {
     push.error(extractApiErrorMessage(err, t('products.createError')))
   }

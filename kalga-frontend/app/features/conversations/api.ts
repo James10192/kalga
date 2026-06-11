@@ -66,4 +66,16 @@ export const conversationsApi = {
       method: 'POST',
       body: data,
     }),
+
+  /** Accepte l'offre du client / marque la vente comme faite. */
+  accept: (id: number): Promise<{ success: boolean }> =>
+    $fetch<{ success: boolean }>(proxyUrl(`/chat/conversations/${id}/accept`), {
+      method: 'POST',
+    }),
+
+  /** Rejette l'offre du client. */
+  reject: (id: number): Promise<{ success: boolean }> =>
+    $fetch<{ success: boolean }>(proxyUrl(`/chat/conversations/${id}/reject`), {
+      method: 'POST',
+    }),
 }
