@@ -20,10 +20,11 @@ function assertWellFormed(items: ReadonlyArray<NavItem>): void {
 }
 
 describe('nav configs', () => {
-  it('MERCHANT_NAV : 5 entrées bien formées', () => {
-    expect(MERCHANT_NAV).toHaveLength(5)
+  it('MERCHANT_NAV : 6 entrées bien formées (dont Stock)', () => {
+    expect(MERCHANT_NAV).toHaveLength(6)
     assertWellFormed(MERCHANT_NAV)
     expect(MERCHANT_NAV.map((i) => i.i18nKey)).toContain('nav.products')
+    expect(MERCHANT_NAV.map((i) => i.i18nKey)).toContain('nav.stock')
   })
 
   it('ADMIN_NAV : 4 entrées bien formées', () => {

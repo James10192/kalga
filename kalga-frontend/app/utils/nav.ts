@@ -27,6 +27,7 @@ export const MERCHANT_NAV: ReadonlyArray<NavItem> = [
   { i18nKey: 'nav.products', to: ROUTES.dashboard.products, icon: 'Package' },
   { i18nKey: 'nav.conversations', to: ROUTES.dashboard.conversations, icon: 'MessageSquare' },
   { i18nKey: 'nav.stats', to: ROUTES.dashboard.stats, icon: 'BarChart3' },
+  { i18nKey: 'nav.stock', to: ROUTES.dashboard.stock, icon: 'Boxes' },
   { i18nKey: 'nav.settings', to: ROUTES.dashboard.settings, icon: 'Settings' },
 ] as const
 

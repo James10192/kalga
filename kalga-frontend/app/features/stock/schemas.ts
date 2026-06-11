@@ -74,3 +74,32 @@ export const lowStockThresholdInputSchema = z.object({
   product_id: z.number().int().positive(),
   low_stock_threshold: z.number().int().min(0),
 })
+
+// =============================================================================
+// OVERVIEW (table de gestion du stock)
+// Réf : GET /stock/merchant/{id}/overview + dashboard/static/app.js
+// =============================================================================
+
+/** Statuts renvoyés par l'overview (distincts de STOCK_STATUS_VALUES). */
+export const STOCK_OVERVIEW_STATUS = ['out_of_stock', 'low_stock', 'ok', 'unlimited'] as const
+
+/** Mode appliqué en rupture (cf. select de la table). */
+export const STOCK_MODE_VALUES = ['waitlist', 'alert_only', 'suspend', 'preorder'] as const
+
+export const stockOverviewItemSchema = z.object({
+  id: z.number().int().positive(),
+  name: z.string(),
+  code: z.string(),
+  stock_quantity: z.number().int(),
+  low_stock_threshold: z.number().int().nullable(),
+  stock_status: z.enum(STOCK_OVERVIEW_STATUS),
+  waitlist_count: z.number().int().min(0),
+})
+
+/** Réapprovisionnement (PUT /stock/product/{code}/restock). */
+export const restockInputSchema = z.object({
+  quantity_to_add: z.number().int().positive(),
+  merchant_id: z.number().int().positive(),
+  broadcast_waitlist: z.boolean(),
+  store_name: z.string(),
+})
