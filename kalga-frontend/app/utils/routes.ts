@@ -33,6 +33,7 @@ export const ROUTES = {
     conversations: '/dashboard/conversations',
     conversationDetail: (id: number): string => `/dashboard/conversations/${id}`,
     stats: '/dashboard/stats',
+    stock: '/dashboard/stock',
     settings: '/dashboard/parametres',
   },
 
