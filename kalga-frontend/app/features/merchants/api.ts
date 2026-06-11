@@ -34,9 +34,19 @@ export const merchantsApi = {
   list: (page = 1, search?: string): Promise<Paginated<Merchant>> =>
     $fetch<Paginated<Merchant>>(proxyUrl('/merchants'), { query: { page, search } }),
 
-  /** Met à jour le profil (nom, business_name, paiement). Backend : PUT /{id}. */
+  /** Met à jour le profil (nom, business_name, vitrine : tagline/about). Backend : PUT /{id}. */
   updateProfile: (id: number, data: MerchantProfileUpdate): Promise<Merchant> =>
     $fetch<Merchant>(proxyUrl(`/merchants/${id}`), { method: 'PUT', body: data }),
+
+  /**
+   * Upload logo ou bannière (multipart). Passe par la route serveur dédiée
+   * /api/merchant-upload/{id} (le proxy JSON ne gère pas le multipart).
+   */
+  uploadImage: (id: number, formData: FormData): Promise<{ success: boolean; url: string }> =>
+    $fetch<{ success: boolean; url: string }>(`/api/merchant-upload/${id}`, {
+      method: 'POST',
+      body: formData,
+    }),
 
   /** Met à jour la localisation (adresse + GPS). */
   updateLocation: (id: number, data: MerchantLocationUpdate): Promise<Merchant> =>
