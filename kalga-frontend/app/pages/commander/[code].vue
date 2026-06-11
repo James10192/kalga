@@ -10,6 +10,7 @@ import { CheckCircle2, Loader2 } from 'lucide-vue-next'
 
 import { extractApiErrorMessage } from '@/composables/useApiError'
 import { storefrontOrderInputSchema } from '@/features/storefront/schemas'
+import { useStorefrontContext } from '@/features/storefront/composables/useStorefrontContext'
 import {
   useStorefrontProduct,
   useSubmitOrder,
@@ -17,6 +18,8 @@ import {
 import type { StorefrontOrderInput } from '@/features/storefront/types'
 import { formatPriceFCFA } from '@/utils/format'
 import { ROUTES } from '@/utils/routes'
+
+definePageMeta({ layout: 'storefront' })
 
 const { t } = useI18n()
 const route = useRoute()
@@ -33,6 +36,12 @@ const { data, isLoading: productLoading } = useStorefrontProduct(code)
 const product = computed(() => data.value?.product)
 const merchant = computed(() => data.value?.merchant)
 const { mutateAsync, isPending } = useSubmitOrder()
+
+// Renseigne le header (branding marchand).
+const storefrontContext = useStorefrontContext()
+watchEffect(() => {
+  if (merchant.value) storefrontContext.value = merchant.value
+})
 
 useHead({ title: () => t('storefront.orderTitle') })
 

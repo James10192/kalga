@@ -7,9 +7,12 @@
 import { ArrowRight, ChevronLeft, ChevronRight, ImageOff, Loader2 } from 'lucide-vue-next'
 
 import WhatsAppButton from '@/features/storefront/components/WhatsAppButton.vue'
+import { useStorefrontContext } from '@/features/storefront/composables/useStorefrontContext'
 import { useStorefrontProduct } from '@/features/storefront/composables/useStorefront'
 import { formatPriceFCFA } from '@/utils/format'
 import { ROUTES } from '@/utils/routes'
+
+definePageMeta({ layout: 'storefront' })
 
 const { t } = useI18n()
 const route = useRoute()
@@ -26,6 +29,12 @@ const product = computed(() => data.value?.product)
 const merchant = computed(() => data.value?.merchant)
 const variants = computed(() => data.value?.variants ?? [])
 const hasVariants = computed(() => variants.value.length > 1)
+
+// Renseigne le header (branding marchand) dès que le produit est chargé.
+const storefrontContext = useStorefrontContext()
+watchEffect(() => {
+  if (merchant.value) storefrontContext.value = merchant.value
+})
 
 useHead({
   title: () => product.value?.name ?? t('storefront.productFallback'),
