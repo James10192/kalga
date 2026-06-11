@@ -43,9 +43,13 @@ async def run_pipeline(
     llm: Optional[LLMClient],
     persona: Optional[dict] = None,
     memory_block: Optional[str] = None,
+    floor_override: Optional[float] = None,
 ) -> Optional[DialogueResult]:
     last_bot = _last_bot_message(history)
-    floor_price = float(product.get("effective_min_price") or product["min_price"])
+    # Plancher effectif : le geste fidélité (client connu) peut l'abaisser —
+    # calculé par l'appelant à partir de l'historique d'achats (logique v1 portée).
+    floor_price = float(floor_override if floor_override is not None
+                        else (product.get("effective_min_price") or product["min_price"]))
 
     # Prix sur la table (« standing ask ») : la donnée PERSISTÉE fait autorité.
     # En secours seulement : extraction du dernier message bot, en prenant le

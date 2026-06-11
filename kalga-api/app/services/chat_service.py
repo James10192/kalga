@@ -242,12 +242,26 @@ class ChatService:
         from ..core.config import settings as _settings
         if _settings.dialogue_engine == "v2":
             from .dialogue.engine import respond as dialogue_respond
+
+            # Geste fidélité (logique v1 portée) : client connu → plancher abaissé
+            v2_floor = None
+            if (negotiation_context and negotiation_context.get('loyalty_discount', 0) > 0
+                    and negotiation_context.get('is_returning')):
+                base_min = product.get('effective_min_price') or product['min_price']
+                price_range = product['price'] - base_min
+                v2_floor = max(
+                    base_min - price_range * (negotiation_context['loyalty_discount'] / 100),
+                    base_min * 0.95,
+                )
+                logger.info(f"Client fidèle (v2): plancher ajusté à {v2_floor:,.0f} F")
+
             engine_v2 = await dialogue_respond(
                 client_message=message.message,
                 conversation=conversation,
                 product=product,
                 merchant=merchant,
                 history=history,
+                floor_override=v2_floor,
             )
             if tracer:
                 tracer.event("CHAT", "dialogue_v2",

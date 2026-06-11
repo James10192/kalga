@@ -87,6 +87,8 @@ async def respond(
     merchant: Dict,
     history: List[Dict],
     llm=_UNSET,
+    floor_override: Optional[float] = None,
+    memory_extra: Optional[str] = None,
 ) -> Optional[EngineResponse]:
     try:
         llm_client = _default_llm() if llm is _UNSET else llm
@@ -94,6 +96,10 @@ async def respond(
         persona = None
         if any(merchant.get(k) for k in ("bot_tone", "bot_style", "bot_catchphrase")):
             persona = {k: merchant.get(k) for k in ("bot_tone", "bot_style", "bot_catchphrase")}
+
+        history_block = _format_history_block(history)
+        memory_block = f"{memory_extra}\n{history_block}" if memory_extra and history_block \
+            else (memory_extra or history_block)
 
         result = await run_pipeline(
             client_message=client_message,
@@ -103,7 +109,8 @@ async def respond(
             current_offer=conversation.get("current_offer"),
             llm=llm_client,
             persona=persona,
-            memory_block=_format_history_block(history),
+            memory_block=memory_block,
+            floor_override=floor_override,
         )
         if result is None:
             return None

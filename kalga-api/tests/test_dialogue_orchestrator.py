@@ -75,6 +75,29 @@ async def test_pipeline_classifier_can_never_end_conversation():
     assert result.db_status != "ended"
 
 
+async def test_pipeline_loyalty_floor_override_accepts_lower_offer():
+    """Geste fidélité : avec un plancher abaissé (client connu), une offre sous
+    le min produit mais au-dessus du plancher fidélité est ACCEPTÉE."""
+    result = await run_pipeline(
+        client_message="je te donne 7600",
+        db_status="negotiating", history=[],
+        product=_product(price=10000.0, min_price=8000.0),
+        current_offer=None, llm=None,
+        floor_override=7500.0,                 # fidélité : 8 000 → 7 500
+    )
+    assert result.db_status == "agreed"
+    assert result.new_offer == 7600.0
+
+    # Sans le geste, la même offre est contrée
+    result2 = await run_pipeline(
+        client_message="je te donne 7600",
+        db_status="negotiating", history=[],
+        product=_product(price=10000.0, min_price=8000.0),
+        current_offer=None, llm=None,
+    )
+    assert result2.plan.actions[-1].type.value == "counter_offer"
+
+
 async def test_pipeline_bare_ok_confirms_at_counter_not_listed_price():
     """Bug terrain n°9 : « Au lieu de 20 000 F, je te fais 19 000 F » + « ok »
     → la vente partait à 20 000 (premier montant du texte). Le prix accepté
