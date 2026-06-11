@@ -46,7 +46,8 @@ function handleToggleMobile(): void {
       </NuxtLink>
     </div>
 
-    <div class="flex items-center gap-1">
+    <div class="flex items-center gap-2">
+      <WhatsAppStatusBadge />
       <LangSwitcher />
       <UserMenu />
     </div>
