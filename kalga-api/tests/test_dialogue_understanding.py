@@ -187,3 +187,54 @@ def test_human_request():
     for msg in ("je veux parler à quelqu'un", "passez-moi un responsable",
                 "je veux parler au vendeur directement"):
         assert Intent(IntentType.HUMAN_REQUEST) in detect_signal_intents(msg.lower()), msg
+
+
+# === Composition : extract_intents ===
+from app.services.dialogue.understanding import extract_intents
+
+
+def test_multi_intent_offer_plus_photo():
+    """LE bug terrain n°1 : contre-offre + photo dans le même message."""
+    intents = extract_intents("Je veux ça à 9000 et envoie moi plus de photo")
+    types = [i.type for i in intents]
+    assert IntentType.ASK_OTHER_PHOTOS in types or IntentType.ASK_PHOTO in types
+    assert Intent(IntentType.PRICE_OFFER, amount=9000.0) in intents
+    # La demande visuelle passe AVANT le transactionnel (ordre canonique)
+    visual_idx = min(types.index(t) for t in types
+                     if t in (IntentType.ASK_PHOTO, IntentType.ASK_OTHER_PHOTOS))
+    assert visual_idx < types.index(IntentType.PRICE_OFFER)
+
+
+def test_bridge_prefix_sanitized():
+    """LE bug terrain n°3 : « hello » sur un Statut → GREETING, pas photo."""
+    intents = extract_intents('[Répond à la photo: "#K053"] Hello')
+    assert intents == [Intent(IntentType.GREETING)]
+
+
+def test_system_only_message_returns_empty():
+    assert extract_intents("[📸 Le client a envoyé une photo. Présente les produits.]") == []
+
+
+def test_unrecognized_returns_unclear():
+    intents = extract_intents("euh hum alors voilà quoi")
+    assert intents == [Intent(IntentType.UNCLEAR)]
+
+
+def test_dedup_same_intent():
+    intents = extract_intents("photo photo envoie la photo stp")
+    assert intents.count(Intent(IntentType.ASK_PHOTO)) == 1
+
+
+def test_question_without_match_is_ask_info():
+    intents = extract_intents("c'est du cuir véritable ?")
+    assert any(i.type == IntentType.ASK_INFO for i in intents)
+
+
+def test_price_question_is_ask_info_with_subject():
+    intents = extract_intents("c'est combien ?")
+    assert Intent(IntentType.ASK_INFO, text="prix") in intents
+
+
+def test_sorted_by_canonical_priority():
+    intents = extract_intents("c'est pas ce que j'ai demandé, je veux la photo")
+    assert intents[0].type == IntentType.CORRECTION

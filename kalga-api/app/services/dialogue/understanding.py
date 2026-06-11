@@ -297,3 +297,62 @@ def detect_signal_intents(text: str) -> List[Intent]:
             intents.append(Intent(IntentType.GOODBYE))
 
     return intents
+
+
+# ─────────────────────────────────────────────────────────────
+# Composition
+# ─────────────────────────────────────────────────────────────
+
+_PRICE_QUESTION_PATTERNS = ("c'est combien", "combien ça coûte", "combien ca coute",
+                            "quel est le prix", "le prix ?", "ça coûte combien",
+                            "ca coute combien", "combien")
+
+
+def extract_intents(message: str, last_bot_message: Optional[str] = None) -> List[Intent]:
+    """Point d'entrée de l'étage ② : message brut → intentions ordonnées.
+
+    - Assainit (préfixes bridge/système) et normalise.
+    - Message 100 % système → [] (aucune intention client).
+    - Applique toutes les familles de règles, déduplique, trie par PRIORITY.
+    - Rien de reconnu → [ASK_INFO] si question, sinon [UNCLEAR]
+      (le classifieur LLM prendra le relais en P3).
+    """
+    from .intents import PRIORITY  # import local pour éviter tout cycle futur
+
+    text = normalize(message)
+    if not text:
+        return []
+
+    low = text.lower()
+    collected: List[Intent] = []
+    collected += detect_signal_intents(low)
+    collected += detect_visual_intents(low)
+    collected += detect_logistics_intents(low, last_bot_message)
+    collected += detect_price_intents(low, last_bot_message)
+
+    # Question prix explicite → ASK_INFO(prix) — sauf si déjà transactionnel
+    # ou si le « combien » porte sur la livraison (ASK_DELIVERY_INFO).
+    if (any(p in low for p in _PRICE_QUESTION_PATTERNS)
+            and not any(i.type in (IntentType.PRICE_OFFER, IntentType.ACCEPT_PRICE,
+                                   IntentType.ASK_DELIVERY_INFO)
+                        for i in collected)):
+        collected.append(Intent(IntentType.ASK_INFO, text="prix"))
+
+    # Question générique non couverte → ASK_INFO
+    substantive = [i for i in collected if i.type != IntentType.GREETING]
+    if not substantive and "?" in text:
+        collected.append(Intent(IntentType.ASK_INFO))
+
+    # Dédup en préservant la première occurrence
+    seen = set()
+    unique: List[Intent] = []
+    for intent in collected:
+        if intent not in seen:
+            seen.add(intent)
+            unique.append(intent)
+
+    if not unique:
+        return [Intent(IntentType.UNCLEAR)]
+
+    unique.sort(key=lambda i: PRIORITY[i.type])
+    return unique
