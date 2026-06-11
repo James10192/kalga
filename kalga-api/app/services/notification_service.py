@@ -159,7 +159,8 @@ class NotificationService:
         client_phone: str,
         product_code: str = "",
         delivery_type: str = "delivery",
-        client_name: str = ""
+        client_name: str = "",
+        delivery_address: str = ""
     ) -> bool:
         """Notifie le marchand d'une vente confirmée"""
         if delivery_type == "pickup":
@@ -175,6 +176,8 @@ class NotificationService:
         client_info = ""
         if client_name:
             client_info = f"\U0001f464 *Client:* {client_name}\n"
+        if delivery_address:
+            client_info += f"\U0001f4cd *Adresse de livraison:* {delivery_address}\n"
         client_info += f"\U0001f4ac *Conversation:* Regarde tes messages recents pour trouver le client"
 
         message = (

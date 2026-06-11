@@ -70,6 +70,7 @@ watch(() => route.path, () => {
         >
           <Search class="h-4 w-4" aria-hidden="true" />
         </button>
+        <ThemeToggle />
         <LangSwitcher />
         <button
           type="button"

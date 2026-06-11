@@ -14,7 +14,7 @@ import type { H3Event } from 'h3'
 /** Options de requête vers le backend FastAPI */
 export interface BackendRequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
-  body?: unknown
+  body?: BodyInit | Record<string, unknown> | null
   query?: Record<string, string | number | boolean | undefined>
   /** JWT utilisateur si la route requiert l'auth (lu depuis la session) */
   accessToken?: string
@@ -82,12 +82,14 @@ export async function callBackend<T = unknown>(
   path: string,
   opts: BackendRequestOptions = {},
 ): Promise<T> {
-  return $fetch<T>(buildBackendUrl(path), {
+  // Cast explicite : $fetch infère un TypedInternalResponse générique qui ne
+  // s'unifie pas avec le `T` du caller. On garde le contrat `Promise<T>`.
+  return (await $fetch(buildBackendUrl(path), {
     method: opts.method ?? 'GET',
     headers: buildHeaders(opts),
     body: opts.body,
     query: opts.query,
-  })
+  })) as T
 }
 
 /**

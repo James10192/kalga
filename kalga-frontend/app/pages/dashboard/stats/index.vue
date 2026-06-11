@@ -22,19 +22,25 @@ const { t } = useI18n()
 const { user } = useAuth()
 
 const merchantId = computed(() => user.value?.merchant_id ?? 0)
+const merchantPhone = computed(() => user.value?.merchant_phone ?? '')
 
 const preset = ref<RangePreset>('30d')
 const range = computed(() => rangeFromPreset(preset.value))
 const fromDate = computed(() => range.value.from)
 const toDate = computed(() => range.value.to)
+const days = computed(() => Number.parseInt(preset.value, 10) || 30)
 
-const { data: kpis, isLoading: kpisLoading, isError: kpisError } = useMerchantStats(merchantId)
+const { data: kpis, isLoading: kpisLoading, isError: kpisError } = useMerchantStats(
+  merchantPhone,
+  merchantId,
+  days,
+)
 
 const revenueMetric = computed(() => 'revenue' as const)
 const salesMetric = computed(() => 'sales' as const)
 
-const { data: revenueSeries } = useStatsTimeseries(merchantId, revenueMetric, fromDate, toDate)
-const { data: salesSeries } = useStatsTimeseries(merchantId, salesMetric, fromDate, toDate)
+const { data: revenueSeries } = useStatsTimeseries(merchantPhone, revenueMetric, fromDate, toDate)
+const { data: salesSeries } = useStatsTimeseries(merchantPhone, salesMetric, fromDate, toDate)
 
 useHead({ title: t('nav.stats') })
 

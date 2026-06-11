@@ -12,6 +12,7 @@ import {
   EMAIL_MAX_LEN,
   PASSWORD_MAX_LEN,
   PASSWORD_MIN_LEN,
+  PHONE_DIGITS_ONLY_REGEX,
   ROLE_VALUES,
 } from '@/utils/constants'
 
@@ -31,6 +32,11 @@ export const loginInputSchema = z.object({
 /** Form mot de passe oublié */
 export const forgotPasswordInputSchema = z.object({
   email: z.string().email('Email invalide').max(EMAIL_MAX_LEN),
+})
+
+/** Form de connexion WhatsApp marchand (page login) — numéro complet indicatif + local */
+export const whatsappConnectInputSchema = z.object({
+  merchant_phone: z.string().regex(PHONE_DIGITS_ONLY_REGEX, 'Numéro WhatsApp invalide'),
 })
 
 /** Form changement de mot de passe */
@@ -55,12 +61,15 @@ export const changePasswordInputSchema = z
 /** Session utilisateur (lue depuis HttpOnly cookie côté serveur, exposée au client) */
 export const sessionUserSchema = z.object({
   id: z.number().int().positive(),
-  email: z.string().email(),
+  /** Email (admin). `null` pour un marchand : il s'authentifie par WhatsApp, sans email. */
+  email: z.string().email().nullable(),
   role: z.enum(ROLE_VALUES as [string, ...string[]]),
   is_active: z.boolean(),
   merchant_id: z.number().int().positive().nullable(),
   /** Téléphone du marchand (null pour les admins) */
   merchant_phone: z.string().nullable(),
+  /** Nom commercial du marchand (absent pour les admins) */
+  business_name: z.string().nullable().optional(),
 })
 
 /** Réponse de l'endpoint /api/auth/login */

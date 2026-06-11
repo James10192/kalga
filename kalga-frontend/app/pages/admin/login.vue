@@ -180,13 +180,13 @@ async function handleSubmit(event: Event): Promise<void> {
 </template>
 
 <style scoped>
-/* Port 1:1 depuis dashboard/static/admin.css — section LOGIN SCREEN. */
+/* Connexion admin — palette KALGA (vert), harmonisée avec le login marchand. */
 
 .admin-login {
   min-height: 100vh;
   display: grid;
   grid-template-columns: 1fr 480px;
-  background: #0f1117;
+  background: #0a0a0a;
   position: relative;
   overflow-x: hidden;
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
@@ -215,7 +215,7 @@ async function handleSubmit(event: Event): Promise<void> {
 .orb-1 {
   width: 600px;
   height: 600px;
-  background: rgba(245, 158, 11, 0.08);
+  background: rgba(22, 163, 74, 0.08);
   top: -150px;
   left: -100px;
   animation: orb-float 12s ease-in-out infinite;
@@ -224,7 +224,7 @@ async function handleSubmit(event: Event): Promise<void> {
 .orb-2 {
   width: 400px;
   height: 400px;
-  background: rgba(99, 102, 241, 0.07);
+  background: rgba(16, 185, 129, 0.07);
   bottom: -100px;
   left: 30%;
   animation: orb-float 16s ease-in-out infinite reverse;
@@ -243,7 +243,7 @@ async function handleSubmit(event: Event): Promise<void> {
   align-items: center;
   justify-content: center;
   padding: 4rem;
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.06) 0%, rgba(15, 17, 23, 0) 60%);
+  background: linear-gradient(135deg, rgba(22, 163, 74, 0.06) 0%, rgba(15, 17, 23, 0) 60%);
   border-right: 1px solid rgba(255, 255, 255, 0.06);
 }
 
@@ -265,13 +265,13 @@ async function handleSubmit(event: Event): Promise<void> {
 .brand-icon {
   width: 44px;
   height: 44px;
-  background: linear-gradient(135deg, #f59e0b, #d97706);
+  background: linear-gradient(135deg, #16a34a, #0d7a36);
   border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #0f1117;
-  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.3);
+  color: #0a0a0a;
+  box-shadow: 0 4px 20px rgba(22, 163, 74, 0.3);
 }
 
 .brand-name {
@@ -293,7 +293,7 @@ async function handleSubmit(event: Event): Promise<void> {
 
 .hero-h2 em {
   font-style: normal;
-  color: #f59e0b;
+  color: #16a34a;
 }
 
 .hero-p {
@@ -325,7 +325,7 @@ async function handleSubmit(event: Event): Promise<void> {
   font-family: 'Outfit', system-ui, sans-serif;
   font-size: 1.5rem;
   font-weight: 700;
-  color: #f59e0b;
+  color: #16a34a;
 }
 
 .stat-label {
@@ -374,12 +374,12 @@ async function handleSubmit(event: Event): Promise<void> {
   align-items: center;
   gap: 0.5rem;
   padding: 0.35rem 0.875rem;
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.2);
+  background: rgba(22, 163, 74, 0.1);
+  border: 1px solid rgba(22, 163, 74, 0.2);
   border-radius: 100px;
   font-size: 0.75rem;
   font-weight: 500;
-  color: #f59e0b;
+  color: #16a34a;
   letter-spacing: 0.02em;
 }
 
@@ -431,7 +431,7 @@ async function handleSubmit(event: Event): Promise<void> {
 }
 
 .input-field:focus-within .input-icon {
-  color: #f59e0b;
+  color: #16a34a;
 }
 
 .form input {
@@ -452,17 +452,17 @@ async function handleSubmit(event: Event): Promise<void> {
 
 .form input:focus {
   outline: none;
-  border-color: rgba(245, 158, 11, 0.5);
-  background: rgba(245, 158, 11, 0.04);
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.08);
+  border-color: rgba(22, 163, 74, 0.5);
+  background: rgba(22, 163, 74, 0.04);
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.08);
 }
 
 .btn-login {
   width: 100%;
   margin-top: 2rem;
   padding: 0.95rem 1.5rem;
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  color: #0f1117;
+  background: linear-gradient(135deg, #16a34a, #0d7a36);
+  color: #0a0a0a;
   border: none;
   border-radius: 12px;
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
@@ -473,13 +473,13 @@ async function handleSubmit(event: Event): Promise<void> {
   align-items: center;
   justify-content: space-between;
   transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
-  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.25);
+  box-shadow: 0 4px 20px rgba(22, 163, 74, 0.25);
 }
 
 .btn-login:hover:not(:disabled) {
   opacity: 0.92;
   transform: translateY(-1px);
-  box-shadow: 0 8px 28px rgba(245, 158, 11, 0.35);
+  box-shadow: 0 8px 28px rgba(22, 163, 74, 0.35);
 }
 
 .btn-login:active:not(:disabled) {

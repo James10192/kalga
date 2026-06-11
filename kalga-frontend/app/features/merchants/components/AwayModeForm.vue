@@ -39,7 +39,7 @@ async function handleSubmit(event: Event): Promise<void> {
   }
 
   try {
-    await mutateAsync({ id: props.merchant.id, data: parsed.data })
+    await mutateAsync({ phone: props.merchant.phone, data: parsed.data })
     push.success(t('settings.awayModeSaved'))
   } catch (err) {
     push.error(extractApiErrorMessage(err, t('settings.saveError')))

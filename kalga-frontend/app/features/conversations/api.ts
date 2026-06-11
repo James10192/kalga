@@ -24,28 +24,61 @@ export interface ConversationsListParams {
 }
 
 export const conversationsApi = {
-  /** Liste paginée des conversations d'un marchand (filtrable par statut). */
-  list: ({
+  /**
+   * Liste paginée des conversations d'un marchand (filtrable par statut).
+   * Le backend renvoie { conversations, total, page, limit, pages } — on le
+   * mappe vers le contrat `Paginated<Conversation>` ({ items, per_page, total_pages }).
+   */
+  list: async ({
     merchantPhone,
     status,
     page = 1,
-  }: ConversationsListParams): Promise<Paginated<Conversation>> =>
-    $fetch<Paginated<Conversation>>(proxyUrl(`/chat/conversations/${merchantPhone}`), {
+  }: ConversationsListParams): Promise<Paginated<Conversation>> => {
+    const r = await $fetch<{
+      conversations: Conversation[]
+      total: number
+      page: number
+      limit: number
+      pages: number
+    }>(proxyUrl(`/chat/conversations/${merchantPhone}`), {
       query: { status, page },
-    }),
+    })
+    return {
+      items: r.conversations,
+      total: r.total,
+      page: r.page,
+      per_page: r.limit,
+      total_pages: r.pages,
+    }
+  },
 
-  /** Détail d'une conversation par ID. */
-  getById: (id: number): Promise<Conversation> =>
-    $fetch<Conversation>(proxyUrl(`/chat/conversations/${id}`)),
-
-  /** Liste ordonnée des messages d'une conversation. */
+  /**
+   * Liste ordonnée des messages d'une conversation.
+   * Le backend renvoie { conversation_id, messages, count } → on extrait `messages`.
+   * (Il n'existe PAS d'endpoint « une conversation par id » : le détail est
+   *  reconstruit depuis la liste — cf. dashboard/static/app.js selectConversation.)
+   */
   getMessages: (conversationId: number): Promise<Message[]> =>
-    $fetch<Message[]>(proxyUrl(`/chat/conversations/${conversationId}/messages`)),
+    $fetch<{ messages: Message[] }>(
+      proxyUrl(`/chat/conversations/${conversationId}/messages`),
+    ).then((r) => r.messages),
 
   /** Marchand répond manuellement (human takeover). */
   sendMerchantReply: (data: MerchantReplyInput): Promise<{ sent: boolean }> =>
     $fetch<{ sent: boolean }>(proxyUrl('/chat/merchant-reply'), {
       method: 'POST',
       body: data,
+    }),
+
+  /** Accepte l'offre du client / marque la vente comme faite. */
+  accept: (id: number): Promise<{ success: boolean }> =>
+    $fetch<{ success: boolean }>(proxyUrl(`/chat/conversations/${id}/accept`), {
+      method: 'POST',
+    }),
+
+  /** Rejette l'offre du client. */
+  reject: (id: number): Promise<{ success: boolean }> =>
+    $fetch<{ success: boolean }>(proxyUrl(`/chat/conversations/${id}/reject`), {
+      method: 'POST',
     }),
 }

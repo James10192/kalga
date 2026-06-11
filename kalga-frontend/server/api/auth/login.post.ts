@@ -22,9 +22,9 @@ interface BackendLoginResponse {
     id: number
     email: string
     role: 'admin' | 'merchant'
-    is_active: boolean
     merchant_id: number | null
-    merchant_phone: string | null
+    merchant_phone?: string | null
+    is_verified: boolean
   }
 }
 
@@ -54,17 +54,16 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  if (!result.user.is_active) {
-    throw createError({ statusCode: 403, statusMessage: 'Compte désactivé' })
-  }
-
+  // NB : pas de garde `is_active` ici — le backend (auth_service.login) refuse
+  // déjà les comptes désactivés (→ 401) et ne renvoie PAS ce champ dans la
+  // réponse. Un token reçu garantit donc un compte actif.
   const publicUser = {
     id: result.user.id,
     email: result.user.email,
     role: result.user.role,
-    is_active: result.user.is_active,
+    is_active: true,
     merchant_id: result.user.merchant_id,
-    merchant_phone: result.user.merchant_phone,
+    merchant_phone: result.user.merchant_phone ?? null,
   }
 
   // Pose la session HttpOnly. Le JWT est stocké dans `secure` (non exposé client-side).

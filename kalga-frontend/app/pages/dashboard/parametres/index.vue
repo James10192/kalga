@@ -9,18 +9,20 @@
 -->
 
 <script setup lang="ts">
-import { Bot, ClockAlert, Loader2, MapPin, User } from 'lucide-vue-next'
+import { Bot, ClockAlert, Loader2, LogOut, MapPin, Store, User } from 'lucide-vue-next'
 import type { Component } from 'vue'
 
 import AwayModeForm from '@/features/merchants/components/AwayModeForm.vue'
 import BotPersonaForm from '@/features/merchants/components/BotPersonaForm.vue'
 import LocationForm from '@/features/merchants/components/LocationForm.vue'
 import ProfileForm from '@/features/merchants/components/ProfileForm.vue'
-import { useMerchant } from '@/features/merchants/composables/useMerchants'
+import StorefrontForm from '@/features/merchants/components/StorefrontForm.vue'
+import { useMerchantByPhone } from '@/features/merchants/composables/useMerchants'
+import { ROUTES } from '@/utils/routes'
 
 definePageMeta({ layout: 'dashboard' })
 
-type TabKey = 'profile' | 'location' | 'persona' | 'away'
+type TabKey = 'profile' | 'storefront' | 'location' | 'persona' | 'away'
 
 interface Tab {
   readonly key: TabKey
@@ -30,6 +32,7 @@ interface Tab {
 
 const TABS: ReadonlyArray<Tab> = [
   { key: 'profile', i18nKey: 'settings.tabProfile', icon: User },
+  { key: 'storefront', i18nKey: 'settings.tabStorefront', icon: Store },
   { key: 'location', i18nKey: 'settings.tabLocation', icon: MapPin },
   { key: 'persona', i18nKey: 'settings.tabPersona', icon: Bot },
   { key: 'away', i18nKey: 'settings.tabAway', icon: ClockAlert },
@@ -37,13 +40,27 @@ const TABS: ReadonlyArray<Tab> = [
 
 const { t } = useI18n()
 const { user } = useAuth()
+const { push } = useToast()
 
-const merchantId = computed(() => user.value?.merchant_id ?? 0)
-const { data: merchant, isLoading, isError } = useMerchant(merchantId)
+const merchantPhone = computed(() => user.value?.merchant_phone ?? '')
+const { data: merchant, isLoading, isError } = useMerchantByPhone(merchantPhone)
 
 const activeTab = ref<TabKey>('profile')
+const disconnecting = ref(false)
 
 useHead({ title: t('nav.settings') })
+
+async function disconnectWhatsapp(): Promise<void> {
+  if (!window.confirm(t('settings.disconnectConfirm'))) return
+  disconnecting.value = true
+  try {
+    await $fetch('/api/whatsapp/disconnect', { method: 'POST' })
+    await navigateTo(ROUTES.login)
+  } catch (error) {
+    push.error(extractApiErrorMessage(error, t('settings.disconnectError')))
+    disconnecting.value = false
+  }
+}
 
 function panelId(key: TabKey): string {
   return `settings-panel-${key}`
@@ -88,8 +105,8 @@ function tabId(key: TabKey): string {
       >
         <button
           v-for="tab in TABS"
-          :key="tab.key"
           :id="tabId(tab.key)"
+          :key="tab.key"
           type="button"
           role="tab"
           :aria-selected="activeTab === tab.key"
@@ -117,6 +134,17 @@ function tabId(key: TabKey): string {
         class="p-6"
       >
         <ProfileForm :merchant="merchant" />
+      </section>
+
+      <!-- Panel : Ma Vitrine -->
+      <section
+        v-show="activeTab === 'storefront'"
+        :id="panelId('storefront')"
+        role="tabpanel"
+        :aria-labelledby="tabId('storefront')"
+        class="p-6"
+      >
+        <StorefrontForm :merchant="merchant" />
       </section>
 
       <!-- Panel : localisation -->
@@ -151,6 +179,25 @@ function tabId(key: TabKey): string {
       >
         <AwayModeForm :merchant="merchant" />
       </section>
+    </div>
+
+    <!-- Zone dangereuse : déconnexion WhatsApp -->
+    <div
+      v-if="!isLoading && merchant"
+      class="rounded-lg border border-destructive/30 bg-destructive/5 p-6"
+    >
+      <h2 class="text-sm font-semibold text-destructive">{{ $t('settings.dangerZone') }}</h2>
+      <p class="mt-1 text-sm text-muted-foreground">{{ $t('settings.disconnectHint') }}</p>
+      <button
+        type="button"
+        :disabled="disconnecting"
+        class="mt-3 inline-flex items-center gap-2 rounded-md border border-destructive/40 bg-card px-4 py-2 text-sm font-medium text-destructive transition hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-60"
+        @click="disconnectWhatsapp"
+      >
+        <Loader2 v-if="disconnecting" class="h-4 w-4 animate-spin" aria-hidden="true" />
+        <LogOut v-else class="h-4 w-4" aria-hidden="true" />
+        {{ $t('settings.disconnect') }}
+      </button>
     </div>
   </div>
 </template>

@@ -27,6 +27,7 @@ from .memory import stm as stm_module
 from .memory import ltm as ltm_module
 from .memory import episodic as episodic_module
 from .tools import TOOLS, TOOL_NAMES
+from .deal_guard import resolve_accept_deal, is_explicit_photo_request, wants_other_photos
 from .detectors import (
     detect_delivery_request,
     detect_pickup_request,
@@ -137,6 +138,32 @@ async def generate_response(
         if tracer:
             tracer.set_mode("end_conversation")
         return None, current_offer, False, "ended", False, False
+
+    # === PRIORITÉ 3.5: Demandes visuelles explicites (déterministe, hors LLM) ===
+    # Une demande de photo doit TOUJOURS être honorée — même en phase de clôture,
+    # où le LLM tend à se fixer sur la livraison et à ignorer la photo.
+    # Les détecteurs ne voient que les mots du client (préfixes bridge assainis).
+    if is_explicit_photo_request(client_message):
+        logger.info(f"Demande de photo explicite détectée → send_photo (déterministe): {client_message[:40]}")
+        if tracer:
+            tracer.set_mode("photo_request")
+            tracer.event("BUSINESS", "explicit_photo_request", message=client_message[:60])
+        encoded = f"{_TOOL_PREFIX}send_photo:{json.dumps({'message': 'Bien sûr, je te montre ça !'}, ensure_ascii=False)}"
+        return encoded, current_offer, False, conversation_status, False, False
+
+    # « D'autres photos » : montrer les autres modèles s'il y en a, sinon
+    # renvoyer honnêtement la photo du produit (une seule photo par produit).
+    if wants_other_photos(client_message):
+        if product.get('group_id'):
+            tool, msg_txt = "send_variants", "Voilà les autres modèles en photo !"
+        else:
+            tool, msg_txt = "send_photo", "Voilà ! C'est la seule photo que j'ai pour l'instant 😊"
+        logger.info(f"Demande d'autres photos → {tool} (déterministe): {client_message[:40]}")
+        if tracer:
+            tracer.set_mode("photo_request")
+            tracer.event("BUSINESS", "other_photos_request", tool=tool, message=client_message[:60])
+        encoded = f"{_TOOL_PREFIX}{tool}:{json.dumps({'message': msg_txt}, ensure_ascii=False)}"
+        return encoded, current_offer, False, conversation_status, False, False
 
     # === AJUSTEMENT FIDÉLITÉ (règle business) ===
     if negotiation_context:
@@ -371,7 +398,13 @@ async def generate_response(
 
     # === FALLBACK si DeepSeek échoue ===
     if not agentic_result:
-        logger.info("DeepSeek indisponible — fallback sur conversation_engine")
+        # ERROR (pas info) : en silencieux, le bot tourne sur le moteur à mots-clés
+        # pendant des jours sans que personne ne le voie (vécu le 2026-06-11 : clé
+        # 401 → 114 échecs → toutes les conversations dégradées sans alerte).
+        logger.error(
+            "DeepSeek INDISPONIBLE — le bot répond via le moteur de secours à mots-clés. "
+            "Vérifier DEEPSEEK_API_KEY (401 = clé invalide/expirée)."
+        )
         if tracer:
             tracer.set_fallback("deepseek_unavailable")
         return await _fallback_to_engine(
@@ -403,17 +436,30 @@ async def generate_response(
 
         logger.info(f"DeepSeek tool_call: {name}({args})")
 
-        # Garde-fou : si accept_deal avec prix < min → rejeter
+        # Garde-fou accept_deal : ne pas conclure si le message contient une
+        # demande non satisfaite (photo/variante) ou une contre-offre à la baisse.
         if name == "accept_deal":
-            offered = args.get("price") or current_offer
-            if offered and offered < min_price:
-                logger.warning(
-                    f"accept_deal rejeté: {offered} < min {min_price} — converti en counter_offer"
-                )
-                min_f = f"{int(min_price):,}".replace(",", " ")
-                price_f = f"{int(offered):,}".replace(",", " ")
-                counter_msg = f"{price_f} F c'est un peu bas! Je peux faire {min_f} F, c'est mon dernier prix."
-                return counter_msg, offered, False, "negotiating", False, False
+            override = resolve_accept_deal(
+                client_message=client_message,
+                current_offer=current_offer,
+                min_price=min_price,
+                listed_price=product['price'],
+            )
+            if override is not None:
+                logger.info(f"accept_deal rétrogradé en {override['name']} par le garde-fou")
+                name = override["name"]
+                args = override["args"]
+            else:
+                # Filet de sécurité : prix d'accord sous le minimum (si le LLM passe un prix).
+                offered = args.get("price") or current_offer
+                if offered and offered < min_price:
+                    logger.warning(
+                        f"accept_deal rejeté: {offered} < min {min_price} — converti en counter_offer"
+                    )
+                    min_f = f"{int(min_price):,}".replace(",", " ")
+                    price_f = f"{int(offered):,}".replace(",", " ")
+                    counter_msg = f"{price_f} F c'est un peu bas! Je peux faire {min_f} F, c'est mon dernier prix."
+                    return counter_msg, offered, False, "negotiating", False, False
 
         # Retourner le tool_call encodé — chat_service dispatch et exécute
         encoded = f"{_TOOL_PREFIX}{name}:{json.dumps(args, ensure_ascii=False)}"

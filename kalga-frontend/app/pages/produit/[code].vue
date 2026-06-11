@@ -4,12 +4,15 @@
 -->
 
 <script setup lang="ts">
-import { ArrowRight, ImageOff, Loader2 } from 'lucide-vue-next'
+import { ArrowRight, ChevronLeft, ChevronRight, ImageOff, Loader2 } from 'lucide-vue-next'
 
 import WhatsAppButton from '@/features/storefront/components/WhatsAppButton.vue'
+import { useStorefrontContext } from '@/features/storefront/composables/useStorefrontContext'
 import { useStorefrontProduct } from '@/features/storefront/composables/useStorefront'
 import { formatPriceFCFA } from '@/utils/format'
 import { ROUTES } from '@/utils/routes'
+
+definePageMeta({ layout: 'storefront' })
 
 const { t } = useI18n()
 const route = useRoute()
@@ -19,7 +22,19 @@ const code = computed(() => {
   return Array.isArray(raw) ? (raw[0] ?? '') : (raw ?? '')
 })
 
-const { data: product, isLoading, isError } = useStorefrontProduct(code)
+// Le endpoint renvoie { product, variants, merchant } — on dérive les deux
+// vues dont la page a besoin (le marchand porte le téléphone pour WhatsApp).
+const { data, isLoading, isError } = useStorefrontProduct(code)
+const product = computed(() => data.value?.product)
+const merchant = computed(() => data.value?.merchant)
+const variants = computed(() => data.value?.variants ?? [])
+const hasVariants = computed(() => variants.value.length > 1)
+
+// Renseigne le header (branding marchand) dès que le produit est chargé.
+const storefrontContext = useStorefrontContext()
+watchEffect(() => {
+  if (merchant.value) storefrontContext.value = merchant.value
+})
 
 useHead({
   title: () => product.value?.name ?? t('storefront.productFallback'),
@@ -28,6 +43,21 @@ useHead({
 const orderHref = computed(() =>
   product.value ? ROUTES.storefront.order(product.value.code) : '#',
 )
+
+// Navigation circulaire entre variantes (flèches précédent / suivant).
+const currentIndex = computed(() =>
+  variants.value.findIndex((variant) => variant.code === product.value?.code),
+)
+const prevVariant = computed(() => {
+  if (!hasVariants.value) return null
+  const len = variants.value.length
+  return variants.value[(currentIndex.value - 1 + len) % len] ?? null
+})
+const nextVariant = computed(() => {
+  if (!hasVariants.value) return null
+  const len = variants.value.length
+  return variants.value[(currentIndex.value + 1) % len] ?? null
+})
 </script>
 
 <template>
@@ -55,8 +85,8 @@ const orderHref = computed(() =>
       v-else
       class="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-2 lg:py-16"
     >
-      <!-- Image -->
-      <div class="aspect-square w-full overflow-hidden rounded-lg bg-muted">
+      <!-- Image + navigation entre variantes (flèches) -->
+      <div class="relative aspect-square w-full overflow-hidden rounded-lg bg-muted">
         <img
           v-if="product.image_url"
           :src="product.image_url"
@@ -70,6 +100,37 @@ const orderHref = computed(() =>
         >
           <ImageOff class="h-16 w-16" aria-hidden="true" />
         </div>
+
+        <template v-if="hasVariants">
+          <NuxtLink
+            v-if="prevVariant"
+            :to="ROUTES.storefront.product(prevVariant.code)"
+            class="absolute left-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-card/90 text-foreground shadow-md transition hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            :aria-label="$t('storefront.prevVariant')"
+          >
+            <ChevronLeft class="h-5 w-5" aria-hidden="true" />
+          </NuxtLink>
+          <NuxtLink
+            v-if="nextVariant"
+            :to="ROUTES.storefront.product(nextVariant.code)"
+            class="absolute right-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-card/90 text-foreground shadow-md transition hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            :aria-label="$t('storefront.nextVariant')"
+          >
+            <ChevronRight class="h-5 w-5" aria-hidden="true" />
+          </NuxtLink>
+
+          <!-- Indicateur de position (point par variante) -->
+          <div class="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
+            <span
+              v-for="(variant, index) in variants"
+              :key="variant.id"
+              :class="[
+                'h-1.5 rounded-full transition-all',
+                index === currentIndex ? 'w-4 bg-primary' : 'w-1.5 bg-card/70',
+              ]"
+            />
+          </div>
+        </template>
       </div>
 
       <!-- Détails -->
@@ -99,6 +160,26 @@ const orderHref = computed(() =>
           {{ product.description }}
         </p>
 
+        <!-- Sélecteur de variantes -->
+        <div v-if="hasVariants" class="space-y-2">
+          <p class="text-sm font-medium text-foreground">{{ $t('storefront.chooseVariant') }}</p>
+          <div class="flex flex-wrap gap-2">
+            <NuxtLink
+              v-for="variant in variants"
+              :key="variant.id"
+              :to="ROUTES.storefront.product(variant.code)"
+              :class="[
+                'rounded-md border px-3 py-1.5 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                variant.code === product.code
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-border bg-card text-foreground hover:bg-muted',
+              ]"
+            >
+              {{ variant.variant_name || variant.name }}
+            </NuxtLink>
+          </div>
+        </div>
+
         <div
           v-if="!product.in_stock"
           role="alert"
@@ -115,6 +196,14 @@ const orderHref = computed(() =>
             {{ $t('storefront.orderNow') }}
             <ArrowRight class="h-4 w-4" aria-hidden="true" />
           </NuxtLink>
+
+          <!-- Contact direct WhatsApp (message pré-rempli) — cf. storefront.js source de vérité -->
+          <WhatsAppButton
+            v-if="merchant"
+            :phone="merchant.phone"
+            :product-code="product.code"
+            variant="outline"
+          />
         </div>
       </div>
     </main>

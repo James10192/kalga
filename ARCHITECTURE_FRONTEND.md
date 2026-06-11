@@ -3,9 +3,13 @@
 > **Document de référence officiel.** À consulter pour valider tout choix d'implémentation.
 > Toute déviation de ce document doit être justifiée et documentée.
 
-**Version** : 1.0
+**Version** : 1.1
 **Statut** : Référence active
 **Dernière mise à jour** : Juin 2026
+
+> **Changelog v1.1** : retrait de Pinia (état global → composables + TanStack
+> Query, cf. déviation §2) ; suppression des dossiers `stores/` ; correction
+> `tailwind.config.ts` → `@theme inline` (Tailwind v4).
 
 ---
 
@@ -62,8 +66,19 @@ Ce document est la **source unique de vérité** sur l'architecture frontend de 
 | Couche | Techno | Pourquoi |
 |---|---|---|
 | Data fetching | **TanStack Query Vue** | Cache, refetch auto, optimistic mutations |
-| State global | **Pinia** | Store officiel Vue, simple, typé |
+| État serveur | **TanStack Query Vue** | Le cache de queries EST le state des données distantes |
+| État global UI | **Composables Vue** (`ref`/`computed` partagés) | Suffisant pour modal/sidebar/theme ; pas de dépendance supplémentaire |
 | Validation runtime | **Zod** | Schémas partagés client/serveur |
+
+> **⚠️ Déviation documentée — Pinia retiré (Juin 2026).**
+> La v1.0 de ce document imposait **Pinia** comme store global. Pinia a été
+> **désinstallé** pour deux raisons : (1) un crash SSR dû à un peer-mismatch
+> `pinia` ↔ `@nuxtjs/i18n` 10.x, et (2) le code n'a **aucun** `defineStore` —
+> tout l'état distant passe par TanStack Query et l'état UI local par des
+> composables. Réintroduire Pinia ramènerait le bug sans bénéfice.
+> **Conséquence** : plus de dossiers `stores/` (ni transverse, ni par feature).
+> Si un vrai besoin d'état global complexe émerge, réévaluer Pinia **et**
+> mettre à jour ce document avant de l'ajouter.
 
 ### Auth & sécurité
 
@@ -182,8 +197,7 @@ kalga-frontend/
 │   ├── features/                     # 🎯 ORGANISATION PAR FEATURE
 │   │   ├── auth/
 │   │   │   ├── components/           # Spécifiques à la feature
-│   │   │   ├── composables/          # Hooks Vue
-│   │   │   ├── stores/               # State Pinia
+│   │   │   ├── composables/          # Hooks Vue (état + data fetching)
 │   │   │   ├── api.ts                # Appels API de la feature
 │   │   │   ├── types.ts              # Types TypeScript
 │   │   │   └── schemas.ts            # Schémas Zod
@@ -236,10 +250,6 @@ kalga-frontend/
 │   ├── plugins/                      # 🔌 Plugins Nuxt
 │   │   ├── sentry.client.ts
 │   │   └── pwa.client.ts
-│   │
-│   ├── stores/                       # 🗃️ Stores Pinia transverses
-│   │   ├── ui.store.ts
-│   │   └── notifications.store.ts
 │   │
 │   ├── types/                        # 🏷️ Types globaux
 │   │   ├── api.ts
@@ -297,9 +307,12 @@ kalga-frontend/
 ├── nuxt.config.ts                    # Config Nuxt
 ├── package.json
 ├── README.md
-├── tailwind.config.ts
 └── tsconfig.json                     # strict: true obligatoire
 ```
+
+> **Note Tailwind v4** : pas de `tailwind.config.ts`. La configuration et les
+> tokens design vivent dans `app/assets/css/tailwind.css` via la directive
+> `@theme inline` (nouveau modèle CSS-first de Tailwind v4).
 
 ### Description rôle de chaque dossier
 
@@ -313,30 +326,28 @@ kalga-frontend/
 #### `app/features/<feature-name>/`
 **Règle d'or** : tout ce qui concerne UNE seule feature métier vit ici.
 
-Structure standard d'une feature (les 3 sous-dossiers `components/`, `composables/`, `stores/` sont **toujours présents** pour la cohérence du scaffold, même si vides au démarrage — un `.gitkeep` les versionne) :
+Structure standard d'une feature (les 2 sous-dossiers `components/` et `composables/` sont **toujours présents** pour la cohérence du scaffold, même si vides au démarrage — un `.gitkeep` les versionne) :
 ```
 features/products/
 ├── components/           # Composants UI spécifiques à cette feature
-├── composables/          # Logique réactive (hooks Vue 3)
-├── stores/               # State Pinia (créer dès qu'on a besoin d'état persistant)
+├── composables/          # Logique réactive : état (ref/computed) + data fetching (TanStack Query)
 ├── api.ts                # Fonctions appelant l'API backend
 ├── types.ts              # Interfaces TypeScript de la feature
 └── schemas.ts            # Schémas Zod pour validation
 ```
 
-**Quand créer une feature** : dès qu'un domaine métier a >2 composants OU >1 store OU >3 endpoints API.
+**Quand créer une feature** : dès qu'un domaine métier a >2 composants OU >3 endpoints API.
 
 #### `app/composables/`
 Composables **transverses**, pas liés à une feature métier (`useApi`, `useToast`, `useTheme`).
+C'est aussi ici (ou dans `features/<x>/composables/`) que vit l'**état global UI**
+(modal, sidebar, theme) via des `ref`/`computed` partagés — pas de store dédié.
 
 #### `app/middleware/`
 Vérifications avant qu'une route soit affichée. **Auth = ici**.
 
 #### `app/pages/`
 Routing file-based de Nuxt. **Une page = un composant orchestrateur** qui appelle les composants de features. Pas de logique métier dans les pages.
-
-#### `app/stores/`
-Stores Pinia **transverses** (UI state, notifications). Pour les stores liés à une feature → dans `features/<x>/stores/`.
 
 #### `app/types/`
 - `domain.ts` : types du métier KALGA (Merchant, Product, Conversation, ...). **Source unique de vérité**.
@@ -366,8 +377,7 @@ Chaque dossier a **UN rôle** :
 | Dossier | Rôle |
 |---|---|
 | `components/ui/` | Présentation pure (pas de logique métier) |
-| `composables/` | Logique réutilisable |
-| `stores/` | État global |
+| `composables/` | Logique réutilisable + état (local et global UI) |
 | `utils/` | Fonctions pures |
 | `server/api/` | Endpoints serveur |
 | `middleware/` | Gardes de route |
@@ -403,14 +413,14 @@ pages/  ──→  features/  ──→  composables/  ──→  utils/
 |---|---|
 | Types domaine | `app/types/domain.ts` |
 | Constantes magiques | `app/utils/constants.ts` |
-| Tokens design | `tailwind.config.ts` + `assets/css/tailwind.css` |
+| Tokens design | `assets/css/tailwind.css` (`@theme inline`, Tailwind v4) |
 | Config API URL | `runtimeConfig` dans `nuxt.config.ts` |
 | Traductions | `i18n/locales/<lang>.json` |
 
 ### 5.5. Convention over Configuration
 
 On exploite les conventions Nuxt 4 :
-- Auto-import : `components/`, `composables/`, `stores/`, `utils/`
+- Auto-import : `components/`, `composables/`, `utils/`
 - File-based routing : `pages/`
 - File-based middleware : `middleware/`
 - File-based API : `server/api/`
@@ -441,7 +451,6 @@ On exploite les conventions Nuxt 4 :
 |---|---|---|
 | Composants Vue | `PascalCase.vue` | `ProductCard.vue` |
 | Composables | `useNom.ts` (camelCase) | `useProducts.ts` |
-| Stores Pinia | `nom.store.ts` | `auth.store.ts` |
 | Pages | `kebab-case.vue` | `mes-produits.vue` |
 | Routes dynamiques | `[param].vue` | `[code].vue` |
 | Utils | `camelCase.ts` | `format.ts` |
@@ -460,7 +469,7 @@ On exploite les conventions Nuxt 4 :
 | Composants dans templates | PascalCase | `<ProductCard />` |
 | Props events | kebab-case | `@product-selected` |
 | CSS classes Tailwind | utility classes | `flex items-center gap-2` |
-| Stores | `useXStore` | `useAuthStore` |
+| Composable d'état partagé | `useXxx` | `useAuth`, `useToast` |
 
 ### Commit messages
 
@@ -476,7 +485,7 @@ Exemples :
 ```
 feat(products): add variant management UI
 fix(auth): handle expired token refresh
-refactor(stores): split auth store into auth + user
+refactor(auth): split useAuth into useAuth + useSession
 test(utils): cover formatPrice edge cases
 ```
 
@@ -553,8 +562,12 @@ export function useProducts() {
 | État local d'un composant | `ref()` / `reactive()` |
 | État partagé entre 2-3 composants proches | `provide`/`inject` |
 | État du serveur (API data) | TanStack Query |
-| État global UI (modal, sidebar, theme) | Pinia store dans `app/stores/` |
-| État global d'une feature | Pinia store dans `features/<x>/stores/` |
+| État global UI (modal, sidebar, theme) | Composable partagé (`ref`/`computed` au scope module) dans `app/composables/` |
+| État global d'une feature | Composable partagé dans `features/<x>/composables/` |
+
+> Pas de Pinia (cf. déviation documentée §2). Un composable qui déclare ses
+> `ref` **hors** de la fonction (scope module) fournit un singleton réactif
+> partagé — équivalent léger d'un store pour nos besoins.
 
 **À NE PAS faire** : `localStorage` direct (sauf pour persistance theme/locale).
 
@@ -683,7 +696,6 @@ pwa: {
       "@/features/*":    ["./app/features/*"],
       "@/components/*":  ["./app/components/*"],
       "@/composables/*": ["./app/composables/*"],
-      "@/stores/*":      ["./app/stores/*"],
       "@/types/*":       ["./app/types/*"],
       "@/utils/*":       ["./app/utils/*"],
       "~/*":             ["./*"]
@@ -710,7 +722,6 @@ pwa: {
 **Ces dossiers sont auto-importés** (PAS besoin d'`import`) :
 - `app/components/**`
 - `app/composables/**`
-- `app/stores/**`
 - `app/utils/**`
 
 **Code propre attendu** :
@@ -734,18 +745,19 @@ const formatted = formatPrice(1500)
    ```
    features/<nom>/
    ├── components/
-   ├── composables/
+   ├── composables/      # data fetching (TanStack Query) + état partagé éventuel
    ├── api.ts
    ├── schemas.ts
-   ├── types.ts
-   └── (optionnel) stores/
+   └── types.ts
    ```
 3. **Si la feature a des pages** : créer routes dans `app/pages/`
 4. **Ajouter traductions** : `i18n/locales/*.json` sous la clé `<nom>.*`
 5. **Tests** : `tests/unit/features/<nom>/`
 6. **Commit** : `feat(<nom>): initial scaffolding`
 
-> Note : le dossier `stores/` reste vide au scaffolding (un `.gitkeep`). On crée le premier store Pinia quand on en a un vrai besoin (état partagé entre composants, persistance localStorage, etc.).
+> Note : l'état partagé d'une feature (s'il y en a) vit dans un composable de
+> `composables/` qui déclare ses `ref` au scope module (singleton réactif).
+> Pas de dossier `stores/` (cf. déviation Pinia §2).
 
 ### 9.2. Ajouter une page
 
@@ -884,7 +896,6 @@ Le composant est généré dans `app/components/ui/dialog/`. Ne pas modifier dir
 - [shadcn-vue Components](https://www.shadcn-vue.com/)
 - [Tailwind CSS v4 Docs](https://tailwindcss.com/docs)
 - [TanStack Query Vue](https://tanstack.com/query/latest/docs/framework/vue/overview)
-- [Pinia Stores](https://pinia.vuejs.org/)
 - [Zod Validation](https://zod.dev/)
 - [Nuxt i18n](https://i18n.nuxtjs.org/)
 - [Vite PWA Nuxt](https://vite-pwa-org.netlify.app/frameworks/nuxt.html)

@@ -43,6 +43,11 @@ export const merchantSchema = z.object({
   bot_catchphrase: z.string().nullable(),
   away_mode_enabled: z.boolean(),
   away_message: z.string().nullable(),
+  // Champs vitrine (Ma Vitrine)
+  tagline: z.string().nullable().optional(),
+  about: z.string().nullable().optional(),
+  logo_path: z.string().nullable().optional(),
+  banner_path: z.string().nullable().optional(),
   is_active: z.boolean(),
   created_at: z.string().datetime(),
 })
@@ -63,12 +68,14 @@ export const merchantCreateInputSchema = z.object({
   business_name: z.string().max(BUSINESS_NAME_MAX_LEN).optional().nullable(),
 })
 
-/** Édition profil marchand */
+/** Édition profil marchand (inclut les champs vitrine : tagline, about). */
 export const merchantProfileUpdateSchema = z.object({
   name: z.string().min(MERCHANT_NAME_MIN_LEN).max(MERCHANT_NAME_MAX_LEN).optional(),
   business_name: z.string().max(BUSINESS_NAME_MAX_LEN).nullable().optional(),
   payment_info: z.string().nullable().optional(),
   payment_methods: z.string().nullable().optional(),
+  tagline: z.string().max(120).nullable().optional(),
+  about: z.string().max(500).nullable().optional(),
 })
 
 /** Configuration localisation marchand */

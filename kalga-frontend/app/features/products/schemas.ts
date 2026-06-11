@@ -45,37 +45,45 @@ export const productSchema = z.object({
 // =============================================================================
 
 /** Form de création produit (par le marchand) */
-export const productCreateInputSchema = z
-  .object({
-    name: z
-      .string()
-      .min(PRODUCT_NAME_MIN_LEN, `Nom : ${PRODUCT_NAME_MIN_LEN} caractères minimum`)
-      .max(PRODUCT_NAME_MAX_LEN, `Nom : ${PRODUCT_NAME_MAX_LEN} caractères maximum`),
-    description: z.string().max(PRODUCT_DESCRIPTION_MAX_LEN).optional().nullable(),
-    price: z
-      .number({ message: 'Prix requis' })
-      .int('Le prix doit être un entier')
-      .min(PRICE_MIN, `Prix minimum : ${PRICE_MIN} F CFA`)
-      .max(PRICE_MAX, `Prix maximum : ${PRICE_MAX} F CFA`),
-    min_price: z
-      .number({ message: 'Prix minimum requis' })
-      .int('Le prix minimum doit être un entier')
-      .min(PRICE_MIN)
-      .max(PRICE_MAX),
-    image_path: z.string().optional().nullable(),
-    group_id: z.string().uuid().optional().nullable(),
-    variant_name: z.string().max(VARIANT_NAME_MAX_LEN).optional().nullable(),
-    stock_quantity: z.number().int().min(0).optional().nullable(),
-    low_stock_threshold: z.number().int().min(0).optional().nullable(),
-    out_of_stock_mode: z.enum(['waitlist', 'suspend']).default('waitlist'),
-  })
-  .refine((data) => data.min_price <= data.price, {
+/**
+ * Champs bruts d'un produit (objet Zod sans raffinement), réutilisé par les
+ * schémas create (avec garde prix) et update (`.partial()`). On ne peut pas
+ * appeler `.partial()` sur un schéma déjà raffiné (ZodEffects), d'où la base.
+ */
+const productInputBaseSchema = z.object({
+  name: z
+    .string()
+    .min(PRODUCT_NAME_MIN_LEN, `Nom : ${PRODUCT_NAME_MIN_LEN} caractères minimum`)
+    .max(PRODUCT_NAME_MAX_LEN, `Nom : ${PRODUCT_NAME_MAX_LEN} caractères maximum`),
+  description: z.string().max(PRODUCT_DESCRIPTION_MAX_LEN).optional().nullable(),
+  price: z
+    .number({ message: 'Prix requis' })
+    .int('Le prix doit être un entier')
+    .min(PRICE_MIN, `Prix minimum : ${PRICE_MIN} F CFA`)
+    .max(PRICE_MAX, `Prix maximum : ${PRICE_MAX} F CFA`),
+  min_price: z
+    .number({ message: 'Prix minimum requis' })
+    .int('Le prix minimum doit être un entier')
+    .min(PRICE_MIN)
+    .max(PRICE_MAX),
+  image_path: z.string().optional().nullable(),
+  group_id: z.string().uuid().optional().nullable(),
+  variant_name: z.string().max(VARIANT_NAME_MAX_LEN).optional().nullable(),
+  stock_quantity: z.number().int().min(0).optional().nullable(),
+  low_stock_threshold: z.number().int().min(0).optional().nullable(),
+  out_of_stock_mode: z.enum(['waitlist', 'suspend']).default('waitlist'),
+})
+
+export const productCreateInputSchema = productInputBaseSchema.refine(
+  (data) => data.min_price <= data.price,
+  {
     path: ['min_price'],
     message: 'Le prix minimum doit être inférieur ou égal au prix de vente',
-  })
+  },
+)
 
-/** Form d'édition produit — tous les champs optionnels sauf validation prix */
-export const productUpdateInputSchema = productCreateInputSchema.partial()
+// (Pas de schéma de mise à jour produit : KALGA n'édite pas un produit —
+//  on supprime et on recrée. Cf. guide utilisateur.)
 
 // =============================================================================
 // PRODUIT VITRINE PUBLIQUE (sans min_price !)

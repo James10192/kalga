@@ -17,6 +17,14 @@ export default defineNuxtConfig({
   future: { compatibilityVersion: 4 },
   devtools: { enabled: true },
 
+  // appManifest désactivé : le module virtuel #app-manifest n'est pas résolu en
+  // dev sur ce chemin Windows/Unicode (« Failed to resolve import #app-manifest »
+  // + GET /_nuxt/builds/meta/dev.json 404). On n'en dépend pas : le gating d'auth
+  // passe par le middleware global auth.global.ts, pas par routeRules.appMiddleware.
+  experimental: {
+    appManifest: false,
+  },
+
   // -------------------------------------------------------------------------
   // Modules (section 2 du doc)
   // -------------------------------------------------------------------------
@@ -40,6 +48,11 @@ export default defineNuxtConfig({
   // -------------------------------------------------------------------------
   vite: {
     plugins: [tailwindcss()],
+    // Pré-bundle qrcode.vue (page /connecting) pour éviter une découverte de
+    // dépendance au runtime → rechargement de page qui réinitialise le poll QR.
+    optimizeDeps: {
+      include: ['qrcode.vue'],
+    },
   },
 
   // -------------------------------------------------------------------------
@@ -47,14 +60,26 @@ export default defineNuxtConfig({
   // -------------------------------------------------------------------------
   typescript: {
     strict: true,
-    // DETTE TRACÉE : typeCheck désactivé au runtime car le tsconfig.json
-    // racine n'utilise pas encore le pattern project references de Nuxt 4
-    // (.nuxt/tsconfig.{app,server,shared,node}.json séparés), donc vue-tsc
-    // ne voit pas les auto-imports server-side comme `getUserSession`.
-    // → ~640 faux positifs. À corriger dans une PR dédiée (restructurer
-    //   tsconfig.json avec `references: [...]` pointant sur les 4 sous-configs).
-    // Le strict + types restent actifs dans l'IDE via tsconfig.json.
+    // typeCheck reste à false EN DEV/BUILD : l'activer brancherait
+    // vite-plugin-checker, incompatible avec le setup project-references
+    // (« tsconfig.shared.json expected to have at least one output » → crash
+    // de `nuxt dev`). Le typecheck est donc enforced via la CLI `nuxt typecheck`
+    // (script `pnpm typecheck`, lancé en CI) — qui, elle, fonctionne avec les
+    // project references et ne voit plus les ~640 faux positifs server-side.
     typeCheck: false,
+    // Options strict supplémentaires injectées par Nuxt dans les 4 sous-configs
+    // générées (.nuxt/tsconfig.{app,server,shared,node}.json). Le tsconfig.json
+    // racine ne fait que pointer ces sous-configs via `references`, ce qui permet
+    // à vue-tsc (CLI) de voir les auto-imports server-side (getUserSession…).
+    tsConfig: {
+      compilerOptions: {
+        noImplicitOverride: true,
+        noFallthroughCasesInSwitch: true,
+        noImplicitReturns: true,
+        forceConsistentCasingInFileNames: true,
+        verbatimModuleSyntax: true,
+      },
+    },
   },
 
   // -------------------------------------------------------------------------
@@ -64,10 +89,8 @@ export default defineNuxtConfig({
   imports: {
     dirs: [
       'composables/**',
-      'stores/**',
       'utils/**',
       'features/*/composables/**',
-      'features/*/stores/**',
     ],
   },
   // Composants auto-importés UNIQUEMENT depuis app/components/{layout,shared}/.
@@ -118,14 +141,13 @@ export default defineNuxtConfig({
     '/produit/**': { swr: 3600 },
     '/commander/**': { ssr: true }, // formulaire de commande — pas de cache
 
-    // Zone marchand — SSR + auth
-    '/dashboard/**': { ssr: true, appMiddleware: ['merchant'] },
+    // Zone marchand — SSR. L'auth est gardée par le middleware global
+    // `auth.global.ts` (par chemin), pas par routeRules.appMiddleware (qui
+    // dépend de l'app manifest, non résolu en dev sur ce chemin Unicode).
+    '/dashboard/**': { ssr: true },
 
-    // Zone admin — SSR + auth + role check
-    '/admin/**': { ssr: true, appMiddleware: ['merchant', 'admin'] },
-    // Exception : la page de login admin est PUBLIQUE (pas d'auth requise).
-    // Déclarée après `/admin/**` pour overrider l'appMiddleware.
-    '/admin/login': { ssr: true, appMiddleware: [] },
+    // Zone admin — SSR. Auth + rôle gardés par le middleware global.
+    '/admin/**': { ssr: true },
 
     // Auth pages publiques
     '/login': { ssr: true },
@@ -152,7 +174,6 @@ export default defineNuxtConfig({
     locales: [
       { code: 'fr', language: 'fr-FR', name: 'Français', file: 'fr.json' },
       { code: 'en', language: 'en-US', name: 'English', file: 'en.json' },
-      { code: 'ar', language: 'ar-MA', name: 'العربية', file: 'ar.json', dir: 'rtl' },
     ],
     detectBrowserLanguage: {
       useCookie: true,
@@ -160,7 +181,6 @@ export default defineNuxtConfig({
       redirectOn: 'root',
       fallbackLocale: 'fr',
     },
-    bundle: { optimizeTranslationDirective: false },
   },
 
   // -------------------------------------------------------------------------
@@ -236,15 +256,14 @@ export default defineNuxtConfig({
       ],
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
-        // Google Fonts réelles (port depuis dashboard/static/style.css:7) :
-        // - Bricolage Grotesque : titres / display
-        // - Geist Sans          : corps / UI
-        // - Geist Mono          : code / monospace (codes produits, IDs)
+        // Google Fonts « Luxe africain » (cf. tailwind.css --font-*) :
+        // - Playfair Display : titres / display (serif)
+        // - Inter            : corps / UI (sans-serif)
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
         {
           rel: 'stylesheet',
-          href: 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500;600&display=swap',
+          href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap',
         },
       ],
     },

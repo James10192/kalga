@@ -234,17 +234,98 @@ class ChatService:
                 has_negotiation_context=bool(negotiation_context)
             )
 
-        bot_response, price_offer, deal_accepted, new_status, send_location, use_voice = await generate_response(
-            client_message=message.message,
-            product=product,
-            conversation_history=history,
-            current_offer=conversation.get('current_offer'),
-            conversation_status=current_status,
-            negotiation_context=negotiation_context,
-            merchant_data=merchant,
-            tracer=tracer,
-            client_phone=message.client_phone
-        )
+        # === MOTEUR V2 (drapeau DIALOGUE_ENGINE) — spec refonte 2026-06-11 ===
+        # v2 remplace UNIQUEMENT le cerveau+voix ; tout l'aval (persistance,
+        # notifications, localisation, goodbye, relances) reste le chemin commun.
+        # Défensif : v2 → None ⇒ v1 reprend la main, rien ne casse.
+        engine_v2 = None
+        from ..core.config import settings as _settings
+        if _settings.dialogue_engine == "v2":
+            from .dialogue.engine import respond as dialogue_respond
+
+            # Geste fidélité (logique v1 portée) : client connu → plancher abaissé
+            v2_floor = None
+            if (negotiation_context and negotiation_context.get('loyalty_discount', 0) > 0
+                    and negotiation_context.get('is_returning')):
+                base_min = product.get('effective_min_price') or product['min_price']
+                price_range = product['price'] - base_min
+                v2_floor = max(
+                    base_min - price_range * (negotiation_context['loyalty_discount'] / 100),
+                    base_min * 0.95,
+                )
+                logger.info(f"Client fidèle (v2): plancher ajusté à {v2_floor:,.0f} F")
+
+            # Mémoire long-terme : les faits connus du client personnalisent la voix
+            v2_memory = None
+            try:
+                facts = await self.client_history.get_memory_facts(
+                    merchant['id'], message.client_phone) or []
+                fact_lines = [f["fact"] for f in facts[:3] if f.get("fact")]
+                if fact_lines:
+                    v2_memory = "Ce qu'on sait du client : " + " ; ".join(fact_lines)
+            except Exception as e:
+                logger.debug(f"LTM v2 indisponible (non bloquant): {e}")
+
+            engine_v2 = await dialogue_respond(
+                client_message=message.message,
+                conversation=conversation,
+                product=product,
+                merchant=merchant,
+                history=history,
+                floor_override=v2_floor,
+                memory_extra=v2_memory,
+            )
+            if tracer:
+                tracer.event("CHAT", "dialogue_v2",
+                             used=engine_v2 is not None,
+                             facts=engine_v2.facts if engine_v2 else None)
+
+        images_v2 = None
+        human_takeover_v2 = False
+        if engine_v2 is not None:
+            bot_response = engine_v2.message
+            price_offer = engine_v2.new_offer
+            new_status = engine_v2.new_status
+            send_location = engine_v2.send_location
+            # Le client a parlé en vocal → on lui répond en vocal (TTS aval)
+            use_voice = "[🎤 Vocal transcrit" in (message.message or "")
+            deal_accepted = new_status in ("agreed", "pending_delivery", "pending_pickup")
+            images_v2 = engine_v2.images_to_send
+            human_takeover_v2 = engine_v2.human_takeover
+
+            # Prise de main du marchand — notifications explicites du moteur v2.
+            # (Le passage en pending_* est déjà couvert par _handle_notifications ;
+            # ici : l'adresse collectée = vente bouclée, le marchand prend le relais.)
+            if engine_v2.notify_reason == "delivery_address":
+                await self.notifications.notify_sale(
+                    merchant_phone=message.merchant_phone,
+                    product_name=product['name'],
+                    price=engine_v2.new_offer or conversation.get('current_offer') or product['price'],
+                    client_phone=message.client_phone,
+                    product_code=product.get('code', ''),
+                    delivery_type="delivery",
+                    client_name=message.client_name or "",
+                    delivery_address=engine_v2.delivery_address or "",
+                )
+            elif engine_v2.notify_reason == "human_request":
+                await self.notifications.send_message(
+                    merchant_phone=message.merchant_phone,
+                    to=message.merchant_phone,
+                    message=(f"\U0001f64b *Le client {message.client_phone} demande à te parler "
+                             f"directement* ({product['name']}). Prends le relais !"),
+                )
+        else:
+            bot_response, price_offer, deal_accepted, new_status, send_location, use_voice = await generate_response(
+                client_message=message.message,
+                product=product,
+                conversation_history=history,
+                current_offer=conversation.get('current_offer'),
+                conversation_status=current_status,
+                negotiation_context=negotiation_context,
+                merchant_data=merchant,
+                tracer=tracer,
+                client_phone=message.client_phone
+            )
 
         logger.info(f"Réponse IA: {bot_response[:80] if bot_response else 'NONE'}... | Status: {new_status} | Location: {send_location}")
         if tracer:
@@ -254,9 +335,9 @@ class ChatService:
                 response_len=len(bot_response) if bot_response else 0
             )
 
-        # 6.1 Dispatcher le tool_call si DeepSeek a choisi une action
-        images_to_send = None
-        if bot_response and is_tool_call(bot_response):
+        # 6.1 Dispatcher le tool_call si DeepSeek a choisi une action (chemin v1 uniquement)
+        images_to_send = images_v2
+        if engine_v2 is None and bot_response and is_tool_call(bot_response):
             tool = parse_tool_call(bot_response)
             if tool:
                 bot_response, new_status, send_location, images_to_send = await self._execute_tool(
@@ -347,7 +428,7 @@ class ChatService:
 
         # Construire les données de localisation à passer au bridge
         merchant_location = None
-        human_takeover = False
+        human_takeover = human_takeover_v2
         if send_location:
             latitude = merchant.get('latitude')
             longitude = merchant.get('longitude')
@@ -509,6 +590,17 @@ class ChatService:
                 merchant['id'],
                 client_phone
             )
+            if not conversation:
+                # Client qui revient après une clôture récente : ré-ouvrir son
+                # contexte (photos, SAV, nouvelle négo) au lieu du silence.
+                conversation = await self.conversations.get_recent_closed(
+                    merchant['id'], client_phone
+                )
+                if conversation:
+                    logger.info(
+                        f"Conversation {conversation['id']} ré-ouverte "
+                        f"(retour client après clôture)"
+                    )
             if conversation:
                 product = await self.products.get_by_id(conversation['product_id'])
 

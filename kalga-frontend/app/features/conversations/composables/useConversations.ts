@@ -38,15 +38,6 @@ export function useConversationsList(
   })
 }
 
-export function useConversation(id: MaybeRef<number>) {
-  return useQuery({
-    queryKey: computed(() => conversationsKeys.detail(unref(id))),
-    queryFn: () => conversationsApi.getById(unref(id)),
-    staleTime: CACHE_STALE_TIME_DEFAULT,
-    enabled: computed(() => unref(id) > 0),
-  })
-}
-
 /**
  * Messages d'une conversation.
  * Refetch plus fréquent (30 s) pour donner un effet "presque temps réel"
@@ -81,6 +72,28 @@ export function useSendMerchantReply() {
       void queryClient.invalidateQueries({
         queryKey: ['conversations', 'list'],
       })
+    },
+  })
+}
+
+/** Mutation : accepte l'offre / marque la vente faite. Invalide les listes. */
+export function useAcceptConversation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => conversationsApi.accept(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: conversationsKeys.all })
+    },
+  })
+}
+
+/** Mutation : rejette l'offre du client. Invalide les listes. */
+export function useRejectConversation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => conversationsApi.reject(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: conversationsKeys.all })
     },
   })
 }

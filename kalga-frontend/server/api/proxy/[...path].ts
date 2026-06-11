@@ -50,8 +50,12 @@ export default defineEventHandler(async (event) => {
   const query = getQuery(event) as Record<string, string | number | boolean | undefined>
   const body = method !== 'GET' && method !== 'DELETE' ? await readRawBody(event) : undefined
 
+  // La plupart des routers backend sont sous /api/*, SAUF le router stock,
+  // monté sans préfixe (/stock/...). On route donc /api/proxy/stock/* → /stock/*.
+  const backendPath = path === 'stock' || path.startsWith('stock/') ? `/${path}` : `/api/${path}`
+
   try {
-    return await callBackend(`/api/${path}`, {
+    return await callBackend(backendPath, {
       method,
       body: body ? JSON.parse(body) : undefined,
       query,

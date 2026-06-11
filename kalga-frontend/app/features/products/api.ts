@@ -9,7 +9,29 @@
  */
 
 import type { Paginated } from '@/types/api'
-import type { Product, ProductCreateInput, ProductUpdateInput } from './types'
+import type { Product, ProductCreateInput } from './types'
+
+/** Statut de stock d'un produit (GET /products/{code}/stock). */
+export interface ProductStock {
+  product_code: string
+  product_name: string
+  quantity: number
+  is_low: boolean
+  is_out_of_stock: boolean
+  is_unlimited: boolean
+}
+
+/** Corps de mise à jour du stock (PUT /products/{code}/stock). */
+export interface StockUpdateInput {
+  quantity: number
+  low_stock_threshold?: number | null
+}
+
+/** Code produit sans le « # » de tête (le backend accepte les deux ; on évite
+ *  d'encoder « # » à travers le proxy). */
+function bareCode(code: string): string {
+  return code.replace(/^#/, '')
+}
 
 /** Construit l'URL relative depuis le proxy public. */
 function proxyUrl(path: string): string {
@@ -22,40 +44,49 @@ function proxyUrl(path: string): string {
 }
 
 export const productsApi = {
-  /** Liste les produits du marchand courant (paginé). */
+  /**
+   * Liste les produits du marchand courant (paginé).
+   * Le backend renvoie { products, total, page, limit, pages } — on le mappe
+   * vers le contrat `Paginated<Product>` ({ items, per_page, total_pages }).
+   */
   list: (merchantId: number, page = 1): Promise<Paginated<Product>> =>
-    $fetch<Paginated<Product>>(proxyUrl(`/merchants/${merchantId}/products`), {
+    $fetch<{
+      products: Product[]
+      total: number
+      page: number
+      limit: number
+      pages: number
+    }>(proxyUrl(`/merchants/${merchantId}/products`), {
       query: { page },
-    }),
+    }).then((r) => ({
+      items: r.products,
+      total: r.total,
+      page: r.page,
+      per_page: r.limit,
+      total_pages: r.pages,
+    })),
 
-  /** Détail d'un produit par id. */
-  getById: (id: number): Promise<Product> => $fetch<Product>(proxyUrl(`/products/${id}`)),
-
-  /** Détail d'un produit par code (#K001). */
-  getByCode: (code: string): Promise<Product> =>
-    $fetch<Product>(proxyUrl(`/products/${code}`)),
-
-  /** Liste des variantes (même group_id) d'un produit. */
-  listVariants: (productId: number): Promise<Product[]> =>
-    $fetch<Product[]>(proxyUrl(`/products/${productId}/variants`)),
-
-  /** Crée un nouveau produit. */
+  /**
+   * Crée un produit. Backend : POST /api/products/ avec merchant_id dans le
+   * corps, réponse { product }. (Il n'y a PAS de modification de produit côté
+   * KALGA : on supprime et on recrée — cf. guide utilisateur.)
+   */
   create: (merchantId: number, data: ProductCreateInput): Promise<Product> =>
-    $fetch<Product>(proxyUrl(`/merchants/${merchantId}/products`), {
+    $fetch<{ product: Product }>(proxyUrl('/products/'), {
       method: 'POST',
-      body: data,
+      body: { ...data, merchant_id: merchantId },
+    }).then((r) => r.product),
+
+  /** Supprime (désactive) un produit. Backend : DELETE /{identifier} (accepte l'id). */
+  remove: (id: number): Promise<{ success: boolean }> =>
+    $fetch<{ success: boolean }>(proxyUrl(`/products/${id}`), {
+      method: 'DELETE',
     }),
 
-  /** Met à jour un produit existant. */
-  update: (id: number, data: ProductUpdateInput): Promise<Product> =>
-    $fetch<Product>(proxyUrl(`/products/${id}`), {
+  /** Met à jour le stock d'un produit (par code). */
+  updateStock: (code: string, data: StockUpdateInput): Promise<ProductStock> =>
+    $fetch<ProductStock>(proxyUrl(`/products/${bareCode(code)}/stock`), {
       method: 'PUT',
       body: data,
-    }),
-
-  /** Supprime un produit. */
-  remove: (id: number): Promise<{ deleted: boolean }> =>
-    $fetch<{ deleted: boolean }>(proxyUrl(`/products/${id}`), {
-      method: 'DELETE',
     }),
 }

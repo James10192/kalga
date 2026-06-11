@@ -8,7 +8,10 @@ import { Loader2 } from 'lucide-vue-next'
 
 import StorefrontHero from '@/features/storefront/components/StorefrontHero.vue'
 import StorefrontProductGrid from '@/features/storefront/components/StorefrontProductGrid.vue'
+import { useStorefrontContext } from '@/features/storefront/composables/useStorefrontContext'
 import { useStorefrontMerchant } from '@/features/storefront/composables/useStorefront'
+
+definePageMeta({ layout: 'storefront' })
 
 const { t } = useI18n()
 const route = useRoute()
@@ -18,10 +21,17 @@ const phone = computed(() => {
   return Array.isArray(raw) ? (raw[0] ?? '') : (raw ?? '')
 })
 
+// Le endpoint renvoie { merchant, products }.
 const { data: storefront, isLoading, isError } = useStorefrontMerchant(phone)
 
+// Renseigne le header (branding marchand) dès que la boutique est chargée.
+const storefrontContext = useStorefrontContext()
+watchEffect(() => {
+  if (storefront.value?.merchant) storefrontContext.value = storefront.value.merchant
+})
+
 useHead({
-  title: () => storefront.value?.business_name ?? t('storefront.shopFallback'),
+  title: () => storefront.value?.merchant.business_name ?? t('storefront.shopFallback'),
 })
 </script>
 
@@ -50,7 +60,7 @@ useHead({
     </div>
 
     <template v-else>
-      <StorefrontHero :merchant="storefront" />
+      <StorefrontHero :merchant="storefront.merchant" />
 
       <main class="mx-auto max-w-7xl px-4 py-12 sm:px-6">
         <h2 class="mb-6 font-display text-2xl font-semibold text-primary">

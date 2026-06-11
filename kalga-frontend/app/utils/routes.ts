@@ -19,10 +19,13 @@ export const ROUTES = {
   storefront: {
     /** Vitrine d'un marchand : /boutique/:phone */
     merchant: (phone: string): string => `/boutique/${phone}`,
+    // Le code produit porte un « # » (#K042). Dans une URL, « # » serait
+    // interprété comme un fragment d'ancre → on le retire (le backend accepte
+    // le code avec ou sans #).
     /** Détail produit : /produit/:code */
-    product: (code: string): string => `/produit/${code}`,
+    product: (code: string): string => `/produit/${code.replace(/^#/, '')}`,
     /** Formulaire de commande : /commander/:code */
-    order: (code: string): string => `/commander/${code}`,
+    order: (code: string): string => `/commander/${code.replace(/^#/, '')}`,
   },
 
   // === ZONE MARCHAND ===
@@ -30,10 +33,10 @@ export const ROUTES = {
     home: '/dashboard',
     products: '/dashboard/produits',
     productNew: '/dashboard/produits/nouveau',
-    productDetail: (id: number): string => `/dashboard/produits/${id}`,
     conversations: '/dashboard/conversations',
     conversationDetail: (id: number): string => `/dashboard/conversations/${id}`,
     stats: '/dashboard/stats',
+    stock: '/dashboard/stock',
     settings: '/dashboard/parametres',
   },
 

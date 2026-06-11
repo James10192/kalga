@@ -27,6 +27,7 @@ export const MERCHANT_NAV: ReadonlyArray<NavItem> = [
   { i18nKey: 'nav.products', to: ROUTES.dashboard.products, icon: 'Package' },
   { i18nKey: 'nav.conversations', to: ROUTES.dashboard.conversations, icon: 'MessageSquare' },
   { i18nKey: 'nav.stats', to: ROUTES.dashboard.stats, icon: 'BarChart3' },
+  { i18nKey: 'nav.stock', to: ROUTES.dashboard.stock, icon: 'Boxes' },
   { i18nKey: 'nav.settings', to: ROUTES.dashboard.settings, icon: 'Settings' },
 ] as const
 
@@ -47,4 +48,7 @@ export const ADMIN_NAV: ReadonlyArray<NavItem> = [
 
 export const PUBLIC_NAV: ReadonlyArray<NavItem> = [
   { i18nKey: 'nav.home', to: ROUTES.home, icon: 'Home' },
+  { i18nKey: 'nav.catalog', to: '/#trending', icon: 'LayoutGrid' },
+  { i18nKey: 'nav.merchant', to: ROUTES.login, icon: 'Store' },
+  { i18nKey: 'nav.admin', to: ROUTES.admin.login, icon: 'ShieldCheck' },
 ] as const
