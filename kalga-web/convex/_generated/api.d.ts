@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
 import type * as conversations from "../conversations.js";
 import type * as dashboard from "../dashboard.js";
@@ -22,6 +23,7 @@ import type * as merchants from "../merchants.js";
 import type * as products from "../products.js";
 import type * as seed from "../seed.js";
 import type * as settings from "../settings.js";
+import type * as storefront from "../storefront.js";
 
 import type {
   ApiFromModules,
@@ -30,6 +32,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  admin: typeof admin;
   auth: typeof auth;
   conversations: typeof conversations;
   dashboard: typeof dashboard;
@@ -44,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   products: typeof products;
   seed: typeof seed;
   settings: typeof settings;
+  storefront: typeof storefront;
 }>;
 
 /**

@@ -27,6 +27,12 @@ function useActiveTab(): TabKey {
 
 function AppLayout() {
   const activeTab = useActiveTab()
+  const matches = useMatches()
+  const path = matches[matches.length - 1]?.pathname ?? "/app"
+  // L'admin (008) a son propre layout dense (header admin, PAS la bottombar
+  // liquid-glass marchand). On laisse donc /app/admin/* rendre son layout sans
+  // l'AppShell mobile.
+  if (path.startsWith("/app/admin")) return <Outlet />
   return (
     <AppShell activeTab={activeTab}>
       <Outlet />
