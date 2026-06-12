@@ -3,8 +3,11 @@ Injection de dépendances FastAPI
 Fournit les factories pour les repositories et services
 """
 from functools import lru_cache
-from typing import Generator
+from typing import Generator, Optional
 
+from fastapi import Header, HTTPException
+
+from .core.config import settings
 from .database.repositories import (
     MerchantRepository,
     ProductRepository,
@@ -12,6 +15,24 @@ from .database.repositories import (
 )
 from .services.notification_service import NotificationService
 from .services.chat_service import ChatService
+
+
+# === Sécurité interne (verrou bridge <-> API) ===
+
+async def verify_internal_key(
+    x_internal_key: Optional[str] = Header(default=None, alias="X-Internal-Key")
+) -> None:
+    """
+    Vérifie le header `X-Internal-Key` sur les endpoints d'ingestion appelés par
+    le bridge WhatsApp (`/api/chat/incoming`, `/api/chat/incoming-media`).
+
+    Parité dev avec le bridge Node : si `INTERNAL_API_KEY` n'est pas configurée,
+    on laisse passer (mode dev). En prod, la clé DOIT être posée des deux côtés.
+    """
+    if not settings.internal_api_key:
+        return  # mode dev : clé non configurée -> pas de protection
+    if x_internal_key != settings.internal_api_key:
+        raise HTTPException(status_code=401, detail="Invalid or missing X-Internal-Key")
 
 
 # === Repositories ===

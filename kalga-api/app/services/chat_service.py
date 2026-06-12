@@ -162,8 +162,8 @@ class ChatService:
                             conversation_id=conversation['id'],
                             client_phone=message.client_phone
                         )
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.warning(f"Erreur log_event out_of_stock_inquiry: {e}")
                     return BotResponse(
                         message=bot_message,
                         conversation_id=conversation['id'],

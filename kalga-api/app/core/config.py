@@ -38,6 +38,15 @@ class Settings(BaseSettings):
     whatsapp_request_timeout: int = 10
     internal_api_key: str = ""
 
+    # === Convex (source de vérité unique — décision D3) ===
+    # URL du déploiement Convex (.convex.cloud, PAS .convex.site). Le backend
+    # Python appelle les fonctions internes server-to-server via le client convex-py.
+    convex_url: str = ""
+    # Clé de déploiement (deploy/admin key du dashboard Convex). Optionnelle :
+    # requise uniquement si on appelle des internalQuery/internalMutation
+    # (set_admin_auth). Ne JAMAIS committer — env var seulement.
+    convex_admin_key: Optional[str] = None
+
     # === Storefront ===
     storefront_base_url: str = "http://localhost:8001"
 
@@ -134,6 +143,12 @@ def validate_settings() -> list[str]:
         warnings.append(
             "INTERNAL_API_KEY non configurée! "
             "Le bridge WhatsApp ne sera pas protégé."
+        )
+
+    if not settings.convex_url:
+        warnings.append(
+            "CONVEX_URL non configurée! "
+            "Le backend ne pourra pas lire/écrire dans Convex (source de vérité D3)."
         )
 
     if settings.environment == "production" and settings.debug:

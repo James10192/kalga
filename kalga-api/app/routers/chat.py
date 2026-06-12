@@ -15,6 +15,7 @@ from ..database.repositories.client_history_repo import get_client_history_repos
 from ..models.schemas import IncomingMessage, BotResponse, DebugIncomingMessage, DebugBotResponse, MerchantReply
 from ..services.chat_service import ChatService, get_chat_service
 from ..services.ai.debug_tracer import DebugTracer
+from ..dependencies import verify_internal_key
 from ..rate_limiter import limiter
 import logging
 
@@ -31,12 +32,14 @@ MAX_PAGE_SIZE = 100
 async def handle_incoming_message(
     request: Request,
     message: IncomingMessage,
-    chat_service: ChatService = Depends(get_chat_service)
+    chat_service: ChatService = Depends(get_chat_service),
+    _: None = Depends(verify_internal_key),
 ):
     """
     Traite un message entrant depuis WhatsApp.
     Délègue au ChatService pour l'orchestration.
 
+    Sécurité: exige le header `X-Internal-Key` (verrou bridge <-> API).
     Rate limit: 30 requêtes par minute par IP
     """
     return await chat_service.handle_incoming_message(message)
@@ -52,6 +55,7 @@ async def handle_incoming_media(
     media_type: str = Form(...),
     file: UploadFile = File(...),
     chat_service: ChatService = Depends(get_chat_service),
+    _: None = Depends(verify_internal_key),
 ):
     """
     Traite un message média (note vocale ou image) depuis WhatsApp.

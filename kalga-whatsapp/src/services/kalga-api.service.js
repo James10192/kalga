@@ -11,7 +11,11 @@ class KalgaApiService {
         this.client = axios.create({
             baseURL: config.kalgaApiUrl,
             timeout: config.apiTimeout,
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                // Verrou interne API <-> bridge : l'API rejette /incoming sans cette clé.
+                ...(config.internalApiKey ? { 'X-Internal-Key': config.internalApiKey } : {}),
+            },
         });
     }
 
@@ -102,7 +106,11 @@ class KalgaApiService {
             });
 
             const response = await this.client.post('/api/chat/incoming-media', form, {
-                headers: form.getHeaders(),
+                headers: {
+                    ...form.getHeaders(),
+                    // FormData remplace les headers par défaut : réinjecter le verrou interne.
+                    ...(config.internalApiKey ? { 'X-Internal-Key': config.internalApiKey } : {}),
+                },
                 timeout: 60000, // 60s — transcription peut prendre du temps
             });
 

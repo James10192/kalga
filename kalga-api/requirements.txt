@@ -9,8 +9,8 @@ slowapi==0.1.9
 PyJWT==2.8.0
 email-validator==2.1.0
 bcrypt==4.2.0
-bcrypt==4.2.0
 python-multipart>=0.0.9
+convex>=0.7.0
 faster-whisper>=1.0.0
 transformers>=4.40.0
 torch>=2.0.0
