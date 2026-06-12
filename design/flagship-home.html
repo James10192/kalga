@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KALGA — Accueil marchand (écran phare)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['"Bricolage Grotesque"', 'system-ui', 'sans-serif'],
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            // accent unique
+            primary: { DEFAULT: '#16A34A', deep: '#15803D', tint: '#EAF6EE' },
+            // neutres chauds
+            page: '#FBFAF7',
+            surface: '#FFFFFF',
+            line: '#ECEAE3',
+            'line-strong': '#DEDBD2',
+            ink: { DEFAULT: '#1C1A17', muted: '#6B675F', faint: '#9C988E' },
+            // sémantiques mats
+            nego: { DEFAULT: '#B45309', tint: '#FAF1E4' },
+            livrer: { DEFAULT: '#1D4ED8', tint: '#E9EEFC' },
+            danger: { DEFAULT: '#B91C1C', tint: '#FBEAEA' },
+          },
+          boxShadow: {
+            soft: '0 1px 2px rgba(28,26,23,.05)',
+            card: '0 1px 3px rgba(28,26,23,.06), 0 1px 2px rgba(28,26,23,.04)',
+            tab: '0 -1px 0 #ECEAE3',
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    body { background: #F1EFE9; }
+    .phone { width: 393px; }
+    .tabular { font-variant-numeric: tabular-nums; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="font-sans text-ink antialiased min-h-screen flex flex-col items-center py-10 gap-4">
+
+  <p class="text-[13px] text-ink-faint">KALGA · écran phare · Accueil marchand (mobile)</p>
+
+  <!-- device -->
+  <div class="phone rounded-[34px] bg-page shadow-[0_30px_80px_-20px_rgba(28,26,23,.35)] ring-1 ring-black/5 overflow-hidden flex flex-col" style="height:820px">
+
+    <!-- status bar -->
+    <div class="px-6 pt-3 pb-1 flex items-center justify-between text-[12px] text-ink-muted tabular">
+      <span>9:41</span>
+      <div class="flex items-center gap-1.5">
+        <i data-lucide="signal" class="w-3.5 h-3.5"></i>
+        <i data-lucide="wifi" class="w-3.5 h-3.5"></i>
+        <i data-lucide="battery-full" class="w-4 h-4"></i>
+      </div>
+    </div>
+
+    <!-- scroll area -->
+    <div class="flex-1 overflow-y-auto no-scrollbar">
+
+      <!-- header -->
+      <header class="px-5 pt-3 pb-2 flex items-center justify-between">
+        <div>
+          <p class="text-[13px] text-ink-muted">Bonjour,</p>
+          <h1 class="font-display font-bold text-[22px] leading-tight tracking-tight">Boutique Aminata</h1>
+        </div>
+        <div class="flex items-center gap-2">
+          <button class="relative w-11 h-11 grid place-items-center rounded-full bg-surface border border-line shadow-soft">
+            <i data-lucide="search" class="w-5 h-5 text-ink-muted"></i>
+          </button>
+          <button class="w-11 h-11 grid place-items-center rounded-full bg-primary-tint border border-primary/20">
+            <span class="font-display font-bold text-[15px] text-primary-deep">BA</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- money hero -->
+      <section class="px-5 pt-2">
+        <div class="rounded-2xl bg-surface border border-line shadow-card p-5">
+          <div class="flex items-center justify-between">
+            <p class="text-[13px] text-ink-muted font-medium">Encaissé aujourd'hui</p>
+            <span class="inline-flex items-center gap-1.5 text-[12px] font-medium text-primary-deep bg-primary-tint px-2 py-1 rounded-full">
+              <i data-lucide="circle-check-big" class="w-3.5 h-3.5"></i> WhatsApp connecté
+            </span>
+          </div>
+          <div class="mt-2 flex items-end gap-2">
+            <span class="font-display font-extrabold text-[38px] leading-none tracking-tight tabular">45 000</span>
+            <span class="font-display font-semibold text-[18px] text-ink-muted mb-1">FCFA</span>
+          </div>
+          <div class="mt-3 flex items-center gap-3 text-[13px]">
+            <span class="inline-flex items-center gap-1 text-primary-deep font-medium">
+              <i data-lucide="trending-up" class="w-4 h-4"></i> +12% vs hier
+            </span>
+            <span class="text-ink-faint">·</span>
+            <span class="text-ink-muted">6 ventes</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- stat pills -->
+      <section class="px-5 pt-3">
+        <div class="grid grid-cols-3 gap-2.5">
+          <button class="rounded-xl bg-surface border border-line shadow-soft p-3 text-left">
+            <span class="block w-2 h-2 rounded-full bg-nego mb-2"></span>
+            <span class="font-display font-bold text-[18px] tabular">7</span>
+            <span class="block text-[12px] text-ink-muted leading-tight">en négo</span>
+          </button>
+          <button class="rounded-xl bg-surface border border-line shadow-soft p-3 text-left">
+            <span class="block w-2 h-2 rounded-full bg-livrer mb-2"></span>
+            <span class="font-display font-bold text-[18px] tabular">3</span>
+            <span class="block text-[12px] text-ink-muted leading-tight">à livrer</span>
+          </button>
+          <button class="rounded-xl bg-surface border border-line shadow-soft p-3 text-left">
+            <span class="block w-2 h-2 rounded-full bg-danger mb-2"></span>
+            <span class="font-display font-bold text-[18px] tabular">2</span>
+            <span class="block text-[12px] text-ink-muted leading-tight">en rupture</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- conversations -->
+      <section class="px-5 pt-5 pb-2">
+        <div class="flex items-center justify-between mb-1">
+          <h2 class="font-display font-bold text-[17px]">Conversations</h2>
+          <button class="text-[13px] text-ink-muted font-medium inline-flex items-center gap-1">
+            Tout voir <i data-lucide="chevron-right" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </section>
+
+      <ul class="px-3 pb-4 space-y-1">
+
+        <!-- row: négociation, non-lu -->
+        <li>
+          <button class="w-full flex items-start gap-3 p-2.5 rounded-2xl hover:bg-surface active:bg-surface transition">
+            <span class="shrink-0 w-12 h-12 rounded-full bg-[#F3E9DF] grid place-items-center font-display font-bold text-[15px] text-[#8A5A2B]">AT</span>
+            <span class="min-w-0 flex-1">
+              <span class="flex items-center justify-between gap-2">
+                <span class="font-semibold text-[15px] truncate">Aminata Traoré</span>
+                <span class="text-[12px] text-ink-faint shrink-0">2 min</span>
+              </span>
+              <span class="flex items-center justify-between gap-2 mt-0.5">
+                <span class="text-[13.5px] text-ink-muted truncate">C'est bon pour 12 000 ?</span>
+                <span class="w-2.5 h-2.5 rounded-full bg-primary shrink-0"></span>
+              </span>
+              <span class="flex items-center gap-2 mt-1.5">
+                <span class="inline-flex items-center gap-1 text-[11.5px] font-medium text-nego bg-nego-tint px-2 py-0.5 rounded-full">Négociation</span>
+                <span class="text-[12px] text-ink-muted tabular">Offre 12 000 · demande 15 000</span>
+              </span>
+            </span>
+          </button>
+        </li>
+
+        <!-- row: à livrer, bot gère -->
+        <li>
+          <button class="w-full flex items-start gap-3 p-2.5 rounded-2xl hover:bg-surface transition">
+            <span class="shrink-0 w-12 h-12 rounded-full bg-[#E6EBF6] grid place-items-center font-display font-bold text-[15px] text-[#3457A6]">KB</span>
+            <span class="min-w-0 flex-1">
+              <span class="flex items-center justify-between gap-2">
+                <span class="font-semibold text-[15px] truncate">Koffi B.</span>
+                <span class="text-[12px] text-ink-faint shrink-0">14 min</span>
+              </span>
+              <span class="flex items-center gap-1.5 mt-0.5">
+                <i data-lucide="bot" class="w-3.5 h-3.5 text-ink-faint shrink-0"></i>
+                <span class="text-[13.5px] text-ink-muted truncate">Le bot a confirmé la livraison demain</span>
+              </span>
+              <span class="flex items-center gap-2 mt-1.5">
+                <span class="inline-flex items-center gap-1 text-[11.5px] font-medium text-livrer bg-livrer-tint px-2 py-0.5 rounded-full">À livrer</span>
+                <span class="text-[12px] text-ink-muted tabular">Robe wax · 18 000 FCFA</span>
+              </span>
+            </span>
+          </button>
+        </li>
+
+        <!-- row: payé -->
+        <li>
+          <button class="w-full flex items-start gap-3 p-2.5 rounded-2xl hover:bg-surface transition">
+            <span class="shrink-0 w-12 h-12 rounded-full bg-primary-tint grid place-items-center font-display font-bold text-[15px] text-primary-deep">MK</span>
+            <span class="min-w-0 flex-1">
+              <span class="flex items-center justify-between gap-2">
+                <span class="font-semibold text-[15px] truncate">Mariam Koné</span>
+                <span class="text-[12px] text-ink-faint shrink-0">1 h</span>
+              </span>
+              <span class="text-[13.5px] text-ink-muted truncate block mt-0.5">Merci beaucoup, bien reçu !</span>
+              <span class="flex items-center gap-2 mt-1.5">
+                <span class="inline-flex items-center gap-1 text-[11.5px] font-medium text-primary-deep bg-primary-tint px-2 py-0.5 rounded-full">
+                  <i data-lucide="check" class="w-3 h-3"></i> Payé
+                </span>
+                <span class="text-[12px] text-ink-muted tabular">25 000 FCFA · Wave</span>
+              </span>
+            </span>
+          </button>
+        </li>
+
+        <!-- row: prospect inconnu, bot gère -->
+        <li>
+          <button class="w-full flex items-start gap-3 p-2.5 rounded-2xl hover:bg-surface transition">
+            <span class="shrink-0 w-12 h-12 rounded-full bg-[#EFEDE6] grid place-items-center text-ink-faint">
+              <i data-lucide="user" class="w-5 h-5"></i>
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="flex items-center justify-between gap-2">
+                <span class="font-semibold text-[15px] truncate">+225 07 88 41 20</span>
+                <span class="text-[12px] text-ink-faint shrink-0">1 h</span>
+              </span>
+              <span class="flex items-center gap-1.5 mt-0.5">
+                <i data-lucide="bot" class="w-3.5 h-3.5 text-ink-faint shrink-0"></i>
+                <span class="text-[13.5px] text-ink-muted truncate">Vous avez ça en taille 42 ?</span>
+              </span>
+              <span class="flex items-center gap-2 mt-1.5">
+                <span class="inline-flex items-center gap-1 text-[11.5px] font-medium text-ink-muted bg-line px-2 py-0.5 rounded-full">Nouveau</span>
+                <span class="text-[12px] text-ink-muted tabular">Baskets Nike · 35 000</span>
+              </span>
+            </span>
+          </button>
+        </li>
+
+        <!-- row: négociation tendue -->
+        <li>
+          <button class="w-full flex items-start gap-3 p-2.5 rounded-2xl hover:bg-surface transition">
+            <span class="shrink-0 w-12 h-12 rounded-full bg-[#F3E9DF] grid place-items-center font-display font-bold text-[15px] text-[#8A5A2B]">YP</span>
+            <span class="min-w-0 flex-1">
+              <span class="flex items-center justify-between gap-2">
+                <span class="font-semibold text-[15px] truncate">Yao Patrick</span>
+                <span class="text-[12px] text-ink-faint shrink-0">3 h</span>
+              </span>
+              <span class="text-[13.5px] text-ink-muted truncate block mt-0.5">Le prix est trop élevé pour moi</span>
+              <span class="flex items-center gap-2 mt-1.5">
+                <span class="inline-flex items-center gap-1 text-[11.5px] font-medium text-nego bg-nego-tint px-2 py-0.5 rounded-full">Négociation</span>
+                <span class="text-[12px] text-ink-muted tabular">Offre 8 000 · demande 10 000</span>
+              </span>
+            </span>
+          </button>
+        </li>
+
+      </ul>
+    </div>
+
+    <!-- bottom tab bar -->
+    <nav class="shrink-0 bg-surface border-t border-line px-2 pt-2 pb-6">
+      <div class="grid grid-cols-4">
+        <a class="flex flex-col items-center gap-1 py-1 text-primary-deep">
+          <span class="relative grid place-items-center w-12 h-8 rounded-full bg-primary-tint">
+            <i data-lucide="messages-square" class="w-[22px] h-[22px]"></i>
+          </span>
+          <span class="text-[11px] font-semibold">Conversations</span>
+        </a>
+        <a class="flex flex-col items-center gap-1 py-1 text-ink-muted">
+          <span class="grid place-items-center w-12 h-8"><i data-lucide="shopping-bag" class="w-[22px] h-[22px]"></i></span>
+          <span class="text-[11px] font-medium">Produits</span>
+        </a>
+        <a class="flex flex-col items-center gap-1 py-1 text-ink-muted">
+          <span class="grid place-items-center w-12 h-8"><i data-lucide="wallet" class="w-[22px] h-[22px]"></i></span>
+          <span class="text-[11px] font-medium">Argent</span>
+        </a>
+        <a class="flex flex-col items-center gap-1 py-1 text-ink-muted">
+          <span class="grid place-items-center w-12 h-8"><i data-lucide="settings" class="w-[22px] h-[22px]"></i></span>
+          <span class="text-[11px] font-medium">Réglages</span>
+        </a>
+      </div>
+    </nav>
+
+  </div>
+
+  <p class="text-[12px] text-ink-faint max-w-[393px] text-center leading-relaxed">
+    Colonne vertébrale = conversations. Héros = argent du jour. Onglets au pouce. Vert chirurgical
+    sur neutres chauds. Bricolage pour les montants. Zéro carte KPI, zéro graphe.
+  </p>
+
+  <script>lucide.createIcons();</script>
+</body>
+</html>

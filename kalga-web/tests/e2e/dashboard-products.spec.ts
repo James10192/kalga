@@ -1,35 +1,52 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * SCAFFOLD E2E — Le dashboard charge les produits live (plan testing-e2e.md 6.2).
+ * SMOKE E2E — Le dashboard marchand 006 rend ses ecrans cles (plan 006 livre).
  *
- * KALGA cible : conversations + produits LIVE via Convex `useQuery` (decision D3).
- * Cote produits, la liste s'hydrate depuis Convex (reactif), pas un fetch REST.
- * La spec attend l'apparition des cartes produit (auto-wait) plutot qu'une
- * reponse reseau precise — le transport Convex est WebSocket, pas un GET /products.
+ * Les routes /app et /app/products ne sont pas encore protegees (l'auth
+ * withOrg + OTP arrivent en 003/004) : elles resolvent le marchand demo via le
+ * slug `demo` et s'hydratent depuis Convex (`useQuery`, transport WebSocket).
  *
- * Marque `test.fixme` : le dashboard reel (route `/dashboard/produits`, cartes
- * `data-testid="product-card"`, etat vide) arrive avec le plan 006, et suppose
- * une session authentifiee (storageState, cf. testing-e2e.md 2.4) qui depend de
- * `/signup` + TEST_MODE. Lever le `.fixme` une fois 006 livre.
+ * On verifie le chrome qui rend independamment des donnees (en-tetes, barre
+ * d'onglets bas), puis on attend les cartes produit via l'auto-wait Playwright
+ * (`data-testid="product-card"`) plutot qu'un `waitForTimeout`. Le seed Convex
+ * (`npx convex run seed:run`) fournit les produits du slug demo.
  */
-test.describe("Dashboard produits", () => {
-  test.fixme("liste les produits du marchand (live Convex)", async ({
+test.describe("Dashboard marchand 006", () => {
+  test("la home /app rend (conversations + barre d'onglets)", async ({
     page,
   }) => {
-    await page.goto("/dashboard/produits");
+    await page.goto("/app");
 
-    // les produits s'affichent en cartes (hydratation reactive Convex)
-    const cards = page.getByTestId("product-card");
-    await expect(cards.first()).toBeVisible();
-    // au moins une carte
-    expect(await cards.count()).toBeGreaterThan(0);
+    // Titre de section "Conversations" (colonne vertebrale, DIRECTION.md).
+    await expect(
+      page.getByRole("heading", { name: "Conversations" }),
+    ).toBeVisible();
+
+    // Barre d'onglets bas : les 4 onglets au pouce sont presents.
+    const tabbar = page.getByRole("navigation");
+    await expect(
+      tabbar.getByText("Conversations", { exact: true }),
+    ).toBeVisible();
+    await expect(tabbar.getByText("Produits", { exact: true })).toBeVisible();
+    await expect(tabbar.getByText("Argent", { exact: true })).toBeVisible();
+    await expect(tabbar.getByText("Réglages", { exact: true })).toBeVisible();
   });
 
-  test.fixme("etat vide si aucun produit", async ({ page }) => {
-    await page.goto("/dashboard/produits");
+  test("la page /app/products rend (en-tete + grille produits live)", async ({
+    page,
+  }) => {
+    await page.goto("/app/products");
+
+    // En-tete "Produits" (rend immediatement, independant des donnees).
     await expect(
-      page.getByText(/aucun produit|commencez par/i),
+      page.getByRole("heading", { name: "Produits" }),
     ).toBeVisible();
+
+    // Les cartes produit s'hydratent depuis Convex (seed demo).
+    // Auto-wait sur la premiere carte, pas de waitForTimeout.
+    const cards = page.getByTestId("product-card");
+    await expect(cards.first()).toBeVisible();
+    expect(await cards.count()).toBeGreaterThan(0);
   });
 });

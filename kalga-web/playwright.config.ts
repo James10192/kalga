@@ -5,11 +5,16 @@ import { defineConfig, devices } from "@playwright/test";
  *
  * Port : `pnpm dev` = `vite dev` sert sur le port 3000 (vite.config.ts:server.port).
  * `webServer.url`, `webServer.command` et `use.baseURL` sont alignes dessus.
+ * Surchargeable via `KALGA_E2E_PORT` quand 3000 est deja pris par un autre
+ * projet (le `reuseExistingServer` reprendrait sinon un serveur etranger).
  *
  * OTP : en CI on active l'OTP deterministe via `KALGA_TEST_MODE=1` (section 3.1) ;
  * aucun OTP WhatsApp reel n'est requis. Les specs OTP sont des SCAFFOLDS marques
  * `test.fixme` tant que l'UI signup (plan 006) et la porte TEST_MODE n'existent pas.
  */
+const PORT = process.env.KALGA_E2E_PORT ?? "3000";
+const BASE_URL = `http://localhost:${PORT}`;
+
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: true,
@@ -21,7 +26,7 @@ export default defineConfig({
     : "list",
 
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: BASE_URL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
@@ -30,8 +35,8 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
 
   webServer: {
-    command: "pnpm dev",
-    url: "http://localhost:3000",
+    command: `pnpm dev --port ${PORT}`,
+    url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000, // TanStack Start / Vite peut mettre du temps a boot
     stdout: "pipe",

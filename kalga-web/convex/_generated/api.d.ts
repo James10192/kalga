@@ -10,6 +10,7 @@
 
 import type * as auth from "../auth.js";
 import type * as conversations from "../conversations.js";
+import type * as dashboard from "../dashboard.js";
 import type * as http from "../http.js";
 import type * as internal_chat from "../internal/chat.js";
 import type * as internal_followups from "../internal/followups.js";
@@ -20,6 +21,7 @@ import type * as lib_withOrg from "../lib/withOrg.js";
 import type * as merchants from "../merchants.js";
 import type * as products from "../products.js";
 import type * as seed from "../seed.js";
+import type * as settings from "../settings.js";
 
 import type {
   ApiFromModules,
@@ -30,6 +32,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   conversations: typeof conversations;
+  dashboard: typeof dashboard;
   http: typeof http;
   "internal/chat": typeof internal_chat;
   "internal/followups": typeof internal_followups;
@@ -40,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   merchants: typeof merchants;
   products: typeof products;
   seed: typeof seed;
+  settings: typeof settings;
 }>;
 
 /**

@@ -13,6 +13,7 @@ import type { ConvexQueryClient } from '@convex-dev/react-query'
 import type { QueryClient } from '@tanstack/react-query'
 import { authClient } from '~/lib/auth-client'
 import { getToken } from '~/lib/auth-server'
+import appCss from '~/styles.css?url'
 
 // Récupère le token auth pour le SSR à partir des cookies disponibles.
 const getAuth = createServerFn({ method: 'GET' }).handler(async () => {
@@ -29,6 +30,7 @@ export const Route = createRootRouteWithContext<{
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
       { title: 'KALGA' },
     ],
+    links: [{ rel: 'stylesheet', href: appCss }],
   }),
   beforeLoad: async (ctx) => {
     const token = await getAuth()

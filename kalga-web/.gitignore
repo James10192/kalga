@@ -16,3 +16,4 @@ src/routeTree.gen.ts
 /blob-report/
 /playwright/.cache/
 /coverage/
+.tanstack

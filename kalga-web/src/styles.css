@@ -1,0 +1,158 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Fonts — self-hosted via @fontsource (pas de <link> Google, payload local). */
+@import "@fontsource/bricolage-grotesque/500.css";
+@import "@fontsource/bricolage-grotesque/600.css";
+@import "@fontsource/bricolage-grotesque/700.css";
+@import "@fontsource/bricolage-grotesque/800.css";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+@import "@fontsource/geist-mono/400.css";
+@import "@fontsource/geist-mono/500.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * KALGA — Direction de design (DIRECTION.md).
+ * Neutres CHAUDS, vert KALGA chirurgical, sémantiques mats.
+ * Source de vérité = design/flagship-home.html.
+ * On garde les hex exacts de la direction (lisibilité + fidélité maximale),
+ * shadcn consomme ces variables via @theme inline.
+ */
+@theme inline {
+  /* shadcn semantic mapping */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* KALGA design tokens (DIRECTION.md) */
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-primary-deep: var(--primary-deep);
+  --color-primary-tint: var(--primary-tint);
+
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+
+  --color-nego: var(--nego);
+  --color-nego-tint: var(--nego-tint);
+  --color-livrer: var(--livrer);
+  --color-livrer-tint: var(--livrer-tint);
+  --color-danger: var(--danger);
+  --color-danger-tint: var(--danger-tint);
+
+  /* Polices */
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+
+  /* Rayons (DIRECTION.md : cartes 16px, inputs 12px, pills 999px) */
+  --radius-sm: 0.625rem; /* 10px */
+  --radius-md: 0.75rem; /* 12px inputs */
+  --radius-lg: 1rem; /* 16px cartes */
+  --radius-xl: 1.25rem; /* 20px */
+
+  /* Ombres très douces (DIRECTION.md) */
+  --shadow-soft: 0 1px 2px rgba(28, 26, 23, 0.05);
+  --shadow-card: 0 1px 3px rgba(28, 26, 23, 0.06), 0 1px 2px rgba(28, 26, 23, 0.04);
+}
+
+:root {
+  --radius: 1rem;
+
+  /* Neutres chauds */
+  --page: #fbfaf7;
+  --surface: #ffffff;
+  --line: #eceae3;
+  --line-strong: #dedbd2;
+
+  /* Encre */
+  --ink: #1c1a17;
+  --ink-muted: #6b675f;
+  --ink-faint: #9c988e;
+
+  /* Vert KALGA */
+  --primary: #16a34a;
+  --primary-foreground: #ffffff;
+  --primary-deep: #15803d;
+  --primary-tint: #eaf6ee;
+
+  /* Sémantiques mats */
+  --nego: #b45309;
+  --nego-tint: #faf1e4;
+  --livrer: #1d4ed8;
+  --livrer-tint: #e9eefc;
+  --danger: #b91c1c;
+  --danger-tint: #fbeaea;
+
+  /* shadcn semantic (basés sur la direction) */
+  --background: #fbfaf7;
+  --foreground: #1c1a17;
+  --card: #ffffff;
+  --card-foreground: #1c1a17;
+  --popover: #ffffff;
+  --popover-foreground: #1c1a17;
+  --secondary: #f4f2ec;
+  --secondary-foreground: #1c1a17;
+  --muted: #f4f2ec;
+  --muted-foreground: #6b675f;
+  --accent: #f4f2ec;
+  --accent-foreground: #1c1a17;
+  --destructive: #b91c1c;
+  --destructive-foreground: #ffffff;
+  --border: #eceae3;
+  --input: #eceae3;
+  --ring: #16a34a;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-page text-ink;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  .font-display {
+    font-family: var(--font-display);
+  }
+  .font-mono {
+    font-family: var(--font-mono);
+  }
+  /* Montants : chiffres tabulaires (DIRECTION.md) */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
