@@ -11,10 +11,10 @@ export function getRouter() {
     throw new Error('VITE_CONVEX_URL is not set')
   }
 
-  // expectAuth: true → ne perd pas les données auth rendues côté serveur
+  // expectAuth: false → ne perd pas les données auth rendues côté serveur
   // au premier render client (Better Auth).
   const convexQueryClient = new ConvexQueryClient(convexUrl, {
-    expectAuth: true,
+    expectAuth: false,
   })
 
   const queryClient = new QueryClient({
