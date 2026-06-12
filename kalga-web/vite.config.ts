@@ -14,6 +14,10 @@ export default defineConfig({
   },
   resolve: {
     tsconfigPaths: true,
+    // Single React copy. @gsap/react (useGSAP) otherwise resolves a 2nd React
+    // through pnpm symlinks -> "Invalid hook call / more than one copy of React"
+    // -> blank page after hydration.
+    dedupe: ['react', 'react-dom'],
     alias: {
       '@': path.resolve(__dirname, './src'),
       '~': path.resolve(__dirname, './src'),
@@ -22,9 +26,6 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     tanstackStart(),
-    // nitro() provides the server runtime (SSR dev handler + .output build).
-    // Without it tanstackStart only wires the client/router and every document
-    // route 404s "Cannot GET" in `vite dev`.
     nitro(),
     viteReact(),
   ],

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Link } from "@tanstack/react-router"
 import {
   MessagesSquare,
@@ -9,10 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import gsap from "gsap"
-import { useGSAP } from "@gsap/react"
 import { cn } from "@/lib/utils"
-
-gsap.registerPlugin(useGSAP)
 
 type TabKey = "accueil" | "conversations" | "produits" | "argent" | "reglages"
 
@@ -80,9 +77,11 @@ export function LiquidGlassBottomBar({ active }: { active: TabKey }) {
   const depthProxy = useRef({ depth: BASE_DEPTH })
   const [pressing, setPressing] = useState(false)
 
-  useGSAP(
-    () => {
-      if (prefersReduced()) return
+  // GSAP via useEffect + gsap.context (PAS @gsap/react, qui injecte une 2e copie
+  // de React -> "Invalid hook call" -> page blanche). Client-only par nature.
+  useEffect(() => {
+    if (prefersReduced()) return
+    const ctx = gsap.context(() => {
       const proxy = depthProxy.current
       const sync = () => {
         if (pathRef.current) pathRef.current.setAttribute("d", buildPath(proxy.depth))
@@ -98,9 +97,9 @@ export function LiquidGlassBottomBar({ active }: { active: TabKey }) {
         { y: -6, scale: 0.92 },
         { y: 0, scale: 1, duration: 0.9, ease: "elastic.out(1, 0.5)" },
       )
-    },
-    { scope },
-  )
+    }, scope)
+    return () => ctx.revert()
+  }, [])
 
   // Press du FAB : la cuvette s'approfondit puis revient en élastique.
   const onFabPress = () => {
