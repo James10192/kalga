@@ -13,14 +13,16 @@ export const Route = createFileRoute("/app")({
   component: AppLayout,
 })
 
-/** Déduit l'onglet actif depuis le chemin courant. */
+/** Déduit l'onglet actif depuis le chemin courant (5 zones). */
 function useActiveTab(): TabKey {
   const matches = useMatches()
   const path = matches[matches.length - 1]?.pathname ?? "/app"
+  if (path.startsWith("/app/conversations")) return "conversations"
   if (path.startsWith("/app/products")) return "produits"
   if (path.startsWith("/app/money")) return "argent"
   if (path.startsWith("/app/settings")) return "reglages"
-  return "conversations"
+  // Accueil (FAB central) : actif sur /app exact uniquement.
+  return "accueil"
 }
 
 function AppLayout() {

@@ -60,9 +60,10 @@ function HomeContent({
   const summary = useQuery(api.dashboard.todaySummaryForMerchant, {
     merchantId: merchantId as never,
   })
+  // Accueil = aperçu seulement. La liste complète est sur /app/conversations.
   const feed = useQuery(api.dashboard.feedForMerchant, {
     merchantId: merchantId as never,
-    limit: 20,
+    limit: 4,
   })
 
   const monogram = initials(merchantName) || "BA"
@@ -101,12 +102,12 @@ function HomeContent({
       <section className="px-5 pb-2 pt-5">
         <div className="mb-1 flex items-center justify-between">
           <h2 className="font-display text-[17px] font-bold">Conversations</h2>
-          <button
-            type="button"
+          <Link
+            to="/app/conversations"
             className="inline-flex items-center gap-1 text-[13px] font-medium text-ink-muted"
           >
             Tout voir <ChevronRight className="h-4 w-4" />
-          </button>
+          </Link>
         </div>
       </section>
 

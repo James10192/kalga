@@ -1,5 +1,5 @@
 export { AppShell } from "./AppShell"
-export { BottomTabBar, type TabKey } from "./BottomTabBar"
+export { LiquidGlassBottomBar, type TabKey } from "./LiquidGlassBottomBar"
 export { MoneyHero, MoneyHeroSkeleton } from "./MoneyHero"
 export { StatPill, StatPillsSkeleton } from "./StatPill"
 export { StatusChip } from "./StatusChip"
