@@ -1,0 +1,74 @@
+name: tests
+
+# Tests KALGA web (kalga-web) : Vitest + convex-test (backend) puis Playwright (E2E).
+# Reference : plans/reference/testing-e2e.md (section 7).
+# Les chemins sont filtres sur kalga-web/** pour ne pas declencher sur les
+# anciens dossiers statiques (dashboard/, storefront/) ni le Nuxt (kalga-frontend/).
+
+on:
+  push:
+    branches: [develop, main, kalga]
+    paths:
+      - "kalga-web/**"
+      - ".github/workflows/test.yml"
+  pull_request:
+    paths:
+      - "kalga-web/**"
+      - ".github/workflows/test.yml"
+
+defaults:
+  run:
+    working-directory: kalga-web
+
+jobs:
+  # Tests backend Convex (convex-test, edge-runtime) — executables sans serveur.
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: kalga-web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:unit
+        env:
+          CI: "true"
+
+  # E2E Playwright. webServer (playwright.config.ts) lance `pnpm dev` tout seul.
+  # KALGA_TEST_MODE=1 active l'OTP deterministe (pas de WhatsApp reel en CI).
+  # Les specs UI completes sont marquees test.fixme tant que 006/007 ne sont pas
+  # livres : le job valide donc surtout l'infra E2E (collecte + boot serveur).
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: kalga-web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+
+      # Binaire navigateur + deps systeme Linux (obligatoire en CI).
+      - run: pnpm exec playwright install --with-deps chromium
+
+      - run: pnpm test:e2e
+        env:
+          CI: "true"
+          KALGA_TEST_MODE: "1"
+          # Variables Convex requises pour booter `pnpm dev` (front SSR).
+          # En CI on pointe le deploiement dev existant via les secrets repo.
+          VITE_CONVEX_URL: ${{ secrets.VITE_CONVEX_URL }}
+          VITE_CONVEX_SITE_URL: ${{ secrets.VITE_CONVEX_SITE_URL }}
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: kalga-web/playwright-report/
+          retention-days: 7
