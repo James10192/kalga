@@ -11,7 +11,7 @@ const config = {
     port: parseInt(process.env.PORT || '3001', 10),
 
     // KALGA API
-    kalgaApiUrl: process.env.KALGA_API_URL || 'http://localhost:8001',
+    kalgaApiUrl: process.env.KALGA_API_URL || 'http://localhost:8002',
     apiTimeout: parseInt(process.env.API_TIMEOUT || '30000', 10),
 
     // Paths
@@ -41,7 +41,7 @@ const config = {
 
     // Security
     internalApiKey: process.env.INTERNAL_API_KEY || '',
-    allowedOrigins: (process.env.ALLOWED_ORIGINS || 'http://localhost:8001')
+    allowedOrigins: (process.env.ALLOWED_ORIGINS || 'http://localhost:8002')
         .split(',')
         .map(s => s.trim()),
 };

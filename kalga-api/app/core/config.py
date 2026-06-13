@@ -47,12 +47,12 @@ class Settings(BaseSettings):
     convex_admin_key: Optional[str] = None
 
     # === Storefront ===
-    storefront_base_url: str = "http://localhost:8001"
+    storefront_base_url: str = "http://localhost:8002"
 
     # === CORS ===
     allowed_origins: List[str] = [
-        "http://localhost:8001",
-        "http://127.0.0.1:8001",
+        "http://localhost:8002",
+        "http://127.0.0.1:8002",
     ]
 
     # === Database ===
