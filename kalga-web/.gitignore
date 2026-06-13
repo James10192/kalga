@@ -18,3 +18,5 @@ src/routeTree.gen.ts
 /playwright/.auth/
 /coverage/
 .tanstack
+
+.vercel

@@ -17,7 +17,7 @@ la cible. Exécuter dans l'ordre ci-dessous sauf indication des dépendances.
 | 006 | Dashboard marchand (produits, conversations live, stock, settings, activation) | P1 | L | 003, 004, 005 | TODO |
 | 007 | Storefront public `{slug}.kalga.app` (SSR, résolution tenant par hostname) | P2 | M | 002, 005 | TODO |
 | 008 | Admin back-office (marchands, émission codes, audit, statut WA) | P2 | M | 003, 005 | TODO |
-| 009 | Déploiement prod Vercel (domaine wildcard, env, CI off-prod) | P1 | M | 006, 007, 008 | TODO |
+| 009 | Déploiement prod Vercel (domaine wildcard, env, CI off-prod) | P1 | M | 006, 007, 008 | DONE (live `https://kalga.vercel.app` ; Convex prod `strong-crab-221` seedé ; auth + gate OK ; protection SSO désactivée). Reste : DNS custom `kalga.app` + wildcard `*.kalga.app` (registrar) pour storefront par sous-domaine ; hébergement pont WhatsApp (KALGA_WHATSAPP_URL=placeholder). |
 
 Statuts : TODO · IN PROGRESS · DONE · BLOCKED (raison) · REJECTED (raison).
 

@@ -1,8 +1,21 @@
 # 009 — Deploiement production sur Vercel
 
-> Statut : preparation + handoff. Aucun deploiement interactif n'a ete lance (necessite
-> l'authentification du proprietaire + la configuration DNS). Ce document decrit exactement
-> les reglages a appliquer.
+> Statut : **DEPLOYE (2026-06-13)**. Live sur `https://kalga.vercel.app` (target production).
+>
+> Realise : projet Vercel `james10192s-projects/kalga` (root `kalga-web`, Nitro auto-detecte) ;
+> Convex **prod** deploye (`strong-crab-221`, .cloud/.site) + seede (marchand demo) ; env Vercel
+> Production (VITE_CONVEX_URL/SITE_URL -> prod, INTERNAL_API_KEY, KALGA_WHATSAPP_URL) ; env Convex
+> prod (BETTER_AUTH_SECRET, INTERNAL_API_KEY, SITE_URL=`https://kalga.vercel.app`, KALGA_WHATSAPP_URL) ;
+> Deployment Protection (SSO) **desactivee** (sinon landing 401). Smokes : landing 200, `/api/auth/get-session`
+> 200+null, `/app` -> 307 `/login`, `/login` 200.
+>
+> RESTE (etapes proprietaire / externe) : (1) domaine custom `kalga.app` + **wildcard** `*.kalga.app`
+> au registrar (CNAME `cname.vercel-dns.com`) pour le storefront par sous-domaine + re-set Convex
+> `SITE_URL=https://kalga.app` ; (2) hebergement du pont WhatsApp (Baileys, hors Vercel) puis
+> `KALGA_WHATSAPP_URL` -> son host public reel (placeholder `wa.kalga.app` pour l'instant ; l'onboarding
+> WhatsApp renvoie 503 tant que le pont n'est pas joignable).
+>
+> Ci-dessous = la reference d'origine (toujours valable).
 
 ## Resume
 
