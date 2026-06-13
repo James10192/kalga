@@ -71,6 +71,17 @@ function LoginPage() {
         setLoading(false)
         return
       }
+      // Une nouvelle session n'a pas d'organisation active : on la restaure
+      // (sinon withOrg -> "No active organization" au chargement du dashboard).
+      try {
+        const orgs = await authClient.organization.list()
+        const first = orgs?.data?.[0]
+        if (first) {
+          await authClient.organization.setActive({ organizationId: first.id })
+        }
+      } catch {
+        // non bloquant : la gate /app gerera l'absence d'organisation
+      }
       window.location.href = "/app"
     } catch {
       setError("Service indisponible. Reessayez dans un instant.")

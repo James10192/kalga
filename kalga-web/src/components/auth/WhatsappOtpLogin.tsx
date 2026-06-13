@@ -74,6 +74,16 @@ export function WhatsappOtpLogin({ localPhone }: WhatsappOtpLoginProps) {
         setLoading(false)
         return
       }
+      // Restaure l'organisation active (sinon withOrg -> "No active organization").
+      try {
+        const orgs = await authClient.organization.list()
+        const first = orgs?.data?.[0]
+        if (first) {
+          await authClient.organization.setActive({ organizationId: first.id })
+        }
+      } catch {
+        /* non bloquant */
+      }
       window.location.href = "/app"
     } catch {
       setError("La verification a echoue. Reessayez.")
