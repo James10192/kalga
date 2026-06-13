@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import gsap from "gsap"
+import QRCode from "qrcode"
 import {
   Smartphone,
   QrCode,
@@ -184,35 +185,50 @@ export function CodePanel({
 }
 
 /**
- * Image QR servie par le proxy `/api/wa/qr`. Le bridge peut repondre 404 une
- * fraction de seconde apres que le statut annonce le code (course) : on RETENTE
- * a l'erreur, avec un cache-bust, jusqu'a 6 fois, pour ne jamais montrer un QR
- * casse.
+ * Rend le QR DEPUIS la chaine `qrCode` du status (cote client, via la lib
+ * `qrcode`). On NE depend PLUS de l'endpoint image `/api/wa/qr` (qui pouvait
+ * 404 sur une course quand le bridge n'avait pas encore le QR) : la chaine vient
+ * avec le poll de status, toujours coherente.
  */
-function QrImage() {
-  const [attempt, setAttempt] = useState(0)
+function QrImage({ value }: { value: string }) {
+  const [src, setSrc] = useState<string | null>(null)
+  useEffect(() => {
+    let alive = true
+    void QRCode.toDataURL(value, { width: 224, margin: 2 })
+      .then((url) => {
+        if (alive) setSrc(url)
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [value])
+
+  if (!src) {
+    return (
+      <div className="flex h-56 items-center justify-center gap-2 text-sm text-ink-muted">
+        <Loader2 className="size-4 animate-spin" />
+        Generation du QR...
+      </div>
+    )
+  }
   return (
     <img
-      src={`/api/wa/qr?n=${attempt}`}
+      src={src}
       alt="QR code d'appairage WhatsApp"
       width={224}
       height={224}
       className="size-56 rounded-xl border border-line bg-white p-2"
-      onError={() => {
-        if (attempt < 6) {
-          window.setTimeout(() => setAttempt((a) => a + 1), 1200)
-        }
-      }}
     />
   )
 }
 
 export function QrPanel({
-  available,
+  qrCode,
   error,
   onRefresh,
 }: {
-  available: boolean
+  qrCode: string | null
   error: WaError
   onRefresh: () => void
 }) {
@@ -220,9 +236,9 @@ export function QrPanel({
     <section className="rounded-2xl border border-line bg-page/40 p-4">
       {error && error !== "expired" ? (
         <ErrorBlock message={errorMessage(error)} onRetry={onRefresh} retryable />
-      ) : available ? (
+      ) : qrCode ? (
         <div className="flex flex-col items-center">
-          <QrImage />
+          <QrImage value={qrCode} />
         </div>
       ) : (
         <div className="flex h-56 items-center justify-center gap-2 text-sm text-ink-muted">

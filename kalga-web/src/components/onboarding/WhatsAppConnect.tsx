@@ -36,7 +36,7 @@ export function WhatsAppConnect() {
   // Synchronise l'onglet par defaut une fois la media query resolue (client).
   useEffect(() => setTab(defaultTab), [defaultTab])
 
-  const { phase, pairingCode, realPhone, qrAvailable, error, refresh, setMethod } =
+  const { phase, pairingCode, realPhone, qrAvailable, qrCode, error, refresh, setMethod } =
     useWhatsappStatus()
 
   // (Re)connecte la socket dans le mode de l'onglet actif. Au montage ET a chaque
@@ -86,7 +86,7 @@ export function WhatsAppConnect() {
           onRefresh={refresh}
         />
       ) : (
-        <QrPanel available={qrAvailable} error={error} onRefresh={refresh} />
+        <QrPanel qrCode={qrCode} error={error} onRefresh={refresh} />
       )}
 
       <StatusRow phase={phase} />

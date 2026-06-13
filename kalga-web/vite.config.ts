@@ -30,6 +30,7 @@ export default defineConfig({
       // listed so discovering it never triggers that disruptive re-optimize.
       '@tanstack/react-router',
       'gsap',
+      'qrcode',
     ],
   },
   resolve: {

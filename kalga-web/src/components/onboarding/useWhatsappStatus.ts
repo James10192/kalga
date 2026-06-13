@@ -39,6 +39,7 @@ export interface WhatsappStatus {
   pairingCode: string | null
   realPhone: string | null
   qrAvailable: boolean
+  qrCode: string | null
   error: WaError
   /** Relance la connexion dans le mode courant (« Generer un nouveau code »). */
   refresh: () => void
@@ -70,6 +71,7 @@ export function useWhatsappStatus(): WhatsappStatus {
   const [pairingCode, setPairingCode] = useState<string | null>(null)
   const [realPhone, setRealPhone] = useState<string | null>(null)
   const [qrAvailable, setQrAvailable] = useState(false)
+  const [qrCode, setQrCode] = useState<string | null>(null)
   const [error, setError] = useState<WaError>(null)
 
   const aliveRef = useRef(true)
@@ -109,6 +111,7 @@ export function useWhatsappStatus(): WhatsappStatus {
 
       const data = (await res.json()) as BridgeStatus
       setQrAvailable(Boolean(data.qrCode))
+      setQrCode(data.qrCode ?? null)
       if (data.pairingCode) setPairingCode(data.pairingCode)
 
       if (data.ready) {
@@ -176,6 +179,7 @@ export function useWhatsappStatus(): WhatsappStatus {
       setError(null)
       setPairingCode(null)
       setQrAvailable(false)
+      setQrCode(null)
 
       void (async () => {
         try {
@@ -217,5 +221,5 @@ export function useWhatsappStatus(): WhatsappStatus {
     setMethod(methodRef.current)
   }, [setMethod])
 
-  return { phase, pairingCode, realPhone, qrAvailable, error, refresh, setMethod }
+  return { phase, pairingCode, realPhone, qrAvailable, qrCode, error, refresh, setMethod }
 }
