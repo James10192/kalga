@@ -598,3 +598,72 @@ def detect_objection(message: str) -> Optional[str]:
         return "timing"
 
     return None
+
+
+def analyze_conversation_health(
+    conversation_history: List[Dict],
+    client_message: str,
+    product: Dict
+) -> Dict:
+    """
+    Analyse la santé conversationnelle pour la boucle d'apprentissage autonome.
+    Utilisée par chat_service.py pour auto-flaguer les questions sans réponse.
+
+    (Relocalisée depuis l'ancien cerveau v1 `ai/conversation_ai.py` lors de la
+    migration plan 004 : c'est un détecteur pur, sans dépendance LLM.)
+    """
+    health = {
+        "is_looping": False,
+        "unanswered_question": False,
+        "last_unanswered": None,
+        "summary": []
+    }
+
+    if len(conversation_history) < 2:
+        return health
+
+    recent = conversation_history[-6:] if len(conversation_history) >= 6 else conversation_history
+    bot_messages = [m['content'] for m in recent if not m.get('is_from_client')]
+    price = product['price']
+    price_str_variants = [
+        f"{int(price):,}".replace(",", " "),
+        str(int(price)),
+    ]
+
+    # Détection de boucle
+    if len(bot_messages) >= 2:
+        for variant in price_str_variants:
+            occurrences = sum(1 for bm in bot_messages if variant in bm)
+            if occurrences >= 2:
+                health["is_looping"] = True
+                health["summary"].append(
+                    f"BOUCLE DÉTECTÉE: prix {variant} F répété {occurrences} fois"
+                )
+                break
+
+    # Détection de question sans réponse
+    if len(recent) >= 3:
+        last_bot_idx = None
+        for i in range(len(recent) - 1, -1, -1):
+            if not recent[i].get('is_from_client'):
+                last_bot_idx = i
+                break
+
+        if last_bot_idx is not None and last_bot_idx > 0:
+            client_before = [m for m in recent[:last_bot_idx] if m.get('is_from_client')]
+            if client_before:
+                last_q = client_before[-1]['content']
+                if '?' in last_q:
+                    last_bot = recent[last_bot_idx]['content'].lower()
+                    seems_ignored = (
+                        len(last_bot.split()) < 15 and
+                        any(v in last_bot for v in price_str_variants)
+                    )
+                    if seems_ignored:
+                        health["unanswered_question"] = True
+                        health["last_unanswered"] = last_q
+                        health["summary"].append(
+                            f"QUESTION IGNORÉE: \"{last_q[:60]}\""
+                        )
+
+    return health

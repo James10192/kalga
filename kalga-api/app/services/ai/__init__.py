@@ -1,11 +1,13 @@
 """
-Module IA pour KALGA v2.0
-=========================
-Système de conversation IA avancé avec:
-- Machine à États Finis (FSM) pour le flux de conversation
-- Analyse de sentiment et détection d'émotions
-- Mémoire multi-niveaux (court terme + résumé)
-- Négociation intelligente avec contre-offres dynamiques
+Module IA pour KALGA
+====================
+Briques IA partagées par le moteur de dialogue v2 (`app/services/dialogue/`) :
+- Détecteurs d'intentions / extracteurs (purs)
+- Client API DeepSeek
+- Réponses de secours statiques (FallbackResponses) quand v2 -> None
+
+Le cerveau v1 (conversation_ai / conversation_engine) a été supprimé en
+plan 004 : v2 est le SEUL cerveau. Plus de toggle, plus de fallback v1.
 """
 
 # Détecteurs d'intentions
@@ -22,34 +24,15 @@ from .detectors import (
     detect_frustration,
     detect_objection,
     is_product_related_message,
-    count_low_offers
+    count_low_offers,
+    analyze_conversation_health,
 )
 
 # Client API DeepSeek
 from .deepseek_client import DeepSeekClient, get_deepseek_client
 
-# Réponses de secours
+# Réponses de secours (utilisées quand le moteur v2 renvoie None)
 from .fallback_responses import FallbackResponses
-
-# Moteur de conversation principal
-from .conversation_ai import generate_response, analyze_conversation_health
-
-# Nouveau moteur avancé
-from .conversation_engine import (
-    ConversationEngine,
-    get_conversation_engine,
-    ConversationState,
-    ConversationEvent,
-    ConversationFSM,
-    ConversationMemory,
-    SentimentAnalyzer,
-    SentimentAnalysis,
-    Emotion,
-    IntentExtractor,
-    Intent,
-    NegotiationContext,
-    ResponseGenerator
-)
 
 __all__ = [
     # === Detectors ===
@@ -66,6 +49,7 @@ __all__ = [
     "detect_objection",
     "is_product_related_message",
     "count_low_offers",
+    "analyze_conversation_health",
 
     # === DeepSeek Client ===
     "DeepSeekClient",
@@ -73,23 +57,4 @@ __all__ = [
 
     # === Fallback ===
     "FallbackResponses",
-
-    # === Main API ===
-    "generate_response",
-    "analyze_conversation_health",
-
-    # === Conversation Engine v2.0 ===
-    "ConversationEngine",
-    "get_conversation_engine",
-    "ConversationState",
-    "ConversationEvent",
-    "ConversationFSM",
-    "ConversationMemory",
-    "SentimentAnalyzer",
-    "SentimentAnalysis",
-    "Emotion",
-    "IntentExtractor",
-    "Intent",
-    "NegotiationContext",
-    "ResponseGenerator"
 ]

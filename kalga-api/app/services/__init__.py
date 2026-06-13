@@ -5,8 +5,8 @@ from .notification_service import NotificationService, get_notification_service
 from .chat_service import ChatService, get_chat_service
 
 # Re-export des fonctions IA pour la rétrocompatibilité
+# (cerveau v1 supprimé en plan 004 — plus de `generate_response`)
 from .ai import (
-    generate_response,
     extract_product_code,
     extract_price_offer,
     detect_variant_request,
@@ -24,7 +24,6 @@ __all__ = [
     "ChatService",
     "get_chat_service",
     # IA (rétrocompatibilité)
-    "generate_response",
     "extract_product_code",
     "extract_price_offer",
     "detect_variant_request",

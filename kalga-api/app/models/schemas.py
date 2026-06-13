@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional, List
+from typing import Optional, List, Union
 from datetime import datetime
 from enum import Enum
 import re
@@ -147,7 +147,8 @@ class IncomingMessage(BaseModel):
 class BotResponse(BaseModel):
     """Réponse du bot à envoyer"""
     message: str
-    conversation_id: int
+    # Convex `_id` (string) sur le hot-path ; "" = aucune conversation (sentinelle).
+    conversation_id: Union[int, str] = ""
     should_notify_merchant: bool = False  # Notifier le marchand?
     notification_reason: Optional[str] = None
     no_response: bool = False  # Si True, ne pas envoyer de message
