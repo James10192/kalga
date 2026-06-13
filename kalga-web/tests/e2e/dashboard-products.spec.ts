@@ -1,52 +1,53 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "@playwright/test"
+import { mockWhatsappBridge } from "./helpers/wa-mock"
+import { resolveAuthStorageState } from "./helpers/auth"
 
 /**
- * SMOKE E2E — Le dashboard marchand 006 rend ses ecrans cles (plan 006 livre).
+ * E2E plan 010 — Le dashboard marchand rend ses ecrans cles UNE FOIS authentifie.
  *
- * Les routes /app et /app/products ne sont pas encore protegees (l'auth
- * withOrg + OTP arrivent en 003/004) : elles resolvent le marchand demo via le
- * slug `demo` et s'hydratent depuis Convex (`useQuery`, transport WebSocket).
+ * Mise a jour plan 010 : `/app/*` est desormais PROTEGE (`expectAuth: true`,
+ * gate `beforeLoad`). L'ancienne hypothese « routes non protegees + slug demo »
+ * (plan 006) est obsolete. La redirection sans session est couverte par
+ * `auth-gate.spec.ts` ; ici on verifie le rendu du dashboard AVEC session.
  *
- * On verifie le chrome qui rend independamment des donnees (en-tetes, barre
- * d'onglets bas), puis on attend les cartes produit via l'auto-wait Playwright
- * (`data-testid="product-card"`) plutot qu'un `waitForTimeout`. Le seed Convex
- * (`npx convex run seed:run`) fournit les produits du slug demo.
+ * Gate auth : ces ecrans exigent une session reelle (Convex + Better Auth). On
+ * reutilise un `storageState` authentifie s'il existe, sinon `test.skip` propre
+ * (voir MANUAL-onboarding.md). Le bridge WhatsApp est stubbe (AppShell lit le
+ * statut WA via `currentMerchant`). Aucun bridge live requis.
+ *
+ * Anti-flaky : auto-wait (toBeVisible / getByTestId), jamais de `waitForTimeout`.
  */
-test.describe("Dashboard marchand 006", () => {
-  test("la home /app rend (conversations + barre d'onglets)", async ({
+
+const storageState = resolveAuthStorageState()
+
+test.describe("Dashboard marchand (authentifie)", () => {
+  test.skip(
+    storageState === null,
+    "Aucune session E2E (KALGA_E2E_STORAGE_STATE / playwright/.auth/user.json). Voir MANUAL-onboarding.md.",
+  )
+
+  if (storageState) test.use({ storageState })
+
+  test("la home /app rend (fil + navigation)", async ({ page }) => {
+    await mockWhatsappBridge(page)
+    await page.goto("/app")
+
+    // Une navigation principale est presente (sidebar desktop ou bottom bar).
+    await expect(page.getByRole("navigation").first()).toBeVisible()
+  })
+
+  test("la page /app/products rend (en-tete + grille produits)", async ({
     page,
   }) => {
-    await page.goto("/app");
+    await mockWhatsappBridge(page)
+    await page.goto("/app/products")
 
-    // Titre de section "Conversations" (colonne vertebrale, DIRECTION.md).
-    await expect(
-      page.getByRole("heading", { name: "Conversations" }),
-    ).toBeVisible();
-
-    // Barre d'onglets bas : les 4 onglets au pouce sont presents.
-    const tabbar = page.getByRole("navigation");
-    await expect(
-      tabbar.getByText("Conversations", { exact: true }),
-    ).toBeVisible();
-    await expect(tabbar.getByText("Produits", { exact: true })).toBeVisible();
-    await expect(tabbar.getByText("Argent", { exact: true })).toBeVisible();
-    await expect(tabbar.getByText("Réglages", { exact: true })).toBeVisible();
-  });
-
-  test("la page /app/products rend (en-tete + grille produits live)", async ({
-    page,
-  }) => {
-    await page.goto("/app/products");
-
-    // En-tete "Produits" (rend immediatement, independant des donnees).
     await expect(
       page.getByRole("heading", { name: "Produits" }),
-    ).toBeVisible();
+    ).toBeVisible()
 
-    // Les cartes produit s'hydratent depuis Convex (seed demo).
-    // Auto-wait sur la premiere carte, pas de waitForTimeout.
-    const cards = page.getByTestId("product-card");
-    await expect(cards.first()).toBeVisible();
-    expect(await cards.count()).toBeGreaterThan(0);
-  });
-});
+    // Les cartes produit s'hydratent depuis Convex (seed demo) si presentes.
+    const cards = page.getByTestId("product-card")
+    await expect(cards.first()).toBeVisible()
+  })
+})
