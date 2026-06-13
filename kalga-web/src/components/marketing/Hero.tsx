@@ -26,7 +26,11 @@ export function Hero() {
     if (reduce) return
 
     let ctx: { revert: () => void } | undefined
+    let failsafe = 0
+    let cancelled = false
+
     void import("gsap").then(({ default: gsap }) => {
+      if (cancelled || !scope.current) return
       ctx = gsap.context(() => {
         gsap.from("[data-hero-item]", {
           opacity: 0,
@@ -52,8 +56,30 @@ export function Hero() {
           delay: 0.9,
         })
       }, root)
+
+      // FAILSAFE anti-strand : si l'entree n'a pas abouti (ticker rAF gele : nav
+      // SPA, onglet en arriere-plan), on TUE le tween de l'element puis on force
+      // la visibilite via le style DIRECT (sinon le tween fige reasserte son
+      // opacity au tick suivant). Condition sur l'opacity => en navigation
+      // normale (entree finie), on ne touche a rien (le flottement est preserve).
+      failsafe = window.setTimeout(() => {
+        root
+          .querySelectorAll<HTMLElement>("[data-hero-item],[data-phone]")
+          .forEach((el) => {
+            if (Number(getComputedStyle(el).opacity) < 0.95) {
+              gsap.killTweensOf(el)
+              el.style.opacity = "1"
+              el.style.transform = "none"
+            }
+          })
+      }, 1000)
     })
-    return () => ctx?.revert()
+
+    return () => {
+      cancelled = true
+      if (failsafe) window.clearTimeout(failsafe)
+      ctx?.revert()
+    }
   }, [])
 
   return (
