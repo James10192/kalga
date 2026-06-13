@@ -263,13 +263,7 @@ class ProductCreationHandler(BaseHandler):
             if not group_id:
                 group_id = await db.generate_group_id()
                 # Mettre à jour le produit avec le group_id
-                from ....database.connection import get_connection
-                async with get_connection() as conn:
-                    await conn.execute(
-                        "UPDATE products SET group_id = ? WHERE id = ?",
-                        (group_id, product['id'])
-                    )
-                    await conn.commit()
+                await db.update_product(product['id'], group_id=group_id)
 
             # Configurer la session pour les variantes
             session.update_step(CreationStep.VARIANT_NAME)
@@ -315,11 +309,5 @@ class ProductCreationHandler(BaseHandler):
             # Persister le group_id sur le produit de base uniquement s'il existe encore
             # (le produit a pu être supprimé entre le wizard et cette réponse).
             if product:
-                from ....database.connection import get_connection
-                async with get_connection() as conn:
-                    await conn.execute(
-                        "UPDATE products SET group_id = ? WHERE id = ?",
-                        (group_id, product["id"]),
-                    )
-                    await conn.commit()
+                await db.update_product(product["id"], group_id=group_id)
         return group_id

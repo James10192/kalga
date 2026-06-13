@@ -349,13 +349,7 @@ class MerchantCommandService:
             )
 
         # Mettre à jour le stock
-        from ...database.connection import get_connection
-        async with get_connection() as conn:
-            await conn.execute(
-                "UPDATE products SET stock_quantity = ? WHERE id = ?",
-                (quantity, product['id'])
-            )
-            await conn.commit()
+        await db.update_product(product['id'], stock_quantity=quantity)
 
         # Logger l'événement stock
         try:
@@ -419,13 +413,7 @@ class MerchantCommandService:
                 action=CommandAction.ERROR
             )
 
-        from ...database.connection import get_connection
-        async with get_connection() as conn:
-            await conn.execute(
-                "UPDATE products SET stock_quantity = 0 WHERE id = ?",
-                (product['id'],)
-            )
-            await conn.commit()
+        await db.update_product(product['id'], stock_quantity=0)
 
         try:
             await self.waitlist_repo.log_stock_event(
@@ -471,13 +459,7 @@ class MerchantCommandService:
                 action=CommandAction.ERROR
             )
 
-        from ...database.connection import get_connection
-        async with get_connection() as conn:
-            await conn.execute(
-                "UPDATE products SET price = ? WHERE id = ?",
-                (new_price, product['id'])
-            )
-            await conn.commit()
+        await db.update_product(product['id'], price=new_price)
 
         return CommandResponse(
             response=(
@@ -528,12 +510,7 @@ class MerchantCommandService:
             elif message_lower in ['3', 'supprimer', 'delete', 'retirer']:
                 del _stock_sessions[merchant_phone]
                 # Désactiver le produit
-                from ...database.connection import get_connection
-                async with get_connection() as conn:
-                    await conn.execute(
-                        "UPDATE products SET is_available = 0 WHERE id = ?", (product_id,)
-                    )
-                    await conn.commit()
+                await db.update_product(product_id, is_available=0)
                 return CommandResponse(
                     response=f"✅ *{product_name}* ({product_code}) a été supprimé.",
                     action=CommandAction.DELETE
@@ -556,13 +533,7 @@ class MerchantCommandService:
             del _stock_sessions[merchant_phone]
 
             # Mettre à jour le stock
-            from ...database.connection import get_connection
-            async with get_connection() as conn:
-                await conn.execute(
-                    "UPDATE products SET stock_quantity = ? WHERE id = ?",
-                    (quantity, product_id)
-                )
-                await conn.commit()
+            await db.update_product(product_id, stock_quantity=quantity)
 
             # Notifier la waitlist
             waitlist_count = await self.waitlist_repo.get_waitlist_count(product_id)
@@ -620,13 +591,7 @@ class MerchantCommandService:
         group_id = product.get('group_id')
         if not group_id:
             group_id = await db.generate_group_id()
-            from ...database.connection import get_connection
-            async with get_connection() as conn:
-                await conn.execute(
-                    "UPDATE products SET group_id = ? WHERE id = ?",
-                    (group_id, product['id']),
-                )
-                await conn.commit()
+            await db.update_product(product['id'], group_id=group_id)
         session_manager.create(
             merchant_phone=merchant['phone'],
             step=CreationStep.VARIANT_BATCH_CONFIRM,
@@ -669,13 +634,7 @@ class MerchantCommandService:
         group_id = product.get('group_id')
         if not group_id:
             group_id = await db.generate_group_id()
-            from ...database.connection import get_connection
-            async with get_connection() as conn:
-                await conn.execute(
-                    "UPDATE products SET group_id = ? WHERE id = ?",
-                    (group_id, product['id'])
-                )
-                await conn.commit()
+            await db.update_product(product['id'], group_id=group_id)
 
         # Créer la session
         session_manager.create(
