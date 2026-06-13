@@ -4,6 +4,7 @@ import { useQuery } from "convex/react"
 import { cn } from "@/lib/utils"
 import { LiquidGlassBottomBar, type TabKey } from "./LiquidGlassBottomBar"
 import { DesktopSidebar } from "./DesktopSidebar"
+import { AccountMenu } from "./AccountMenu"
 import { api } from "../../../convex/_generated/api"
 
 /**
@@ -73,7 +74,10 @@ function DesktopTopBar() {
       <h1 className="truncate font-display text-base font-semibold tracking-tight text-ink">
         {name}
       </h1>
-      <WhatsappStatusChip linked={linked} />
+      <div className="flex items-center gap-3">
+        <WhatsappStatusChip linked={linked} />
+        <AccountMenu name={name} />
+      </div>
     </header>
   )
 }

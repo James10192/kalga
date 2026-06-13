@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useQuery } from "convex/react"
-import { Search, ChevronRight, MessagesSquare } from "lucide-react"
+import { ChevronRight, MessagesSquare } from "lucide-react"
 import { api } from "../../../convex/_generated/api"
 import {
+  AccountMenu,
   MoneyHero,
   MoneyHeroSkeleton,
   StatPill,
@@ -10,7 +11,6 @@ import {
   ConversationRow,
   ConversationRowSkeleton,
   buildMoneyLine,
-  initials,
   prettyPhone,
   type ConversationRowData,
 } from "@/components/dashboard"
@@ -59,11 +59,9 @@ function HomePage() {
   if (merchant === undefined) return <HomeLoading />
   if (merchant === null) return <HomeMerchantMissing />
 
-  const monogram = initials(merchant.name) || "BA"
-
   return (
     <div className="mx-auto w-full max-w-6xl">
-      <Header merchantName={merchant.name} monogram={monogram} />
+      <Header merchantName={merchant.name} />
 
       {/* Desktop : deux colonnes (fil + argent). Mobile : empilé. */}
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6 lg:px-5">
@@ -203,13 +201,7 @@ function ConversationList({
   )
 }
 
-function Header({
-  merchantName,
-  monogram,
-}: {
-  merchantName: string
-  monogram: string
-}) {
+function Header({ merchantName }: { merchantName: string }) {
   return (
     <header className="flex items-center justify-between px-5 pb-2 pt-4">
       <div>
@@ -218,23 +210,10 @@ function Header({
           {merchantName}
         </h1>
       </div>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          aria-label="Rechercher"
-          className="grid h-11 w-11 place-items-center rounded-full border border-line bg-surface shadow-soft"
-        >
-          <Search className="h-5 w-5 text-ink-muted" />
-        </button>
-        <button
-          type="button"
-          aria-label="Profil boutique"
-          className="grid h-11 w-11 place-items-center rounded-full border border-primary/20 bg-primary-tint"
-        >
-          <span className="font-display text-[15px] font-bold text-primary-deep">
-            {monogram}
-          </span>
-        </button>
+      {/* Desktop : le menu compte vit dans la top bar (AppShell). Ici (mobile) :
+          l'avatar ouvre le menu compte (Réglages + Se déconnecter). */}
+      <div className="flex items-center gap-2 lg:hidden">
+        <AccountMenu name={merchantName} />
       </div>
     </header>
   )

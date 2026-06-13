@@ -14,7 +14,9 @@ import {
   Copy,
   Check,
   ExternalLink,
+  LogOut,
 } from "lucide-react"
+import { authClient } from "@/lib/auth-client"
 import { api } from "../../../convex/_generated/api"
 import type { Doc } from "../../../convex/_generated/dataModel"
 import { Button } from "@/components/ui/button"
@@ -71,8 +73,37 @@ function SettingsContent({ merchant }: { merchant: Doc<"merchants"> }) {
         <ConnexionSection />
         <ActivationSection billing={billing} />
         <WhatsappSection />
+        <DeconnexionSection />
       </div>
     </div>
+  )
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Compte — deconnexion (point canonique mobile : accessible via l'onglet Réglages)
+ * ────────────────────────────────────────────────────────────────────────── */
+function DeconnexionSection() {
+  async function handleSignOut() {
+    await authClient.signOut()
+    window.location.href = "/"
+  }
+
+  return (
+    <Section
+      icon={LogOut}
+      title="Compte"
+      description="Gérer votre session sur cet appareil."
+    >
+      <Button
+        type="button"
+        variant="outline"
+        onClick={handleSignOut}
+        className="h-11 w-full rounded-xl"
+      >
+        <LogOut className="h-4 w-4" />
+        Se déconnecter
+      </Button>
+    </Section>
   )
 }
 

@@ -1,4 +1,5 @@
 export { AppShell } from "./AppShell"
+export { AccountMenu } from "./AccountMenu"
 export { DesktopSidebar } from "./DesktopSidebar"
 export { LiquidGlassBottomBar, type TabKey } from "./LiquidGlassBottomBar"
 export { MoneyHero, MoneyHeroSkeleton } from "./MoneyHero"
