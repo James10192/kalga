@@ -1,6 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { fetchAuthQuery } from "~/lib/auth-server";
+import { ConvexHttpClient } from "convex/browser";
+import { getToken } from "~/lib/auth-server";
 import { api } from "../../../convex/_generated/api";
+
+// URL Convex injectee au build (import.meta.env, toujours definie). On evite
+// process.env cote serveur Nitro (non garanti pour les VITE_*).
+const CONVEX_URL = import.meta.env.VITE_CONVEX_URL as string;
 
 // Proxy serveur TanStack -> bridge WhatsApp (kalga-whatsapp, port 3001).
 // Garde le port du bridge INTERNE : le client ne parle jamais au bridge.
@@ -66,21 +71,39 @@ function clientIp(request: Request): string {
 
 /**
  * Resout le marchand courant via la session (cookie) et renvoie son numero.
- * `fetchAuthQuery` lit le cookie de session automatiquement (contexte serveur).
+ *
+ * Pattern documente (Convex Better Auth, TanStack Start) pour un route handler :
+ *  1. `getToken()` echange le cookie de session contre un JWT Convex,
+ *  2. un `ConvexHttpClient.setAuth(token)` execute la query authentifiee.
+ * NB : on n'utilise PAS `fetchAuthQuery` ici — il s'appuie sur un contexte de
+ * requete absent dans un `server.handlers` brut (=> `_nonReactive`, puis 401).
  */
 async function resolveMerchantPhone(): Promise<
   { ok: true; phone: string } | { ok: false; status: number; message: string }
 > {
+  let token: string | null = null;
+  try {
+    token = (await getToken()) ?? null;
+  } catch {
+    token = null;
+  }
+  if (!token) {
+    return { ok: false, status: 401, message: "Session requise" };
+  }
+
   let merchant: { phone?: string } | null = null;
   try {
-    merchant = (await fetchAuthQuery(api.merchants.currentMerchant, {})) as
+    const client = new ConvexHttpClient(CONVEX_URL);
+    client.setAuth(token);
+    merchant = (await client.query(api.merchants.currentMerchant, {})) as
       | { phone?: string }
       | null;
   } catch {
     return { ok: false, status: 401, message: "Session requise" };
   }
   if (!merchant) {
-    return { ok: false, status: 401, message: "Session requise" };
+    // Authentifie mais aucune organisation/marchand lie (onboarding incomplet).
+    return { ok: false, status: 409, message: "Aucun marchand lie au compte" };
   }
   const phone = String(merchant.phone ?? "").replace(/[^\d]/g, "");
   if (!phone) {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import gsap from "gsap"
 import {
   Smartphone,
@@ -183,6 +183,30 @@ export function CodePanel({
   )
 }
 
+/**
+ * Image QR servie par le proxy `/api/wa/qr`. Le bridge peut repondre 404 une
+ * fraction de seconde apres que le statut annonce le code (course) : on RETENTE
+ * a l'erreur, avec un cache-bust, jusqu'a 6 fois, pour ne jamais montrer un QR
+ * casse.
+ */
+function QrImage() {
+  const [attempt, setAttempt] = useState(0)
+  return (
+    <img
+      src={`/api/wa/qr?n=${attempt}`}
+      alt="QR code d'appairage WhatsApp"
+      width={224}
+      height={224}
+      className="size-56 rounded-xl border border-line bg-white p-2"
+      onError={() => {
+        if (attempt < 6) {
+          window.setTimeout(() => setAttempt((a) => a + 1), 1200)
+        }
+      }}
+    />
+  )
+}
+
 export function QrPanel({
   available,
   error,
@@ -198,13 +222,7 @@ export function QrPanel({
         <ErrorBlock message={errorMessage(error)} onRetry={onRefresh} retryable />
       ) : available ? (
         <div className="flex flex-col items-center">
-          <img
-            src="/api/wa/qr"
-            alt="QR code d'appairage WhatsApp"
-            width={224}
-            height={224}
-            className="size-56 rounded-xl border border-line bg-white p-2"
-          />
+          <QrImage />
         </div>
       ) : (
         <div className="flex h-56 items-center justify-center gap-2 text-sm text-ink-muted">
