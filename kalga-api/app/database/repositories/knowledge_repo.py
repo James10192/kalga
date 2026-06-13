@@ -6,8 +6,8 @@ les réponses IA avec le savoir accumulé du marchand.
 """
 import re
 from typing import Optional, List, Dict, Any
-from .base import BaseRepository
-from ..connection import get_connection
+
+from app.infrastructure.convex_client import get_convex
 
 
 # Mots vides français (exclus de l'indexation)
@@ -79,17 +79,17 @@ DEFAULT_FAQ_ENTRIES = [
 ]
 
 
-class KnowledgeBaseRepository(BaseRepository):
+class KnowledgeBaseRepository:
     """
-    Gère la base de connaissances dynamique du marchand.
+    Gère la base de connaissances dynamique du marchand (backend Convex).
 
     Workflow:
     1. Marchand répond manuellement à un client → save_entry()
     2. Client pose une question → search() → injecter dans le prompt DeepSeek
-    """
 
-    def __init__(self):
-        super().__init__("knowledge_base")
+    Phase E2 : délègue à Convex (`internal/memory:saveKnowledgeEntry` pour
+    l'écriture, `internal/knowledge:*` pour lecture/admin). `search` scoré ici.
+    """
 
     async def save_entry(
         self,
@@ -98,23 +98,14 @@ class KnowledgeBaseRepository(BaseRepository):
         answer: str,
         source: str = "human_reply"
     ) -> int:
-        """
-        Enregistre une nouvelle entrée Q/R dans la base de connaissances.
-
-        Returns: id de l'entrée créée
-        """
-        keywords = extract_keywords(question)
-
-        async with get_connection() as db:
-            cursor = await db.execute(
-                """
-                INSERT INTO knowledge_base (merchant_id, question, answer, keywords, source)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (merchant_id, question, answer, keywords, source)
-            )
-            await db.commit()
-            return cursor.lastrowid
+        """Enregistre une nouvelle entrée Q/R. Returns: id de l'entrée créée."""
+        result = await get_convex().mutation("internal/memory:saveKnowledgeEntry", {
+            "merchantId": merchant_id,
+            "question": question,
+            "answer": answer,
+            "source": source,
+        })
+        return result.get("knowledgeBaseId") if result else None
 
     async def search(
         self,
@@ -124,9 +115,7 @@ class KnowledgeBaseRepository(BaseRepository):
     ) -> List[Dict[str, Any]]:
         """
         Recherche les entrées KB les plus pertinentes pour une requête.
-
-        Stratégie: scoring par mots-clés communs entre la requête et les entrées.
-        Retourne les `limit` entrées avec le meilleur score.
+        Scoring par mots-clés communs (côté Python), incrément usage côté Convex.
         """
         if not query or not query.strip():
             return []
@@ -135,46 +124,34 @@ class KnowledgeBaseRepository(BaseRepository):
         if not query_keywords or query_keywords == {''}:
             return []
 
-        async with get_connection() as db:
-            # Récupérer toutes les entrées du marchand (max 200 pour perf)
-            cursor = await db.execute(
-                """
-                SELECT id, question, answer, keywords, usage_count
-                FROM knowledge_base
-                WHERE merchant_id = ?
-                ORDER BY created_at DESC
-                LIMIT 200
-                """,
-                (merchant_id,)
-            )
-            rows = await cursor.fetchall()
-
+        rows = await get_convex().query("internal/knowledge:listForSearch", {
+            "merchantId": merchant_id,
+            "limit": 200,
+        })
         if not rows:
             return []
 
-        # Scorer par chevauchement de mots-clés
         scored = []
         for row in rows:
-            entry_keywords = set(row['keywords'].split(',')) if row['keywords'] else set()
+            entry_keywords = set(row['keywords'].split(',')) if row.get('keywords') else set()
             common = query_keywords & entry_keywords
             if common:
                 score = len(common) / max(len(query_keywords), 1)
-                scored.append((score, dict(row)))
+                scored.append((score, {
+                    "id": row["id"],
+                    "question": row["question"],
+                    "answer": row["answer"],
+                    "keywords": row.get("keywords"),
+                    "usage_count": row.get("usage_count", 0),
+                }))
 
-        # Trier par score décroissant
         scored.sort(key=lambda x: x[0], reverse=True)
         results = [entry for _, entry in scored[:limit]]
 
-        # Incrémenter le compteur d'utilisation pour les entrées retournées
         if results:
-            ids = [r['id'] for r in results]
-            async with get_connection() as db:
-                for entry_id in ids:
-                    await db.execute(
-                        "UPDATE knowledge_base SET usage_count = usage_count + 1 WHERE id = ?",
-                        (entry_id,)
-                    )
-                await db.commit()
+            await get_convex().mutation("internal/knowledge:bumpUsage", {
+                "entryIds": [r["id"] for r in results],
+            })
 
         return results
 
@@ -184,103 +161,51 @@ class KnowledgeBaseRepository(BaseRepository):
         limit: int = 50,
         offset: int = 0
     ) -> List[Dict[str, Any]]:
-        """Récupère toutes les entrées KB d'un marchand (pour le Dashboard)"""
-        async with get_connection() as db:
-            cursor = await db.execute(
-                """
-                SELECT id, question, answer, keywords, source, usage_count, created_at
-                FROM knowledge_base
-                WHERE merchant_id = ?
-                ORDER BY usage_count DESC, created_at DESC
-                LIMIT ? OFFSET ?
-                """,
-                (merchant_id, limit, offset)
-            )
-            rows = await cursor.fetchall()
-            return [dict(row) for row in rows]
+        """Récupère toutes les entrées KB d'un marchand (pour le Dashboard)."""
+        rows = await get_convex().query("internal/knowledge:getAll", {
+            "merchantId": merchant_id,
+            "limit": limit,
+            "offset": offset,
+        })
+        # created_at -> ISO (parité shape Dashboard).
+        from app.infrastructure.convex_repo_adapters import ms_to_iso
+        out = []
+        for r in (rows or []):
+            r = dict(r)
+            if isinstance(r.get("created_at"), (int, float)):
+                r["created_at"] = ms_to_iso(r["created_at"])
+            out.append(r)
+        return out
 
     async def delete_entry(self, entry_id: int, merchant_id: int) -> bool:
-        """Supprime une entrée KB (vérification merchant_id pour sécurité)"""
-        async with get_connection() as db:
-            cursor = await db.execute(
-                "DELETE FROM knowledge_base WHERE id = ? AND merchant_id = ?",
-                (entry_id, merchant_id)
-            )
-            await db.commit()
-            return cursor.rowcount > 0
+        """Supprime une entrée KB (vérification merchant_id pour sécurité)."""
+        result = await get_convex().mutation("internal/knowledge:deleteEntry", {
+            "entryId": entry_id,
+            "merchantId": merchant_id,
+        })
+        return bool(result and result.get("deleted"))
 
     async def seed_defaults(self, merchant_id: int) -> int:
         """
-        Insère les FAQ par défaut si la KB du marchand est vide.
-        Idempotent : retourne 0 si la KB est déjà alimentée.
-
-        Appelé à l'onboarding pour démarrer avec une KB non vide.
+        Insère les FAQ par défaut si la KB du marchand est vide (idempotent).
         Returns: nombre d'entrées créées.
         """
-        async with get_connection() as db:
-            cursor = await db.execute(
-                "SELECT COUNT(*) as cnt FROM knowledge_base WHERE merchant_id = ?",
-                (merchant_id,)
-            )
-            row = await cursor.fetchone()
-            if row['cnt'] > 0:
-                return 0  # KB déjà alimentée, ne pas écraser
-
-        count = 0
-        for question, answer in DEFAULT_FAQ_ENTRIES:
-            await self.save_entry(
-                merchant_id=merchant_id,
-                question=question,
-                answer=answer,
-                source="default_faq"
-            )
-            count += 1
-        return count
+        entries = [
+            {
+                "question": q,
+                "answer": a,
+                "keywords": extract_keywords(q),
+            }
+            for q, a in DEFAULT_FAQ_ENTRIES
+        ]
+        result = await get_convex().mutation("internal/knowledge:seedDefaults", {
+            "merchantId": merchant_id,
+            "entries": entries,
+        })
+        return result.get("created", 0) if result else 0
 
     async def get_insights(self, merchant_id: int) -> Dict[str, Any]:
-        """
-        Statistiques de la boucle d'apprentissage pour le Dashboard.
-
-        Retourne:
-        - Répartition des entrées KB par source (default_faq, auto_learned_deal, feedback_correction, etc.)
-        - Top 5 entrées les plus utilisées
-        - Questions auto-flaggées (sans réponse bot adéquate), groupées par fréquence
-        """
-        async with get_connection() as db:
-            # Répartition par source
-            cur = await db.execute(
-                "SELECT source, COUNT(*) as cnt FROM knowledge_base WHERE merchant_id = ? GROUP BY source",
-                (merchant_id,)
-            )
-            sources = {r['source']: r['cnt'] for r in await cur.fetchall()}
-
-            # Top 5 entrées KB les plus utilisées (déclenchées dans des conversations réelles)
-            cur = await db.execute(
-                """SELECT question, answer, usage_count, source
-                   FROM knowledge_base WHERE merchant_id = ?
-                   ORDER BY usage_count DESC LIMIT 5""",
-                (merchant_id,)
-            )
-            top_entries = [dict(r) for r in await cur.fetchall()]
-
-            # Questions auto-flaggées groupées par message (top 10 récurrentes)
-            cur = await db.execute(
-                """SELECT client_message, COUNT(*) as occurrence
-                   FROM conversation_feedback
-                   WHERE merchant_id = ? AND feedback_type = 'auto_flagged'
-                   GROUP BY client_message ORDER BY occurrence DESC LIMIT 10""",
-                (merchant_id,)
-            )
-            gaps = [dict(r) for r in await cur.fetchall()]
-
-        total = sum(sources.values())
-        return {
-            "total_kb_entries": total,
-            "sources_breakdown": sources,
-            "auto_learned_deals": sources.get("auto_learned_deal", 0),
-            "feedback_corrections": sources.get("feedback_correction", 0),
-            "default_faq": sources.get("default_faq", 0),
-            "top_entries": top_entries,
-            "question_gaps": gaps,
-            "gap_count": len(gaps),
-        }
+        """Statistiques de la boucle d'apprentissage pour le Dashboard."""
+        return await get_convex().query("internal/knowledge:getInsights", {
+            "merchantId": merchant_id,
+        })

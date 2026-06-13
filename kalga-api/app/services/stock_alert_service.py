@@ -9,7 +9,6 @@ import logging
 from typing import Optional
 from datetime import datetime
 
-from ..database.connection import get_connection
 from ..database.repositories.waitlist_repo import get_waitlist_repository
 from .notification_service import get_notification_service
 
@@ -60,15 +59,16 @@ class StockAlertService:
         - Envoie le dialogue proactif (3 options) si pas encore fait aujourd'hui
         """
         try:
-            async with get_connection() as db:
-                cursor = await db.execute(
-                    """SELECT id, phone, name, stock_alert_days, stock_alerts_enabled
-                       FROM merchants
-                       WHERE stock_alerts_enabled = 1 OR stock_alerts_enabled IS NULL"""
-                )
-                merchants = [dict(r) for r in await cursor.fetchall()]
+            from ..infrastructure.convex_client import get_convex
+            from ..database.repositories.product_repo import ProductRepository
+            from ..infrastructure.convex_repo_adapters import now_ms
 
-            for merchant in merchants:
+            merchants = await get_convex().query(
+                "internal/stockjournal:getMerchantsWithAlerts", {}
+            )
+            product_repo = ProductRepository()
+
+            for merchant in (merchants or []):
                 try:
                     alert_days = merchant.get('stock_alert_days') or 3
                     products = await self.waitlist.get_products_out_of_stock_since(
@@ -79,13 +79,10 @@ class StockAlertService:
                             merchant=merchant,
                             product=product
                         )
-                        # Marquer last_stock_alert_at pour éviter le spam
-                        async with get_connection() as db:
-                            await db.execute(
-                                "UPDATE products SET last_stock_alert_at = CURRENT_TIMESTAMP WHERE id = ?",
-                                (product['id'],)
-                            )
-                            await db.commit()
+                        # Marquer last_stock_alert_at pour éviter le spam (Convex)
+                        await product_repo.update(
+                            product['id'], last_stock_alert_at=now_ms()
+                        )
                         await asyncio.sleep(1)  # Rate-limit entre marchands
                 except Exception as e:
                     logger.warning(f"[StockAlert] Erreur traitement marchand {merchant['id']}: {e}")

@@ -1,223 +1,123 @@
 """
-Repository pour la gestion des codes d'activation
-Gère la création, validation et expiration des codes
+Repository pour la gestion des codes d'activation.
+
+Phase E2 : délègue à Convex (`internal/activation:*`). Signatures inchangées.
+La génération du code (KALG + 4 alphanum) reste ici ; Convex valide l'unicité
+et insère atomiquement (invalidation des pending précédents incluse).
+
+NB `admin_email` : l'ancien repo LEFT JOIN-ait la table `users` (supprimée,
+Better Auth). `get_activation_history` renvoie désormais `admin_email: null`.
 """
 import random
-import string
 from datetime import datetime, timedelta
 from typing import Optional, List
-from ..connection import get_connection
+
+from app.infrastructure.convex_client import get_convex
+from app.infrastructure.convex_repo_adapters import (
+    adapt_activation_code,
+    now_ms,
+)
 
 
 class ActivationRepository:
-    """Repository pour les codes d'activation des marchands"""
+    """Repository pour les codes d'activation des marchands (backend Convex)."""
 
-    # Caractères pour générer les codes (sans O/0/I/1 pour éviter confusion)
     CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
     CODE_PREFIX = "KALG"
     CODE_SUFFIX_LENGTH = 4
     CODE_EXPIRY_HOURS = 24
 
     def _generate_code(self) -> str:
-        """Génère un code unique de 8 caractères: KALG + 4 aléatoires"""
+        """Génère un code: KALG + 4 aléatoires (sans O/0/I/1)."""
         suffix = ''.join(random.choices(self.CODE_CHARS, k=self.CODE_SUFFIX_LENGTH))
         return f"{self.CODE_PREFIX}{suffix}"
 
-    async def create_code(self, merchant_id: int, admin_id: int) -> dict:
+    async def create_code(self, merchant_id: int, admin_id) -> dict:
         """
         Crée un nouveau code d'activation pour un marchand.
-        Invalide les codes précédents non utilisés.
-
-        Returns:
-            dict avec id, code, expires_at
+        Invalide les codes précédents non utilisés (atomique côté Convex).
         """
-        async with get_connection() as db:
-            # Invalider les codes précédents non utilisés
-            await db.execute("""
-                UPDATE activation_codes
-                SET status = 'expired'
-                WHERE merchant_id = ? AND status = 'pending'
-            """, (merchant_id,))
+        convex = get_convex()
 
-            # Générer un code unique
-            max_attempts = 10
-            code = None
-            for _ in range(max_attempts):
-                candidate = self._generate_code()
-                cursor = await db.execute(
-                    "SELECT id FROM activation_codes WHERE code = ?",
-                    (candidate,)
-                )
-                if not await cursor.fetchone():
-                    code = candidate
-                    break
+        # Générer un code unique (vérif unicité côté Convex).
+        code = None
+        for _ in range(10):
+            candidate = self._generate_code()
+            taken = await convex.query("internal/activation:isCodeTaken", {
+                "code": candidate,
+            })
+            if not taken:
+                code = candidate
+                break
+        if not code:
+            raise Exception("Impossible de générer un code unique")
 
-            if not code:
-                raise Exception("Impossible de générer un code unique")
-
-            # Date d'expiration
-            expires_at = datetime.now() + timedelta(hours=self.CODE_EXPIRY_HOURS)
-
-            # Insérer le code
-            cursor = await db.execute("""
-                INSERT INTO activation_codes (merchant_id, code, status, expires_at, created_by)
-                VALUES (?, ?, 'pending', ?, ?)
-            """, (merchant_id, code, expires_at.isoformat(), admin_id))
-
-            await db.commit()
-
-            return {
-                "id": cursor.lastrowid,
-                "code": code,
-                "expires_at": expires_at.isoformat(),
-                "merchant_id": merchant_id
-            }
+        expires_at = datetime.now() + timedelta(hours=self.CODE_EXPIRY_HOURS)
+        result = await convex.mutation("internal/activation:createCode", {
+            "merchantId": merchant_id,
+            "code": code,
+            "expiresAt": expires_at.timestamp() * 1000.0,
+            "createdBy": str(admin_id),
+        })
+        # Parité retour : {id, code, expires_at (ISO), merchant_id}.
+        return {
+            "id": result.get("id"),
+            "code": result.get("code"),
+            "expires_at": expires_at.isoformat(),
+            "merchant_id": merchant_id,
+        }
 
     async def validate_code(self, code: str, merchant_phone: str) -> dict:
-        """
-        Valide un code d'activation.
-
-        Returns:
-            dict avec success, message, merchant_id (si succès)
-        """
-        async with get_connection() as db:
-            # Vérifier le code
-            cursor = await db.execute("""
-                SELECT ac.*, m.phone as merchant_phone, m.id as merchant_id
-                FROM activation_codes ac
-                JOIN merchants m ON m.id = ac.merchant_id
-                WHERE ac.code = ? AND ac.status = 'pending'
-            """, (code.upper(),))
-
-            row = await cursor.fetchone()
-
-            if not row:
-                return {
-                    "success": False,
-                    "message": "Code invalide ou déjà utilisé"
-                }
-
-            # Vérifier que le code correspond au marchand
-            if row["merchant_phone"] != merchant_phone:
-                return {
-                    "success": False,
-                    "message": "Ce code n'est pas associé à votre numéro"
-                }
-
-            # Vérifier l'expiration
-            expires_at = datetime.fromisoformat(row["expires_at"]) if row["expires_at"] else None
-            if expires_at and datetime.now() > expires_at:
-                await db.execute(
-                    "UPDATE activation_codes SET status = 'expired' WHERE id = ?",
-                    (row["id"],)
-                )
-                await db.commit()
-                return {
-                    "success": False,
-                    "message": "Code expiré. Contactez le support."
-                }
-
-            # Marquer comme utilisé
-            await db.execute("""
-                UPDATE activation_codes
-                SET status = 'used', used_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            """, (row["id"],))
-
-            await db.commit()
-
-            return {
-                "success": True,
-                "message": "Code validé avec succès",
-                "merchant_id": row["merchant_id"]
-            }
+        """Valide un code d'activation."""
+        return await get_convex().mutation("internal/activation:validateCode", {
+            "code": code,
+            "merchantPhone": merchant_phone,
+            "nowMs": now_ms(),
+        })
 
     async def get_by_code(self, code: str) -> Optional[dict]:
-        """Récupère un code d'activation par son code"""
-        async with get_connection() as db:
-            cursor = await db.execute("""
-                SELECT ac.*, m.phone as merchant_phone, m.name as merchant_name
-                FROM activation_codes ac
-                JOIN merchants m ON m.id = ac.merchant_id
-                WHERE ac.code = ?
-            """, (code.upper(),))
-            row = await cursor.fetchone()
-            return dict(row) if row else None
+        """Récupère un code d'activation par son code (+ infos marchand)."""
+        doc = await get_convex().query("internal/activation:getByCode", {
+            "code": code,
+        })
+        return adapt_activation_code(doc)
 
     async def get_pending_for_merchant(self, merchant_id: int) -> Optional[dict]:
-        """Récupère le code en attente pour un marchand"""
-        async with get_connection() as db:
-            cursor = await db.execute("""
-                SELECT * FROM activation_codes
-                WHERE merchant_id = ? AND status = 'pending'
-                ORDER BY created_at DESC
-                LIMIT 1
-            """, (merchant_id,))
-            row = await cursor.fetchone()
-            return dict(row) if row else None
+        """Récupère le code en attente pour un marchand."""
+        doc = await get_convex().query("internal/activation:getPendingForMerchant", {
+            "merchantId": merchant_id,
+        })
+        return adapt_activation_code(doc)
 
     async def get_pending_merchants(self) -> List[dict]:
-        """
-        Récupère tous les marchands connectés WhatsApp mais sans abonnement actif.
-        Ce sont les marchands "en attente de paiement".
-        """
-        async with get_connection() as db:
-            # Marchands qui n'ont pas d'abonnement actif
-            cursor = await db.execute("""
-                SELECT
-                    m.id,
-                    m.phone,
-                    m.name,
-                    m.business_name,
-                    m.created_at,
-                    s.status as subscription_status,
-                    s.plan as subscription_plan,
-                    (SELECT MAX(ac.created_at) FROM activation_codes ac
-                     WHERE ac.merchant_id = m.id AND ac.status = 'pending') as pending_code_sent_at,
-                    (SELECT ac.code FROM activation_codes ac
-                     WHERE ac.merchant_id = m.id AND ac.status = 'pending'
-                     ORDER BY ac.created_at DESC LIMIT 1) as pending_code
-                FROM merchants m
-                LEFT JOIN subscriptions s ON s.merchant_id = m.id
-                WHERE s.id IS NULL
-                   OR s.status != 'active'
-                   OR (s.plan = 'trial' AND s.trial_ends_at < CURRENT_TIMESTAMP)
-                ORDER BY m.created_at DESC
-            """)
-
-            rows = await cursor.fetchall()
-            return [dict(row) for row in rows]
+        """Marchands connectés WhatsApp mais sans abonnement actif."""
+        rows = await get_convex().query("internal/activation:getPendingMerchants", {
+            "nowMs": now_ms(),
+        })
+        # Les rows sont déjà snake_case ; on convertit created_at/pending_code_sent_at en ISO.
+        from app.infrastructure.convex_repo_adapters import ms_to_iso
+        out = []
+        for r in (rows or []):
+            r = dict(r)
+            for k in ("created_at", "pending_code_sent_at"):
+                if isinstance(r.get(k), (int, float)):
+                    r[k] = ms_to_iso(r[k])
+            out.append(r)
+        return out
 
     async def expire_old_codes(self) -> int:
         """Expire les codes dépassés. Retourne le nombre de codes expirés."""
-        async with get_connection() as db:
-            cursor = await db.execute("""
-                UPDATE activation_codes
-                SET status = 'expired'
-                WHERE status = 'pending'
-                  AND expires_at < CURRENT_TIMESTAMP
-            """)
-            await db.commit()
-            return cursor.rowcount
+        result = await get_convex().mutation("internal/activation:expireOldCodes", {
+            "nowMs": now_ms(),
+        })
+        return result.get("expired", 0) if result else 0
 
     async def get_activation_history(self, limit: int = 50) -> List[dict]:
-        """Récupère l'historique des activations (pour admin)"""
-        async with get_connection() as db:
-            cursor = await db.execute("""
-                SELECT
-                    ac.*,
-                    m.phone as merchant_phone,
-                    m.name as merchant_name,
-                    u.email as admin_email
-                FROM activation_codes ac
-                JOIN merchants m ON m.id = ac.merchant_id
-                LEFT JOIN users u ON u.id = ac.created_by
-                ORDER BY ac.created_at DESC
-                LIMIT ?
-            """, (limit,))
-
-            rows = await cursor.fetchall()
-            return [dict(row) for row in rows]
+        """Récupère l'historique des activations (pour admin)."""
+        docs = await get_convex().query("internal/activation:getActivationHistory", {
+            "limit": limit,
+        })
+        return [adapt_activation_code(d) for d in (docs or [])]
 
 
 # Singleton pour injection de dépendances

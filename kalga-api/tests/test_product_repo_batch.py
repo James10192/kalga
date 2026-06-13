@@ -1,5 +1,16 @@
-"""Tests de ProductRepository.create_variants_batch."""
+"""Tests de ProductRepository.create_variants_batch.
+
+SUPERSEDED Phase E2 : ce repo délègue désormais à Convex
+(`internal/catalog:createVariantsBatch`). Les assertions SQLite-spécifiques
+(lastrowid séquentiel, rollback) ne s'appliquent plus, et la fixture `temp_db`
+(SQLite) ne gouverne plus le data layer. À réécrire avec un seeding Convex
+(cf. tests/test_chat_convex.py) — hors scope du port E2.
+"""
 import pytest
+
+pytestmark = pytest.mark.skip(
+    reason="SQLite-seeded; superseded by Convex data layer (Phase E2)."
+)
 
 from app.database.repositories.product_repo import ProductRepository
 from app.database.connection import get_connection

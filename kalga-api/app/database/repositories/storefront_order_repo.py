@@ -1,16 +1,16 @@
 """
-Repository pour la gestion des commandes vitrine web
+Repository pour la gestion des commandes vitrine web.
+
+Phase E2 : délègue à Convex (`internal/storefront:*`). Signatures inchangées.
 """
 from typing import Optional, List, Dict, Any
-from .base import BaseRepository
-from ..connection import get_connection
+
+from app.infrastructure.convex_client import get_convex
+from app.infrastructure.convex_repo_adapters import adapt_storefront_order
 
 
-class StorefrontOrderRepository(BaseRepository):
-    """Gère les commandes passées via la vitrine web"""
-
-    def __init__(self):
-        super().__init__("storefront_orders")
+class StorefrontOrderRepository:
+    """Gère les commandes passées via la vitrine web (backend Convex)."""
 
     async def create(
         self,
@@ -20,59 +20,37 @@ class StorefrontOrderRepository(BaseRepository):
         client_phone: str,
         message: str = None
     ) -> Dict[str, Any]:
-        """Crée une nouvelle commande vitrine"""
-        async with get_connection() as db:
-            cursor = await db.execute(
-                """
-                INSERT INTO storefront_orders (merchant_id, product_id, client_name, client_phone, message)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (merchant_id, product_id, client_name, client_phone, message)
-            )
-            await db.commit()
-            order_id = cursor.lastrowid
-
-            cursor = await db.execute(
-                "SELECT * FROM storefront_orders WHERE id = ?",
-                (order_id,)
-            )
-            row = await cursor.fetchone()
-            return dict(row)
+        """Crée une nouvelle commande vitrine."""
+        args: Dict[str, Any] = {
+            "merchantId": merchant_id,
+            "productId": product_id,
+            "clientName": client_name,
+            "clientPhone": client_phone,
+        }
+        if message is not None:
+            args["message"] = message
+        doc = await get_convex().mutation("internal/storefront:createOrder", args)
+        return adapt_storefront_order(doc)
 
     async def get_by_merchant(
         self,
         merchant_id: int,
         status: str = None
     ) -> List[Dict[str, Any]]:
-        """Récupère les commandes d'un marchand"""
-        async with get_connection() as db:
-            query = """
-                SELECT so.*, p.name as product_name, p.code as product_code, p.price
-                FROM storefront_orders so
-                JOIN products p ON so.product_id = p.id
-                WHERE so.merchant_id = ?
-            """
-            params = [merchant_id]
-
-            if status:
-                query += " AND so.status = ?"
-                params.append(status)
-
-            query += " ORDER BY so.created_at DESC"
-
-            cursor = await db.execute(query, tuple(params))
-            rows = await cursor.fetchall()
-            return [dict(row) for row in rows]
+        """Récupère les commandes d'un marchand (enrichies infos produit)."""
+        args: Dict[str, Any] = {"merchantId": merchant_id}
+        if status:
+            args["status"] = status
+        docs = await get_convex().query("internal/storefront:listByMerchant", args)
+        return [adapt_storefront_order(d) for d in (docs or [])]
 
     async def update_status(self, order_id: int, status: str) -> bool:
-        """Met à jour le statut d'une commande"""
-        async with get_connection() as db:
-            cursor = await db.execute(
-                "UPDATE storefront_orders SET status = ? WHERE id = ?",
-                (status, order_id)
-            )
-            await db.commit()
-            return cursor.rowcount > 0
+        """Met à jour le statut d'une commande."""
+        result = await get_convex().mutation("internal/storefront:updateStatus", {
+            "orderId": order_id,
+            "status": status,
+        })
+        return bool(result and result.get("updated"))
 
 
 # Instance globale

@@ -7,7 +7,6 @@ from pydantic import BaseModel
 from typing import Optional, List
 
 from ..database import get_db
-from ..database.connection import get_connection
 from ..database.repositories.knowledge_repo import KnowledgeBaseRepository
 from ..database.repositories.merchant_repo import MerchantRepository
 from ..database.repositories.product_repo import ProductRepository
@@ -517,28 +516,22 @@ async def add_conversation_feedback(conv_id: int, feedback: ConversationFeedback
                 f"pour marchand {feedback.merchant_phone}"
             )
 
-    # Enregistrer le feedback dans la table dédiée
-    async with get_connection() as db:
-        cursor = await db.execute(
-            """
-            INSERT INTO conversation_feedback
-            (conversation_id, merchant_id, client_phone, client_message,
-             bot_response, feedback_type, notes, kb_entry_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                conv_id,
-                merchant_id,
-                feedback.client_phone,
-                feedback.client_message,
-                feedback.bot_response,
-                feedback.feedback_type,
-                feedback.notes,
-                kb_entry_id
-            )
-        )
-        await db.commit()
-        feedback_id = cursor.lastrowid
+    # Enregistrer le feedback dans la table dédiée (Convex)
+    from ..infrastructure.convex_client import get_convex
+    fb_args = {
+        "conversationId": conv_id,
+        "merchantId": merchant_id,
+        "clientPhone": feedback.client_phone,
+        "clientMessage": feedback.client_message,
+        "botResponse": feedback.bot_response,
+        "feedbackType": feedback.feedback_type,
+    }
+    if feedback.notes is not None:
+        fb_args["notes"] = feedback.notes
+    if kb_entry_id is not None:
+        fb_args["kbEntryId"] = kb_entry_id
+    fb_result = await get_convex().mutation("internal/conversation:addFeedback", fb_args)
+    feedback_id = fb_result.get("feedbackId") if fb_result else None
 
     result = {
         "success": True,

@@ -142,14 +142,9 @@ async def quick_restock(product_code: str, body: QuickRestock):
     if not product:
         raise HTTPException(status_code=404, detail=f"Produit {product_code} non trouvé")
 
-    # Mettre à jour le stock
-    from ..database.connection import get_connection
-    async with get_connection() as conn:
-        await conn.execute(
-            "UPDATE products SET stock_quantity = ? WHERE id = ?",
-            (body.quantity, product['id'])
-        )
-        await conn.commit()
+    # Mettre à jour le stock (Convex)
+    from ..database.repositories.product_repo import ProductRepository
+    await ProductRepository().update(product['id'], stock_quantity=body.quantity)
 
     # Logger l'événement
     try:
@@ -207,13 +202,8 @@ async def update_stock_mode(product_code: str, body: StockModeUpdate):
     if not product:
         raise HTTPException(status_code=404, detail=f"Produit {product_code} non trouvé")
 
-    from ..database.connection import get_connection
-    async with get_connection() as conn:
-        await conn.execute(
-            "UPDATE products SET out_of_stock_mode = ? WHERE id = ?",
-            (body.mode, product['id'])
-        )
-        await conn.commit()
+    from ..database.repositories.product_repo import ProductRepository
+    await ProductRepository().update(product['id'], out_of_stock_mode=body.mode)
 
     return {"success": True, "product_code": product_code, "mode": body.mode}
 
@@ -223,23 +213,15 @@ async def update_stock_mode(product_code: str, body: StockModeUpdate):
 @router.get("/merchant/{merchant_id}/config")
 async def get_stock_config(merchant_id: int):
     """Récupère la configuration stock d'un marchand"""
-    db = await get_db()
-    from ..database.connection import get_connection
-    async with get_connection() as conn:
-        cursor = await conn.execute(
-            """SELECT stock_alert_days, stock_alerts_enabled, waitlist_enabled,
-                      low_stock_alert_global
-               FROM merchants WHERE id = ?""",
-            (merchant_id,)
-        )
-        row = await cursor.fetchone()
-    if not row:
+    from ..database.repositories.merchant_repo import MerchantRepository
+    merchant = await MerchantRepository().get_by_id(merchant_id)
+    if not merchant:
         raise HTTPException(status_code=404, detail="Marchand non trouvé")
     return {
-        "stock_alert_days": row[0] if row[0] is not None else 3,
-        "stock_alerts_enabled": bool(row[1]) if row[1] is not None else True,
-        "waitlist_enabled": bool(row[2]) if row[2] is not None else True,
-        "low_stock_alert_global": row[3] if row[3] is not None else 5
+        "stock_alert_days": merchant.get("stock_alert_days") if merchant.get("stock_alert_days") is not None else 3,
+        "stock_alerts_enabled": bool(merchant["stock_alerts_enabled"]) if merchant.get("stock_alerts_enabled") is not None else True,
+        "waitlist_enabled": bool(merchant["waitlist_enabled"]) if merchant.get("waitlist_enabled") is not None else True,
+        "low_stock_alert_global": merchant.get("low_stock_alert_global") if merchant.get("low_stock_alert_global") is not None else 5
     }
 
 
@@ -259,15 +241,7 @@ async def update_stock_config(merchant_id: int, body: StockConfigUpdate):
     if not updates:
         return {"success": True, "message": "Aucun changement"}
 
-    fields = ", ".join(f"{k} = ?" for k in updates.keys())
-    values = list(updates.values()) + [merchant_id]
-
-    from ..database.connection import get_connection
-    async with get_connection() as conn:
-        await conn.execute(
-            f"UPDATE merchants SET {fields} WHERE id = ?",
-            tuple(values)
-        )
-        await conn.commit()
+    from ..database.repositories.merchant_repo import MerchantRepository
+    await MerchantRepository().update(merchant_id, **updates)
 
     return {"success": True, "updated": updates}

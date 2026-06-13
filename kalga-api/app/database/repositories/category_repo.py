@@ -1,16 +1,17 @@
 """
-Repository pour la gestion des catégories de produits
+Repository pour la gestion des catégories de produits.
+
+Phase E2 : délègue à Convex (`internal/category:*`). Signatures publiques
+inchangées (les routers continuent de consommer les mêmes dicts snake_case).
 """
 from typing import Optional, List, Dict, Any
-from .base import BaseRepository
-from ..connection import get_connection
+
+from app.infrastructure.convex_client import get_convex
+from app.infrastructure.convex_repo_adapters import adapt_category
 
 
-class CategoryRepository(BaseRepository):
-    """Gère les opérations CRUD pour les catégories"""
-
-    def __init__(self):
-        super().__init__("categories")
+class CategoryRepository:
+    """Gère les opérations CRUD pour les catégories (backend Convex)."""
 
     async def create(
         self,
@@ -19,81 +20,44 @@ class CategoryRepository(BaseRepository):
         icon: str = "📦",
         color: str = "#667eea"
     ) -> Dict[str, Any]:
-        """Crée une nouvelle catégorie"""
-        async with get_connection() as db:
-            cursor = await db.execute(
-                """
-                INSERT INTO categories (merchant_id, name, icon, color)
-                VALUES (?, ?, ?, ?)
-                """,
-                (merchant_id, name, icon, color)
-            )
-            await db.commit()
-
-            cursor = await db.execute(
-                "SELECT * FROM categories WHERE id = ?",
-                (cursor.lastrowid,)
-            )
-            row = await cursor.fetchone()
-            return dict(row)
+        """Crée une nouvelle catégorie."""
+        doc = await get_convex().mutation("internal/category:create", {
+            "merchantId": merchant_id,
+            "name": name,
+            "icon": icon,
+            "color": color,
+        })
+        return adapt_category(doc)
 
     async def get_by_merchant(self, merchant_id: int) -> List[Dict[str, Any]]:
-        """Récupère toutes les catégories d'un marchand"""
-        async with get_connection() as db:
-            cursor = await db.execute(
-                """
-                SELECT c.*, COUNT(p.id) as product_count
-                FROM categories c
-                LEFT JOIN products p ON p.category_id = c.id AND p.is_available = 1
-                WHERE c.merchant_id = ?
-                GROUP BY c.id
-                ORDER BY c.name
-                """,
-                (merchant_id,)
-            )
-            rows = await cursor.fetchall()
-            return [dict(row) for row in rows]
+        """Récupère toutes les catégories d'un marchand (+ product_count)."""
+        docs = await get_convex().query("internal/category:listByMerchant", {
+            "merchantId": merchant_id,
+        })
+        return [adapt_category(d) for d in (docs or [])]
 
     async def get_by_name(self, merchant_id: int, name: str) -> Optional[Dict[str, Any]]:
-        """Récupère une catégorie par son nom"""
-        async with get_connection() as db:
-            cursor = await db.execute(
-                "SELECT * FROM categories WHERE merchant_id = ? AND name = ?",
-                (merchant_id, name)
-            )
-            row = await cursor.fetchone()
-            return dict(row) if row else None
+        """Récupère une catégorie par son nom."""
+        doc = await get_convex().query("internal/category:getByName", {
+            "merchantId": merchant_id,
+            "name": name,
+        })
+        return adapt_category(doc)
 
     async def update(self, category_id: int, **kwargs) -> bool:
-        """Met à jour une catégorie"""
+        """Met à jour une catégorie (name/icon/color)."""
         if not kwargs:
             return False
-
-        fields = ", ".join(f"{k} = ?" for k in kwargs.keys())
-        values = list(kwargs.values())
-        values.append(category_id)
-
-        async with get_connection() as db:
-            cursor = await db.execute(
-                f"UPDATE categories SET {fields} WHERE id = ?",
-                tuple(values)
-            )
-            await db.commit()
-            return cursor.rowcount > 0
+        args: Dict[str, Any] = {"categoryId": category_id}
+        for key in ("name", "icon", "color"):
+            if key in kwargs and kwargs[key] is not None:
+                args[key] = kwargs[key]
+        result = await get_convex().mutation("internal/category:update", args)
+        return bool(result and result.get("updated"))
 
     async def delete(self, category_id: int) -> bool:
-        """Supprime une catégorie (met les produits sans catégorie)"""
-        async with get_connection() as db:
-            # D'abord, retirer la catégorie des produits
-            await db.execute(
-                "UPDATE products SET category_id = NULL WHERE category_id = ?",
-                (category_id,)
-            )
-
-            # Supprimer la catégorie
-            cursor = await db.execute(
-                "DELETE FROM categories WHERE id = ?",
-                (category_id,)
-            )
-            await db.commit()
-            return cursor.rowcount > 0
+        """Supprime une catégorie."""
+        result = await get_convex().mutation("internal/category:remove", {
+            "categoryId": category_id,
+        })
+        return bool(result and result.get("deleted"))

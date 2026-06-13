@@ -1,17 +1,19 @@
 """
-Repository pour la gestion des conversations et messages
+Repository pour la gestion des conversations et messages.
+
+Phase E2 : délègue à Convex (`internal/conversation:*`). Signatures inchangées.
+Le hot-path chat principal passe par `internal/chat:getContext`/`commitTurn` ;
+ce repo couvre les reads dashboard + la maintenance (cleanup) + les écritures
+résiduelles encore appelées via la façade `db` (update/add_message).
 """
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
-from .base import BaseRepository
-from ..connection import get_connection
+
+from app.infrastructure.convex_client import get_convex
 
 
-class ConversationRepository(BaseRepository):
-    """Gère les opérations CRUD pour les conversations et messages"""
-
-    def __init__(self):
-        super().__init__("conversations")
+class ConversationRepository:
+    """Gère les opérations CRUD pour les conversations et messages (backend Convex)."""
 
     async def get_active(
         self,
@@ -19,48 +21,14 @@ class ConversationRepository(BaseRepository):
         client_phone: str,
         product_id: int = None
     ) -> Optional[Dict[str, Any]]:
-        """
-        Récupère une conversation active entre un marchand et un client.
-        Si product_id est fourni, cherche une conversation pour ce produit spécifique.
-        """
-        async with get_connection() as db:
-            if product_id:
-                cursor = await db.execute(
-                    """
-                    SELECT c.*, p.name as product_name, p.code as product_code, p.price
-                    FROM conversations c
-                    JOIN products p ON c.product_id = p.id
-                    WHERE c.merchant_id = ?
-                    AND c.client_phone = ?
-                    AND c.product_id = ?
-                    AND c.status NOT IN ('ended', 'completed', 'abandoned')
-                    ORDER BY c.updated_at DESC
-                    LIMIT 1
-                    """,
-                    (merchant_id, client_phone, product_id)
-                )
-            else:
-                # Sans product_id = message sans code produit.
-                # pending_pickup/pending_delivery sont des états VIVANTS : le client
-                # peut encore donner son adresse, changer livraison↔retrait,
-                # redemander la localisation. Les exclure faisait perdre l'adresse
-                # de livraison (bug terrain 2026-06-11 : « Gonwaquville » →
-                # « Pas de conversation active » → bot muet).
-                cursor = await db.execute(
-                    """
-                    SELECT c.*, p.name as product_name, p.code as product_code, p.price
-                    FROM conversations c
-                    JOIN products p ON c.product_id = p.id
-                    WHERE c.merchant_id = ?
-                    AND c.client_phone = ?
-                    AND c.status NOT IN ('ended', 'completed', 'abandoned')
-                    ORDER BY c.updated_at DESC
-                    LIMIT 1
-                    """,
-                    (merchant_id, client_phone)
-                )
-            row = await cursor.fetchone()
-            return dict(row) if row else None
+        """Récupère une conversation vivante entre un marchand et un client."""
+        args: Dict[str, Any] = {
+            "merchantId": merchant_id,
+            "clientPhone": client_phone,
+        }
+        if product_id:
+            args["productId"] = product_id
+        return await get_convex().query("internal/conversation:getActive", args)
 
     async def get_recent_closed(
         self,
@@ -68,31 +36,12 @@ class ConversationRepository(BaseRepository):
         client_phone: str,
         within_hours: int = 48
     ) -> Optional[Dict[str, Any]]:
-        """
-        Dernière conversation récemment clôturée (completed/ended) du client.
-
-        Une vente conclue ne doit pas devenir une porte fermée : le client qui
-        revient (photos, SAV, « vous livrez à X ? », nouvelle négo) retrouve son
-        contexte au lieu du silence (bug terrain 2026-06-11 15:17 :
-        « PAS DE RÉPONSE - conversation terminée »).
-        """
-        async with get_connection() as db:
-            cursor = await db.execute(
-                """
-                SELECT c.*, p.name as product_name, p.code as product_code, p.price
-                FROM conversations c
-                JOIN products p ON c.product_id = p.id
-                WHERE c.merchant_id = ?
-                AND c.client_phone = ?
-                AND c.status IN ('completed', 'ended')
-                AND c.updated_at >= datetime('now', ?)
-                ORDER BY c.updated_at DESC
-                LIMIT 1
-                """,
-                (merchant_id, client_phone, f"-{int(within_hours)} hours")
-            )
-            row = await cursor.fetchone()
-            return dict(row) if row else None
+        """Dernière conversation récemment clôturée (hot-path : voir internal/chat)."""
+        return await get_convex().query("internal/chat:getRecentClosed", {
+            "merchantId": merchant_id,
+            "clientPhone": client_phone,
+            "withinHours": within_hours,
+        })
 
     async def create(
         self,
@@ -100,111 +49,45 @@ class ConversationRepository(BaseRepository):
         product_id: int,
         client_phone: str
     ) -> Dict[str, Any]:
-        """Crée une nouvelle conversation"""
-        async with get_connection() as db:
-            cursor = await db.execute(
-                """
-                INSERT INTO conversations (merchant_id, product_id, client_phone, status)
-                VALUES (?, ?, ?, 'active')
-                """,
-                (merchant_id, product_id, client_phone)
-            )
-            await db.commit()
-            conv_id = cursor.lastrowid
-
-            # Récupérer la conversation créée avec les infos produit
-            cursor = await db.execute(
-                """
-                SELECT c.*, p.name as product_name, p.code as product_code, p.price
-                FROM conversations c
-                JOIN products p ON c.product_id = p.id
-                WHERE c.id = ?
-                """,
-                (conv_id,)
-            )
-            row = await cursor.fetchone()
-            return dict(row)
+        """Crée une nouvelle conversation."""
+        return await get_convex().mutation("internal/conversation:create", {
+            "merchantId": merchant_id,
+            "productId": product_id,
+            "clientPhone": client_phone,
+        })
 
     async def update(self, conversation_id: int, **kwargs) -> bool:
-        """Met à jour une conversation avec les champs fournis"""
+        """Met à jour une conversation avec les champs fournis."""
         if not kwargs:
             return False
-
-        # Toujours mettre à jour updated_at
-        kwargs['updated_at'] = datetime.now().isoformat()
-
-        fields = ", ".join(f"{k} = ?" for k in kwargs.keys())
-        values = list(kwargs.values())
-        values.append(conversation_id)
-
-        async with get_connection() as db:
-            cursor = await db.execute(
-                f"UPDATE conversations SET {fields} WHERE id = ?",
-                tuple(values)
-            )
-            await db.commit()
-            return cursor.rowcount > 0
+        args: Dict[str, Any] = {"conversationId": conversation_id}
+        if "status" in kwargs and kwargs["status"] is not None:
+            args["status"] = kwargs["status"]
+        if "current_offer" in kwargs:
+            args["currentOffer"] = kwargs["current_offer"]
+        if "selected_variant_id" in kwargs and kwargs["selected_variant_id"] is not None:
+            args["selectedVariantId"] = kwargs["selected_variant_id"]
+        result = await get_convex().mutation("internal/conversation:update", args)
+        return bool(result and result.get("updated"))
 
     async def get_by_merchant(
         self,
         merchant_id: int,
         status: str = "active"
     ) -> List[Dict[str, Any]]:
-        """Récupère les conversations d'un marchand par statut"""
-        async with get_connection() as db:
-            if status == "all":
-                cursor = await db.execute(
-                    """
-                    SELECT c.*, p.name as product_name, p.code as product_code, p.price
-                    FROM conversations c
-                    JOIN products p ON c.product_id = p.id
-                    WHERE c.merchant_id = ?
-                    ORDER BY c.updated_at DESC
-                    """,
-                    (merchant_id,)
-                )
-            elif status == "active":
-                cursor = await db.execute(
-                    """
-                    SELECT c.*, p.name as product_name, p.code as product_code, p.price
-                    FROM conversations c
-                    JOIN products p ON c.product_id = p.id
-                    WHERE c.merchant_id = ?
-                    AND c.status NOT IN ('ended', 'completed', 'abandoned')
-                    ORDER BY c.updated_at DESC
-                    """,
-                    (merchant_id,)
-                )
-            else:
-                cursor = await db.execute(
-                    """
-                    SELECT c.*, p.name as product_name, p.code as product_code, p.price
-                    FROM conversations c
-                    JOIN products p ON c.product_id = p.id
-                    WHERE c.merchant_id = ? AND c.status = ?
-                    ORDER BY c.updated_at DESC
-                    """,
-                    (merchant_id, status)
-                )
-            rows = await cursor.fetchall()
-            return [dict(row) for row in rows]
+        """Récupère les conversations d'un marchand par statut."""
+        rows = await get_convex().query("internal/conversation:getByMerchant", {
+            "merchantId": merchant_id,
+            "status": status,
+        })
+        return rows or []
 
     async def get_pending(self, merchant_id: int) -> List[Dict[str, Any]]:
-        """Récupère les conversations en attente (pending_delivery ou pending_pickup)"""
-        async with get_connection() as db:
-            cursor = await db.execute(
-                """
-                SELECT c.*, p.name as product_name, p.code as product_code, p.price
-                FROM conversations c
-                JOIN products p ON c.product_id = p.id
-                WHERE c.merchant_id = ?
-                AND c.status IN ('pending_delivery', 'pending_pickup')
-                ORDER BY c.updated_at DESC
-                """,
-                (merchant_id,)
-            )
-            rows = await cursor.fetchall()
-            return [dict(row) for row in rows]
+        """Récupère les conversations en attente (pending_delivery ou pending_pickup)."""
+        rows = await get_convex().query("internal/conversation:getPending", {
+            "merchantId": merchant_id,
+        })
+        return rows or []
 
     # === Gestion des messages ===
 
@@ -214,63 +97,29 @@ class ConversationRepository(BaseRepository):
         content: str,
         is_from_client: bool
     ) -> Dict[str, Any]:
-        """Ajoute un message à une conversation"""
-        async with get_connection() as db:
-            cursor = await db.execute(
-                """
-                INSERT INTO messages (conversation_id, content, is_from_client)
-                VALUES (?, ?, ?)
-                """,
-                (conversation_id, content, is_from_client)
-            )
-
-            # Mettre à jour updated_at de la conversation
-            await db.execute(
-                "UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-                (conversation_id,)
-            )
-            await db.commit()
-            message_id = cursor.lastrowid
-
-            cursor = await db.execute(
-                "SELECT * FROM messages WHERE id = ?",
-                (message_id,)
-            )
-            row = await cursor.fetchone()
-            return dict(row)
+        """Ajoute un message à une conversation."""
+        return await get_convex().mutation("internal/conversation:addMessage", {
+            "conversationId": conversation_id,
+            "content": content,
+            "isFromClient": bool(is_from_client),
+        })
 
     async def get_messages(self, conversation_id: int) -> List[Dict[str, Any]]:
-        """Récupère tous les messages d'une conversation"""
-        async with get_connection() as db:
-            cursor = await db.execute(
-                """
-                SELECT * FROM messages
-                WHERE conversation_id = ?
-                ORDER BY created_at ASC
-                """,
-                (conversation_id,)
-            )
-            rows = await cursor.fetchall()
-            return [dict(row) for row in rows]
+        """Récupère tous les messages d'une conversation."""
+        rows = await get_convex().query("internal/conversation:getMessages", {
+            "conversationId": conversation_id,
+        })
+        return rows or []
 
     # === Nettoyage ===
 
     async def cleanup_expired(self, days: int = 7) -> int:
-        """Marque les conversations inactives depuis X jours comme terminées"""
-        cutoff = (datetime.now() - timedelta(days=days)).isoformat()
-
-        async with get_connection() as db:
-            cursor = await db.execute(
-                """
-                UPDATE conversations
-                SET status = 'expired'
-                WHERE status IN ('active', 'negotiating')
-                AND updated_at < ?
-                """,
-                (cutoff,)
-            )
-            await db.commit()
-            return cursor.rowcount
+        """Marque les conversations inactives depuis X jours comme expirées."""
+        cutoff_ms = (datetime.now() - timedelta(days=days)).timestamp() * 1000.0
+        result = await get_convex().mutation("internal/conversation:cleanupExpired", {
+            "cutoffMs": cutoff_ms,
+        })
+        return result.get("cleaned", 0) if result else 0
 
 
 # Instance globale

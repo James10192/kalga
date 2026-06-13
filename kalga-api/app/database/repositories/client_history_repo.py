@@ -1,51 +1,37 @@
 """
-Repository pour l'historique des clients
-Permet de mémoriser le comportement de négociation des clients
+Repository pour l'historique des clients.
+
+Phase E2 : délègue à Convex (`internal/clienthistory:*` pour les lectures et
+l'upsert générique, `internal/memory:upsertMemory` pour les champs mémoire
+LTM/épisodique). Signatures publiques inchangées. La logique de scoring de
+négociation (`get_negotiation_context`, `_determine_negotiation_style`) reste
+pure côté Python.
 """
 import json
 from typing import Optional, Dict, Any, List
 from datetime import datetime
-from .base import BaseRepository
-from ..connection import get_connection
+
+from app.infrastructure.convex_client import get_convex
+from app.infrastructure.convex_repo_adapters import (
+    adapt_client_history,
+    history_patch_to_camel,
+)
 
 
-class ClientHistoryRepository(BaseRepository):
-    """Gère l'historique des interactions avec les clients"""
-
-    def __init__(self):
-        super().__init__("client_history")
+class ClientHistoryRepository:
+    """Gère l'historique des interactions avec les clients (backend Convex)."""
 
     async def get_client_history(
         self,
         merchant_id: int,
         client_phone: str
     ) -> Optional[Dict[str, Any]]:
-        """
-        Récupère l'historique d'un client pour un marchand.
-        """
-        async with get_connection() as db:
-            cursor = await db.execute(
-                """
-                SELECT * FROM client_history
-                WHERE merchant_id = ? AND client_phone = ?
-                """,
-                (merchant_id, client_phone)
-            )
-            row = await cursor.fetchone()
-            if not row:
-                return None
-
-            history = dict(row)
-            # Parser les catégories préférées (JSON)
-            if history.get('preferred_categories'):
-                try:
-                    history['preferred_categories'] = json.loads(history['preferred_categories'])
-                except json.JSONDecodeError:
-                    history['preferred_categories'] = []
-            else:
-                history['preferred_categories'] = []
-
-            return history
+        """Récupère l'historique d'un client pour un marchand."""
+        doc = await get_convex().query("internal/clienthistory:get", {
+            "merchantId": merchant_id,
+            "clientPhone": client_phone,
+        })
+        return adapt_client_history(doc)
 
     async def create_or_update(
         self,
@@ -53,65 +39,22 @@ class ClientHistoryRepository(BaseRepository):
         client_phone: str,
         **kwargs
     ) -> Dict[str, Any]:
-        """
-        Crée ou met à jour l'historique d'un client.
-        """
-        existing = await self.get_client_history(merchant_id, client_phone)
-
-        if existing:
-            # Mise à jour
-            update_fields = {k: v for k, v in kwargs.items() if v is not None}
-            update_fields['updated_at'] = datetime.now().isoformat()
-
-            if update_fields:
-                fields = ", ".join(f"{k} = ?" for k in update_fields.keys())
-                values = list(update_fields.values())
-                values.extend([merchant_id, client_phone])
-
-                async with get_connection() as db:
-                    await db.execute(
-                        f"UPDATE client_history SET {fields} WHERE merchant_id = ? AND client_phone = ?",
-                        tuple(values)
-                    )
-                    await db.commit()
-
-            return await self.get_client_history(merchant_id, client_phone)
-        else:
-            # Création
-            async with get_connection() as db:
-                await db.execute(
-                    """
-                    INSERT INTO client_history (
-                        merchant_id, client_phone, total_conversations,
-                        total_purchases, total_spent, avg_negotiation_discount,
-                        negotiation_style, last_interaction_date
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        merchant_id,
-                        client_phone,
-                        kwargs.get('total_conversations', 1),
-                        kwargs.get('total_purchases', 0),
-                        kwargs.get('total_spent', 0),
-                        kwargs.get('avg_negotiation_discount', 0),
-                        kwargs.get('negotiation_style', 'normal'),
-                        datetime.now().isoformat()
-                    )
-                )
-                await db.commit()
-
-            return await self.get_client_history(merchant_id, client_phone)
+        """Crée ou met à jour l'historique d'un client."""
+        patch = history_patch_to_camel(kwargs)
+        doc = await get_convex().mutation("internal/clienthistory:createOrUpdate", {
+            "merchantId": merchant_id,
+            "clientPhone": client_phone,
+            "patch": patch,
+        })
+        return adapt_client_history(doc)
 
     async def record_conversation(
         self,
         merchant_id: int,
         client_phone: str
     ) -> Dict[str, Any]:
-        """
-        Enregistre une nouvelle conversation pour un client.
-        """
+        """Enregistre une nouvelle conversation pour un client."""
         history = await self.get_client_history(merchant_id, client_phone)
-
         if history:
             new_total = history['total_conversations'] + 1
             return await self.create_or_update(
@@ -120,12 +63,11 @@ class ClientHistoryRepository(BaseRepository):
                 total_conversations=new_total,
                 last_interaction_date=datetime.now().isoformat()
             )
-        else:
-            return await self.create_or_update(
-                merchant_id,
-                client_phone,
-                total_conversations=1
-            )
+        return await self.create_or_update(
+            merchant_id,
+            client_phone,
+            total_conversations=1
+        )
 
     async def record_purchase(
         self,
@@ -136,29 +78,20 @@ class ClientHistoryRepository(BaseRepository):
         final_price: float,
         category: str = None
     ) -> Dict[str, Any]:
-        """
-        Enregistre un achat et met à jour les statistiques de négociation.
-        """
+        """Enregistre un achat et met à jour les statistiques de négociation."""
         history = await self.get_client_history(merchant_id, client_phone)
 
-        # Calculer le discount
         discount_percent = 0
         if original_price > 0 and final_price < original_price:
             discount_percent = ((original_price - final_price) / original_price) * 100
 
         if history:
-            # Mettre à jour les stats existantes
             new_purchases = history['total_purchases'] + 1
             new_spent = history['total_spent'] + amount
-
-            # Moyenne mobile du discount
             old_avg = history['avg_negotiation_discount'] or 0
             new_avg = ((old_avg * history['total_purchases']) + discount_percent) / new_purchases
-
-            # Déterminer le style de négociation
             negotiation_style = self._determine_negotiation_style(new_avg, new_purchases)
 
-            # Mettre à jour les catégories préférées
             preferred_categories = history['preferred_categories'] or []
             if category and category not in preferred_categories:
                 preferred_categories.append(category)
@@ -175,10 +108,8 @@ class ClientHistoryRepository(BaseRepository):
                 preferred_categories=json.dumps(preferred_categories) if preferred_categories else None
             )
         else:
-            # Nouveau client
             negotiation_style = self._determine_negotiation_style(discount_percent, 1)
             preferred_categories = [category] if category else []
-
             return await self.create_or_update(
                 merchant_id,
                 client_phone,
@@ -192,15 +123,7 @@ class ClientHistoryRepository(BaseRepository):
             )
 
     def _determine_negotiation_style(self, avg_discount: float, purchase_count: int) -> str:
-        """
-        Détermine le style de négociation d'un client basé sur son historique.
-
-        Styles:
-        - loyal: Client fidèle, achète souvent sans trop négocier
-        - negotiator: Négocie activement, cherche les réductions
-        - premium: Achète sans négocier (ou peu)
-        - normal: Comportement standard
-        """
+        """Détermine le style de négociation d'un client basé sur son historique."""
         if purchase_count >= 5 and avg_discount < 5:
             return 'loyal'
         elif purchase_count >= 3 and avg_discount < 3:
@@ -219,28 +142,18 @@ class ClientHistoryRepository(BaseRepository):
         product_price: float,
         min_price: float
     ) -> Dict[str, Any]:
-        """
-        Retourne le contexte de négociation pour adapter les contre-offres.
-
-        Retourne:
-        - suggested_discount: Réduction suggérée basée sur l'historique
-        - client_style: Style de négociation du client
-        - is_returning: Si c'est un client récurrent
-        - purchase_count: Nombre d'achats précédents
-        - loyalty_discount: Réduction fidélité possible
-        """
+        """Retourne le contexte de négociation pour adapter les contre-offres."""
         history = await self.get_client_history(merchant_id, client_phone)
 
         price_range = product_price - min_price
         max_discount_percent = (price_range / product_price) * 100 if product_price > 0 else 0
 
         if not history:
-            # Nouveau client
             return {
                 'is_returning': False,
                 'client_style': 'unknown',
                 'purchase_count': 0,
-                'suggested_discount': min(5, max_discount_percent / 3),  # Commencer doucement
+                'suggested_discount': min(5, max_discount_percent / 3),
                 'loyalty_discount': 0,
                 'avg_discount': 0,
                 'total_spent': 0,
@@ -251,29 +164,23 @@ class ClientHistoryRepository(BaseRepository):
         purchases = history['total_purchases']
         avg_discount = history['avg_negotiation_discount'] or 0
 
-        # Calculer la réduction suggérée selon le style
         if style == 'loyal':
-            # Client fidèle: offrir un bon deal plus rapidement
             suggested = min(avg_discount + 3, max_discount_percent * 0.7)
             loyalty_discount = 5 if purchases >= 5 else 3
             recommendation = f"Client fidèle ({purchases} achats) - Offrir un bon prix rapidement"
         elif style == 'premium':
-            # Client premium: peu de négociation attendue
             suggested = min(3, max_discount_percent * 0.3)
             loyalty_discount = 2
             recommendation = "Client premium - Pas besoin de négocier beaucoup"
         elif style == 'hard_negotiator':
-            # Négociateur dur: rester ferme mais proposer des paliers
             suggested = min(avg_discount * 0.8, max_discount_percent * 0.5)
-            loyalty_discount = 0  # Pas de bonus pour les négociateurs durs
+            loyalty_discount = 0
             recommendation = f"Négociateur ({avg_discount:.0f}% moyen) - Rester ferme, paliers progressifs"
         elif style == 'negotiator':
-            # Négociateur normal
             suggested = min(avg_discount, max_discount_percent * 0.6)
             loyalty_discount = 2 if purchases >= 3 else 0
             recommendation = "Négociateur - Proposer des paliers raisonnables"
         else:
-            # Normal
             suggested = min(avg_discount, max_discount_percent * 0.5)
             loyalty_discount = 1 if purchases >= 2 else 0
             recommendation = "Client standard - Négociation normale"
@@ -295,21 +202,12 @@ class ClientHistoryRepository(BaseRepository):
         merchant_id: int,
         limit: int = 10
     ) -> List[Dict[str, Any]]:
-        """
-        Récupère les meilleurs clients d'un marchand.
-        """
-        async with get_connection() as db:
-            cursor = await db.execute(
-                """
-                SELECT * FROM client_history
-                WHERE merchant_id = ?
-                ORDER BY total_spent DESC
-                LIMIT ?
-                """,
-                (merchant_id, limit)
-            )
-            rows = await cursor.fetchall()
-            return [dict(row) for row in rows]
+        """Récupère les meilleurs clients d'un marchand."""
+        docs = await get_convex().query("internal/clienthistory:getTopClients", {
+            "merchantId": merchant_id,
+            "limit": limit,
+        })
+        return [adapt_client_history(d) for d in (docs or [])]
 
     # =========================================================================
     # Méthodes LTM — mémoire sémantique (faits, résumés, préférences)
@@ -326,7 +224,7 @@ class ClientHistoryRepository(BaseRepository):
             return []
         try:
             return json.loads(history['memory_facts'])
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, TypeError):
             return []
 
     async def save_memory_facts(
@@ -336,11 +234,11 @@ class ClientHistoryRepository(BaseRepository):
         facts: List[Dict[str, Any]]
     ) -> None:
         """Sauvegarde la liste de faits mémorisés pour un client."""
-        await self.create_or_update(
-            merchant_id,
-            client_phone,
-            memory_facts=json.dumps(facts, ensure_ascii=False)
-        )
+        await get_convex().mutation("internal/memory:upsertMemory", {
+            "merchantId": merchant_id,
+            "clientPhone": client_phone,
+            "memoryFacts": json.dumps(facts, ensure_ascii=False),
+        })
 
     async def save_session_summary(
         self,
@@ -349,28 +247,24 @@ class ClientHistoryRepository(BaseRepository):
         summary: str,
         conv_entry: Dict[str, Any]
     ) -> None:
-        """
-        Sauvegarde le résumé de la dernière session et l'ajoute
-        à l'historique des résumés de conversations.
-        """
+        """Sauvegarde le résumé de la dernière session + historique (max 10)."""
         history = await self.get_client_history(merchant_id, client_phone)
         summaries = []
         if history and history.get('conversation_summaries'):
             try:
                 summaries = json.loads(history['conversation_summaries'])
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, TypeError):
                 summaries = []
 
-        # Ajouter le nouveau résumé en tête, garder max 10
         summaries.insert(0, conv_entry)
         summaries = summaries[:10]
 
-        await self.create_or_update(
-            merchant_id,
-            client_phone,
-            last_session_summary=summary,
-            conversation_summaries=json.dumps(summaries, ensure_ascii=False)
-        )
+        await get_convex().mutation("internal/memory:upsertMemory", {
+            "merchantId": merchant_id,
+            "clientPhone": client_phone,
+            "lastSessionSummary": summary,
+            "conversationSummaries": json.dumps(summaries, ensure_ascii=False),
+        })
 
     async def get_conversation_summaries(
         self,
@@ -383,7 +277,7 @@ class ClientHistoryRepository(BaseRepository):
             return []
         try:
             return json.loads(history['conversation_summaries'])
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, TypeError):
             return []
 
     async def save_preferences(
@@ -392,28 +286,24 @@ class ClientHistoryRepository(BaseRepository):
         client_phone: str,
         preferences: Dict[str, Any]
     ) -> None:
-        """
-        Fusionne et sauvegarde les préférences détectées d'un client.
-        Les valeurs 'null' / 'unknown' n'écrasent pas les valeurs existantes.
-        """
+        """Fusionne et sauvegarde les préférences détectées d'un client."""
         history = await self.get_client_history(merchant_id, client_phone)
         existing_prefs = {}
         if history and history.get('preferences'):
             try:
                 existing_prefs = json.loads(history['preferences'])
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, TypeError):
                 existing_prefs = {}
 
-        # Fusionner : on ne met à jour que les clés non-nulles / non-unknown
         for key, value in preferences.items():
             if value and value not in ('null', 'unknown', None):
                 existing_prefs[key] = value
 
-        await self.create_or_update(
-            merchant_id,
-            client_phone,
-            preferences=json.dumps(existing_prefs, ensure_ascii=False)
-        )
+        await get_convex().mutation("internal/memory:upsertMemory", {
+            "merchantId": merchant_id,
+            "clientPhone": client_phone,
+            "preferences": json.dumps(existing_prefs, ensure_ascii=False),
+        })
 
     async def get_preferences(
         self,
@@ -426,7 +316,7 @@ class ClientHistoryRepository(BaseRepository):
             return {}
         try:
             return json.loads(history['preferences'])
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, TypeError):
             return {}
 
 

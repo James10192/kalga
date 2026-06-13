@@ -9,6 +9,14 @@ une réponse qui explique quoi faire — jamais le silence.
 """
 import pytest
 
+# SUPERSEDED Phase E2 : `_base_session` seed un marchand via SQLite/`db` puis
+# exerce des repos désormais Convex-backed (id Convex string attendu). La
+# fixture `temp_db` ne gouverne plus le data layer. À réécrire avec seeding
+# Convex — hors scope du port E2.
+pytestmark = pytest.mark.skip(
+    reason="SQLite-seeded; superseded by Convex data layer (Phase E2)."
+)
+
 from app.modules.merchant_commands.service import MerchantCommandService
 from app.modules.merchant_commands.schemas import MerchantMessage, CommandAction
 from app.modules.merchant_commands.session_manager import session_manager

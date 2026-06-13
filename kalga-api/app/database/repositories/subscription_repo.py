@@ -1,27 +1,35 @@
 """
-Repository pour la gestion des abonnements marchands
+Repository pour la gestion des abonnements marchands.
+
+Phase E2 : délègue à Convex (`internal/billing:*`). Signatures inchangées.
+La logique de dates/limites reste ici (Python a `datetime.now()`) ; les
+écritures atomiques et lectures passent par Convex. Les dates sont threadées
+en epoch ms vers Convex et reviennent en ISO via l'adaptateur (parité SQLite).
 """
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
-from .base import BaseRepository
-from ..connection import get_connection
+
+from app.infrastructure.convex_client import get_convex
+from app.infrastructure.convex_repo_adapters import (
+    adapt_subscription,
+    iso_to_ms,
+    now_ms,
+)
 
 
-class SubscriptionRepository(BaseRepository):
-    """Gère les abonnements des marchands"""
+def _dt_ms(dt: datetime) -> float:
+    return dt.timestamp() * 1000.0
 
-    def __init__(self):
-        super().__init__("subscriptions")
+
+class SubscriptionRepository:
+    """Gère les abonnements des marchands (backend Convex)."""
 
     async def get_by_merchant(self, merchant_id: int) -> Optional[Dict[str, Any]]:
-        """Récupère l'abonnement d'un marchand"""
-        async with get_connection() as db:
-            cursor = await db.execute(
-                "SELECT * FROM subscriptions WHERE merchant_id = ?",
-                (merchant_id,)
-            )
-            row = await cursor.fetchone()
-            return dict(row) if row else None
+        """Récupère l'abonnement d'un marchand."""
+        doc = await get_convex().query("internal/billing:getByMerchant", {
+            "merchantId": merchant_id,
+        })
+        return adapt_subscription(doc)
 
     async def create_trial(
         self,
@@ -30,32 +38,17 @@ class SubscriptionRepository(BaseRepository):
         messages_limit: int = 500,
         products_limit: int = 10
     ) -> Dict[str, Any]:
-        """Crée un abonnement trial pour un nouveau marchand"""
-        trial_ends = datetime.now() + timedelta(days=trial_days)
-
-        async with get_connection() as db:
-            await db.execute(
-                """
-                INSERT INTO subscriptions (
-                    merchant_id, plan, status, start_date, trial_ends_at,
-                    messages_limit, messages_used, products_limit, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    merchant_id,
-                    "trial",
-                    "active",
-                    datetime.now().isoformat(),
-                    trial_ends.isoformat(),
-                    messages_limit,
-                    0,
-                    products_limit,
-                    datetime.now().isoformat()
-                )
-            )
-            await db.commit()
-
-        return await self.get_by_merchant(merchant_id)
+        """Crée un abonnement trial pour un nouveau marchand."""
+        now = datetime.now()
+        trial_ends = now + timedelta(days=trial_days)
+        doc = await get_convex().mutation("internal/billing:createTrial", {
+            "merchantId": merchant_id,
+            "startDate": _dt_ms(now),
+            "trialEndsAt": _dt_ms(trial_ends),
+            "messagesLimit": messages_limit,
+            "productsLimit": products_limit,
+        })
+        return adapt_subscription(doc)
 
     async def upgrade_plan(
         self,
@@ -65,56 +58,28 @@ class SubscriptionRepository(BaseRepository):
         messages_limit: int = 5000,
         products_limit: int = 100
     ) -> Dict[str, Any]:
-        """Upgrade l'abonnement d'un marchand"""
-        end_date = datetime.now() + timedelta(days=30 * duration_months)
-
-        async with get_connection() as db:
-            await db.execute(
-                """
-                UPDATE subscriptions SET
-                    plan = ?,
-                    status = 'active',
-                    start_date = ?,
-                    end_date = ?,
-                    trial_ends_at = NULL,
-                    messages_limit = ?,
-                    messages_used = 0,
-                    products_limit = ?,
-                    updated_at = ?
-                WHERE merchant_id = ?
-                """,
-                (
-                    plan,
-                    datetime.now().isoformat(),
-                    end_date.isoformat(),
-                    messages_limit,
-                    products_limit,
-                    datetime.now().isoformat(),
-                    merchant_id
-                )
-            )
-            await db.commit()
-
-        return await self.get_by_merchant(merchant_id)
+        """Upgrade l'abonnement d'un marchand."""
+        now = datetime.now()
+        end_date = now + timedelta(days=30 * duration_months)
+        doc = await get_convex().mutation("internal/billing:upgradePlan", {
+            "merchantId": merchant_id,
+            "plan": plan,
+            "startDate": _dt_ms(now),
+            "endDate": _dt_ms(end_date),
+            "messagesLimit": messages_limit,
+            "productsLimit": products_limit,
+        })
+        return adapt_subscription(doc)
 
     async def increment_messages(self, merchant_id: int) -> Dict[str, Any]:
-        """Incrémente le compteur de messages utilisés"""
-        async with get_connection() as db:
-            await db.execute(
-                """
-                UPDATE subscriptions SET
-                    messages_used = messages_used + 1,
-                    updated_at = ?
-                WHERE merchant_id = ?
-                """,
-                (datetime.now().isoformat(), merchant_id)
-            )
-            await db.commit()
-
-        return await self.get_by_merchant(merchant_id)
+        """Incrémente le compteur de messages utilisés."""
+        doc = await get_convex().mutation("internal/billing:incrementMessages", {
+            "merchantId": merchant_id,
+        })
+        return adapt_subscription(doc)
 
     async def check_limits(self, merchant_id: int) -> Dict[str, Any]:
-        """Vérifie les limites de l'abonnement"""
+        """Vérifie les limites de l'abonnement (logique Python conservée)."""
         sub = await self.get_by_merchant(merchant_id)
 
         if not sub:
@@ -127,8 +92,7 @@ class SubscriptionRepository(BaseRepository):
 
         now = datetime.now()
 
-        # Vérifier si trial expiré
-        if sub['plan'] == 'trial' and sub['trial_ends_at']:
+        if sub['plan'] == 'trial' and sub.get('trial_ends_at'):
             trial_ends = datetime.fromisoformat(sub['trial_ends_at'])
             if now > trial_ends:
                 return {
@@ -139,8 +103,7 @@ class SubscriptionRepository(BaseRepository):
                     "expired_at": sub['trial_ends_at']
                 }
 
-        # Vérifier si abonnement expiré
-        if sub['end_date']:
+        if sub.get('end_date'):
             end_date = datetime.fromisoformat(sub['end_date'])
             if now > end_date:
                 return {
@@ -151,13 +114,12 @@ class SubscriptionRepository(BaseRepository):
                     "expired_at": sub['end_date']
                 }
 
-        # Vérifier limite messages
         messages_ok = sub['messages_used'] < sub['messages_limit']
 
         return {
             "has_subscription": True,
             "can_send_messages": messages_ok,
-            "can_add_products": True,  # On vérifie ailleurs pour les produits
+            "can_add_products": True,
             "plan": sub['plan'],
             "messages_used": sub['messages_used'],
             "messages_limit": sub['messages_limit'],
@@ -166,104 +128,38 @@ class SubscriptionRepository(BaseRepository):
         }
 
     async def reactivate(self, merchant_id: int) -> Dict[str, Any]:
-        """Réactive un abonnement existant (trial ou expiré)"""
-        from datetime import timedelta
-
-        # Récupérer l'abonnement existant
+        """Réactive un abonnement existant (trial ou expiré)."""
         existing = await self.get_by_merchant(merchant_id)
+        if not existing:
+            return None
 
-        if existing:
-            # Réactiver avec un nouveau trial de 14 jours
-            trial_ends = datetime.now() + timedelta(days=14)
-
-            async with get_connection() as db:
-                await db.execute(
-                    """
-                    UPDATE subscriptions SET
-                        status = 'active',
-                        plan = 'trial',
-                        trial_ends_at = ?,
-                        messages_used = 0,
-                        updated_at = ?
-                    WHERE merchant_id = ?
-                    """,
-                    (trial_ends.isoformat(), datetime.now().isoformat(), merchant_id)
-                )
-                await db.commit()
-
-        return await self.get_by_merchant(merchant_id)
+        trial_ends = datetime.now() + timedelta(days=14)
+        doc = await get_convex().mutation("internal/billing:reactivate", {
+            "merchantId": merchant_id,
+            "trialEndsAt": _dt_ms(trial_ends),
+        })
+        return adapt_subscription(doc)
 
     async def get_expiring_soon(self, days: int = 7) -> List[Dict[str, Any]]:
-        """Récupère les abonnements qui expirent bientôt"""
-        threshold = (datetime.now() + timedelta(days=days)).isoformat()
-        now = datetime.now().isoformat()
-
-        async with get_connection() as db:
-            cursor = await db.execute(
-                """
-                SELECT s.*, m.name, m.phone, m.business_name
-                FROM subscriptions s
-                JOIN merchants m ON s.merchant_id = m.id
-                WHERE (
-                    (s.plan = 'trial' AND s.trial_ends_at BETWEEN ? AND ?)
-                    OR (s.plan != 'trial' AND s.end_date BETWEEN ? AND ?)
-                )
-                AND s.status = 'active'
-                ORDER BY COALESCE(s.trial_ends_at, s.end_date)
-                """,
-                (now, threshold, now, threshold)
-            )
-            rows = await cursor.fetchall()
-
-        return [dict(row) for row in rows]
+        """Récupère les abonnements qui expirent bientôt."""
+        now = datetime.now()
+        threshold = now + timedelta(days=days)
+        docs = await get_convex().query("internal/billing:getExpiringSoon", {
+            "nowMs": _dt_ms(now),
+            "thresholdMs": _dt_ms(threshold),
+        })
+        return [adapt_subscription(d) for d in (docs or [])]
 
     async def mark_expired(self) -> int:
-        """Marque les abonnements expirés"""
-        now = datetime.now().isoformat()
-
-        async with get_connection() as db:
-            # Trial expirés
-            cursor = await db.execute(
-                """
-                UPDATE subscriptions SET status = 'expired', updated_at = ?
-                WHERE plan = 'trial' AND trial_ends_at < ? AND status = 'active'
-                """,
-                (now, now)
-            )
-            trial_count = cursor.rowcount
-
-            # Abonnements payants expirés
-            cursor = await db.execute(
-                """
-                UPDATE subscriptions SET status = 'expired', updated_at = ?
-                WHERE plan != 'trial' AND end_date < ? AND status = 'active'
-                """,
-                (now, now)
-            )
-            paid_count = cursor.rowcount
-
-            await db.commit()
-
-        return trial_count + paid_count
+        """Marque les abonnements expirés."""
+        result = await get_convex().mutation("internal/billing:markExpired", {
+            "nowMs": now_ms(),
+        })
+        return result.get("expired", 0) if result else 0
 
     async def get_stats(self) -> Dict[str, Any]:
-        """Statistiques globales des abonnements"""
-        async with get_connection() as db:
-            cursor = await db.execute("""
-                SELECT
-                    COUNT(*) as total,
-                    SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active,
-                    SUM(CASE WHEN status = 'expired' THEN 1 ELSE 0 END) as expired,
-                    SUM(CASE WHEN plan = 'trial' THEN 1 ELSE 0 END) as trials,
-                    SUM(CASE WHEN plan = 'starter' THEN 1 ELSE 0 END) as starter,
-                    SUM(CASE WHEN plan = 'pro' THEN 1 ELSE 0 END) as pro,
-                    SUM(CASE WHEN plan = 'enterprise' THEN 1 ELSE 0 END) as enterprise,
-                    AVG(messages_used) as avg_messages_used
-                FROM subscriptions
-            """)
-            row = await cursor.fetchone()
-
-        return dict(row) if row else {}
+        """Statistiques globales des abonnements."""
+        return await get_convex().query("internal/billing:getStats", {})
 
 
 # Instance globale

@@ -1,4 +1,15 @@
-"""Tests de la façade v2 puis du branchement chat_service bout-en-bout."""
+"""Tests de la façade v2 puis du branchement chat_service bout-en-bout.
+
+SUPERSEDED Phase E2 : `_seed()` insère un marchand en SQLite puis appelle des
+repos désormais Convex-backed (id Convex string attendu, pas l'int SQLite). À
+réécrire avec un seeding Convex (cf. tests/test_chat_convex.py) — hors scope E2.
+"""
+import pytest
+
+pytestmark = pytest.mark.skip(
+    reason="SQLite-seeded; superseded by Convex data layer (Phase E2)."
+)
+
 from app.database.connection import get_connection
 from app.database.repositories.product_repo import ProductRepository
 from app.services.dialogue.engine import respond

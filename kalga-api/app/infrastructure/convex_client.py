@@ -31,7 +31,10 @@ import asyncio
 import logging
 from typing import Any, Dict, Optional
 
-from app.core.config import settings
+# NB import paresseux de `settings` (dans get_convex) : importer
+# `app.core.config` au chargement du module crée un cycle quand un repo importe
+# ce client au top-level (app.database -> repo -> convex_client -> app.core ->
+# events -> app.database, encore en cours d'init). Voir Phase E2.
 
 logger = logging.getLogger("kalga.convex")
 
@@ -83,6 +86,7 @@ def get_convex() -> ConvexBackendClient:
     """
     global _convex
     if _convex is None:
+        from app.core.config import settings
         _convex = ConvexBackendClient(
             url=settings.convex_url,
             admin_key=settings.convex_admin_key,

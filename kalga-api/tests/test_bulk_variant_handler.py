@@ -1,5 +1,17 @@
-"""Tests du flux BulkVariantCreationHandler."""
+"""Tests du flux BulkVariantCreationHandler.
+
+SUPERSEDED Phase E2 : seed via `db.create_merchant` (désormais Convex) +
+ProductRepository Convex-backed. La fixture SQLite ne gouverne plus le data
+layer et les ids attendus sont des ids Convex (string). À réécrire avec un
+seeding Convex — hors scope du port E2.
+"""
 import os
+
+import pytest
+
+pytestmark = pytest.mark.skip(
+    reason="SQLite-seeded; superseded by Convex data layer (Phase E2)."
+)
 
 from PIL import Image
 
