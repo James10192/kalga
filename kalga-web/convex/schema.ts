@@ -69,6 +69,7 @@ export default defineSchema({
     lowStockAlertGlobal: v.optional(v.number()), // DEFAULT 5
   })
     .index("by_phone", ["phone"])
+    .index("by_whatsapp_real_phone", ["whatsappRealPhone"])
     .index("by_slug", ["slug"])
     .index("by_organization", ["organizationId"]),
 

@@ -37,6 +37,12 @@ class MessageService {
             'Commandes disponibles',
             'Tu veux la livraison',
             'passe au magasin',
+            // Réponses d'erreur/refus du bot, sans préfixe emoji : si elles ne
+            // sont pas filtrées, le marchand les ré-ingère en boucle (terrain
+            // 2026-06-13 : « Tu n'es pas encore enregistré » renvoyé en boucle).
+            'Tu n\'es pas encore enregistré',
+            'Connecte-toi d\'abord via le dashboard',
+            'Service temporairement indisponible',
         ];
     }
 

@@ -67,6 +67,17 @@ export const getByPhone = query({
         .withIndex("by_phone", (q) => q.eq("phone", corrected))
         .unique();
     }
+    // Fallback : le bridge envoie le numero REEL du compte WhatsApp connecte
+    // (`sock.user.id`), qui peut differer du `phone` d'inscription
+    // (terrain 2026-06-13 : phone=225141540178 mais whatsappRealPhone=22541540178).
+    if (!m) {
+      m = await ctx.db
+        .query("merchants")
+        .withIndex("by_whatsapp_real_phone", (q) =>
+          q.eq("whatsappRealPhone", args.phone),
+        )
+        .unique();
+    }
     return m;
   },
 });

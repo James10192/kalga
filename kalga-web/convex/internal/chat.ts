@@ -56,6 +56,16 @@ async function resolveMerchant(
       .withIndex("by_phone", (q: any) => q.eq("phone", corrected))
       .unique();
   }
+  // Fallback : le bridge envoie le numero REEL du compte WhatsApp connecte,
+  // qui peut differer du `phone` d'inscription (cf. internal/merchant:getByPhone).
+  if (!merchant) {
+    merchant = await ctx.db
+      .query("merchants")
+      .withIndex("by_whatsapp_real_phone", (q: any) =>
+        q.eq("whatsappRealPhone", phone),
+      )
+      .unique();
+  }
   return merchant;
 }
 
