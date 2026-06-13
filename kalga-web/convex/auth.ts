@@ -108,6 +108,34 @@ export const createAuthOptions = (_ctx: GenericCtx<DataModel>) =>
       minPasswordLength: 8,
     },
 
+    // Pose l'organisation active sur CHAQUE nouvelle session (login mot de passe,
+    // OTP, refresh). Sans ca, une session fraiche n'a pas d'activeOrganizationId
+    // -> withOrg jette « No active organization » au chargement du dashboard.
+    // Pattern officiel Better Auth (databaseHooks.session.create.before).
+    databaseHooks: {
+      session: {
+        create: {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          before: async (session: any, ctx: any) => {
+            try {
+              const members = (await ctx.context.adapter.findMany({
+                model: "member",
+                where: [{ field: "userId", value: session.userId }],
+                limit: 1,
+              })) as Array<{ organizationId?: string }>;
+              const orgId = members?.[0]?.organizationId;
+              if (orgId) {
+                return { data: { ...session, activeOrganizationId: orgId } };
+              }
+            } catch {
+              // non bloquant : session creee sans org active (la gate /app gere)
+            }
+            return { data: session };
+          },
+        },
+      },
+    },
+
     plugins: [
       // --- Multi-tenant : chaque boutique = une organization ---
       organization({
