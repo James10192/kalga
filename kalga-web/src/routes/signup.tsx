@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { useState } from "react"
 import { useMutation } from "convex/react"
 import { ArrowRight, Loader2, Store } from "lucide-react"
@@ -30,6 +30,9 @@ import { Input as TextInput } from "@/components/ui/input"
  * Aucune organisation active n'est requise pour rendre cette page.
  */
 export const Route = createFileRoute("/signup")({
+  beforeLoad: ({ context }) => {
+    if (context.isAuthenticated) throw redirect({ to: "/app" })
+  },
   head: () => ({
     meta: [{ title: "Creer un compte · KALGA" }],
   }),

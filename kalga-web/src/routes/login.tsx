@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { useState } from "react"
 import { ChevronDown, Loader2, MessageCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -28,6 +28,9 @@ import {
  * propre session WhatsApp du marchand (aucun numero central KALGA).
  */
 export const Route = createFileRoute("/login")({
+  beforeLoad: ({ context }) => {
+    if (context.isAuthenticated) throw redirect({ to: "/app" })
+  },
   head: () => ({
     meta: [{ title: "Connexion · KALGA" }],
   }),
