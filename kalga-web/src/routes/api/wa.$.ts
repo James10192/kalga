@@ -165,8 +165,11 @@ async function handle(request: Request, method: "GET" | "POST"): Promise<Respons
 
   if (method === "POST") {
     if (sub !== "connect") return jsonError(404, "Route inconnue");
-    // Le phone vient TOUJOURS de la session, jamais du body client.
-    return forwardPost("/connect", { merchant_phone: phone });
+    // Mode demande (qr | code) : transmis au bridge pour (re)creer la socket
+    // dans le bon mode. Le phone vient TOUJOURS de la session, jamais du client.
+    const waMethod =
+      new URL(request.url).searchParams.get("method") === "code" ? "code" : "qr";
+    return forwardPost("/connect", { merchant_phone: phone, method: waMethod });
   }
 
   // GET : pairing | status | qr (phone force par la session)

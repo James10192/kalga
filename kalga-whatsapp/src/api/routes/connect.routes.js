@@ -28,14 +28,16 @@ function escapeHtml(text) {
  * POST /connect - Connecter un marchand
  */
 router.post('/connect', async (req, res) => {
-    const { merchant_phone } = req.body;
+    const { merchant_phone, method } = req.body;
 
     if (!merchant_phone || !isValidPhone(merchant_phone)) {
         return res.status(400).json({ error: 'merchant_phone requis (8-15 chiffres)' });
     }
 
     try {
-        await whatsappService.getOrCreateClient(merchant_phone);
+        // (Re)connecte dans le mode demande ('qr' | 'code') ; revoque la socket
+        // si le mode change (contrainte Baileys code/QR exclusifs).
+        await whatsappService.ensureMode(merchant_phone, method);
 
         res.json({
             success: true,

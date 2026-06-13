@@ -16,14 +16,18 @@ import {
 } from "./ConnectPanels"
 
 /**
- * Onglet par defaut = CODE partout. Contrainte Baileys (confirmee doc) : un code
- * d'appairage et un QR sont MUTUELLEMENT EXCLUSIFs sur une meme socket (demander
- * le code supprime l'emission du QR). Le code est universel (meme telephone, ou
- * lu sur desktop puis saisi dans WhatsApp) -> on le met en avant ; le QR reste un
- * repli secondaire.
+ * Onglet par defaut : QR sur desktop (un 2e ecran existe pour scanner), CODE sur
+ * mobile (on ne scanne pas un QR affiche sur le meme telephone). Le switch
+ * d'onglet (re)connecte la socket dans le bon mode (cf. useWhatsappStatus :
+ * contrainte Baileys code/QR mutuellement exclusifs).
  */
 function useDefaultTab(): TabKey {
-  return "code"
+  const [tab, setTab] = useState<TabKey>("code")
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return
+    if (window.matchMedia("(min-width: 1024px)").matches) setTab("qr")
+  }, [])
+  return tab
 }
 
 export function WhatsAppConnect() {
@@ -32,8 +36,19 @@ export function WhatsAppConnect() {
   // Synchronise l'onglet par defaut une fois la media query resolue (client).
   useEffect(() => setTab(defaultTab), [defaultTab])
 
-  const { phase, pairingCode, realPhone, qrAvailable, error, refresh } =
-    useWhatsappStatus(true)
+  const { phase, pairingCode, realPhone, qrAvailable, error, refresh, setMethod } =
+    useWhatsappStatus()
+
+  // (Re)connecte la socket dans le mode de l'onglet actif. Au montage ET a chaque
+  // switch d'onglet : le bridge revoque l'ancienne socket et repart dans le bon
+  // mode (QR emis, ou code demande). Tant qu'on n'est pas lie.
+  useEffect(() => {
+    if (phase === "ready") return
+    setMethod(tab === "code" ? "code" : "qr")
+    // On ne depend QUE de l'onglet (setMethod est stable) : evite les reconnects
+    // en boucle pendant le polling.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab])
   const linkWhatsapp = useMutation(api.merchants.linkWhatsapp)
   const linkedRef = useRef(false)
   const [toast, setToast] = useState<string | null>(null)

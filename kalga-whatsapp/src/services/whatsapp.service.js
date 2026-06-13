@@ -12,6 +12,7 @@ const {
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const path = require('path');
+const fs = require('fs');
 
 const { config } = require('../config');
 const { logger } = require('../utils/logger');
@@ -27,6 +28,11 @@ class WhatsAppService {
         this.clients = new Map();
         this.clientStatus = new Map();
         this.reconnectAttempts = new Map();
+        // Sockets en cours de revocation (switch de mode QR<->code) : on supprime
+        // la reconnexion auto pendant le reset.
+        this.resetting = new Set();
+        // Mode courant par marchand : 'qr' | 'code'.
+        this.modes = new Map();
 
         // Cache phone → LID JID (pour envoyer aux bons destinataires)
         // Clé: "merchantPhone:clientPhone", Valeur: JID complet (@lid)
@@ -129,6 +135,7 @@ class WhatsAppService {
             qrCode: null,
             realPhone: null,
             pairingCode: null,
+            mode: this.modes.get(merchantPhone) || 'qr',
         });
 
         const authPath = path.join(config.sessionsDir, `baileys-${merchantPhone}`);
@@ -203,6 +210,57 @@ class WhatsAppService {
 
         this.clients.set(merchantPhone, sock);
         return sock;
+    }
+
+    /**
+     * Revoque la socket courante (switch de mode QR<->code) : coupe la socket,
+     * supprime la reconnexion auto, purge le statut ET les creds disque NON
+     * enregistrees (pour repartir sur un QR/code frais). Sans effet si deja lie.
+     */
+    async resetClient(merchantPhone) {
+        const status = this.clientStatus.get(merchantPhone);
+        if (status && (status.ready || status.realPhone)) return;
+        this.resetting.add(merchantPhone);
+        const sock = this.clients.get(merchantPhone);
+        try { sock?.end?.(undefined); } catch (_) { /* ignore */ }
+        try { sock?.ws?.close?.(); } catch (_) { /* ignore */ }
+        this.clients.delete(merchantPhone);
+        this.reconnectAttempts.delete(merchantPhone);
+        this.clientStatus.delete(merchantPhone);
+        try {
+            const authPath = path.join(config.sessionsDir, `baileys-${merchantPhone}`);
+            fs.rmSync(authPath, { recursive: true, force: true });
+        } catch (e) {
+            logger.warn('Purge creds echouee', { merchantPhone, error: e.message });
+        }
+        await new Promise((r) => setTimeout(r, 300));
+        this.resetting.delete(merchantPhone);
+    }
+
+    /**
+     * (Re)connecte la socket d'un marchand DANS le mode demande ('qr' | 'code').
+     * Si le mode change et que la socket n'est pas encore liee, on la revoque
+     * d'abord (contrainte Baileys : code et QR mutuellement exclusifs).
+     * En mode 'code', demande le code d'appairage (idempotent).
+     */
+    async ensureMode(merchantPhone, method) {
+        const mode = method === 'code' ? 'code' : 'qr';
+        const status = this.clientStatus.get(merchantPhone);
+        if (status && (status.ready || status.realPhone)) {
+            return { linked: true };
+        }
+        const current = this.modes.get(merchantPhone);
+        if (current && current !== mode) {
+            await this.resetClient(merchantPhone);
+        }
+        this.modes.set(merchantPhone, mode);
+        await this.getOrCreateClient(merchantPhone);
+        const st = this.clientStatus.get(merchantPhone);
+        if (st) st.mode = mode;
+        if (mode === 'code') {
+            try { await this.requestPairingCode(merchantPhone); } catch (_) { /* tolere */ }
+        }
+        return { ok: true, mode };
     }
 
     /**
@@ -309,6 +367,11 @@ class WhatsAppService {
         }
 
         if (connection === 'close') {
+            // Revocation manuelle (switch de mode) : pas de reconnexion auto.
+            if (this.resetting.has(merchantPhone)) {
+                this.clients.delete(merchantPhone);
+                return;
+            }
             const statusCode = lastDisconnect?.error?.output?.statusCode;
             const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
