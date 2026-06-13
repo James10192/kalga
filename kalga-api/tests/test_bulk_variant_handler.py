@@ -16,7 +16,6 @@ pytestmark = pytest.mark.skip(
 from PIL import Image
 
 from app.database import get_db
-from app.database.connection import get_connection
 from app.database.repositories.product_repo import ProductRepository
 from app.modules.merchant_commands.handlers.bulk_variant_creation import (
     BulkVariantCreationHandler,

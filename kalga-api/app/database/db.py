@@ -14,16 +14,17 @@ Usage legacy (ancien code - toujours supporté):
     merchant = await db.get_merchant_by_phone("225XXXXXXXX")
 """
 from typing import Optional, List, Dict, Any
-from datetime import datetime, timedelta
 
-from .connection import get_connection, init_database
 from .repositories import MerchantRepository, ProductRepository, ConversationRepository
 
 
 class Database:
     """
-    Classe de compatibilité qui délègue aux repositories.
-    Garde la même interface que l'ancien code.
+    Classe de compatibilité qui délègue aux repositories (tous back-Convex
+    depuis le plan 004). Garde la même interface que l'ancien code.
+
+    Phase F : plus aucune dépendance SQLite. `init()` est un no-op conservé pour
+    rétrocompatibilité (le schéma vit dans Convex, plus de bootstrap local).
     """
 
     def __init__(self):
@@ -32,44 +33,8 @@ class Database:
         self.conversations = ConversationRepository()
 
     async def init(self):
-        """Initialise la base de données"""
-        await init_database()
-        await self._run_migrations()
-
-    async def _run_migrations(self):
-        """Exécute les migrations pour la rétrocompatibilité"""
-        async with get_connection() as db:
-            # Migration: is_active pour merchants (ancien schéma)
-            try:
-                await db.execute("ALTER TABLE merchants ADD COLUMN is_active BOOLEAN DEFAULT 1")
-            except:
-                pass
-
-            # Migration: is_available pour products (ancien schéma)
-            try:
-                await db.execute("ALTER TABLE products ADD COLUMN is_available BOOLEAN DEFAULT 1")
-            except:
-                pass
-
-            # Migration: stock_quantity et low_stock_threshold pour products
-            try:
-                await db.execute("ALTER TABLE products ADD COLUMN stock_quantity INTEGER DEFAULT -1")
-            except:
-                pass
-            try:
-                await db.execute("ALTER TABLE products ADD COLUMN low_stock_threshold INTEGER DEFAULT 5")
-            except:
-                pass
-
-            # Index composites supplémentaires
-            try:
-                await db.execute("CREATE INDEX IF NOT EXISTS idx_conv_merchant_client ON conversations(merchant_id, client_phone)")
-                await db.execute("CREATE INDEX IF NOT EXISTS idx_conv_updated ON conversations(updated_at)")
-                await db.execute("CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at)")
-            except:
-                pass
-
-            await db.commit()
+        """No-op (Convex est la source de vérité — plus de schéma SQLite local)."""
+        return None
 
     # === MARCHANDS (délègue à MerchantRepository) ===
 
@@ -151,14 +116,8 @@ class Database:
             await self.products.deactivate(product['id'])
 
     async def get_product_variants(self, group_id: str) -> List[Dict]:
-        # Pour la compatibilité, récupérer tous les produits avec ce group_id
-        async with get_connection() as db:
-            cursor = await db.execute(
-                "SELECT * FROM products WHERE group_id = ? AND is_available = 1 ORDER BY variant_name",
-                (group_id,)
-            )
-            rows = await cursor.fetchall()
-            return [dict(row) for row in rows]
+        """Toutes les variantes d'un groupe (délègue à Convex via ProductRepository)."""
+        return await self.products.get_all_in_group(group_id)
 
     async def get_other_variants(self, product_id: int, group_id: str) -> List[Dict]:
         return await self.products.get_other_variants(product_id, group_id)

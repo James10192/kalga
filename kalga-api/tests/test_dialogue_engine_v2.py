@@ -10,7 +10,6 @@ pytestmark = pytest.mark.skip(
     reason="SQLite-seeded; superseded by Convex data layer (Phase E2)."
 )
 
-from app.database.connection import get_connection
 from app.database.repositories.product_repo import ProductRepository
 from app.services.dialogue.engine import respond
 

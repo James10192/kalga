@@ -1,27 +1,18 @@
-"""Fixtures de test : base SQLite temporaire isolée."""
-import os
-import tempfile
-from pathlib import Path
+"""Fixtures de test.
 
+Phase F : SQLite entièrement supprimé. L'ancienne fixture `temp_db` créait une
+base SQLite temporaire ; le data layer est désormais 100 % Convex. Les tests qui
+dépendaient du seeding SQLite sont marqués `pytest.mark.skip` (à réécrire avec un
+seeding Convex, cf. tests/test_chat_convex.py).
+
+`temp_db` est conservée comme stub inerte uniquement pour que ces modules
+skippés restent collectables (ils référencent encore le nom de la fixture). Elle
+ne crée aucune base et n'est jamais exécutée (tests skippés en amont).
+"""
 import pytest_asyncio
-
-from app.database import connection
-from app.database import db as db_module
-from app.database.connection import init_database
 
 
 @pytest_asyncio.fixture
-async def temp_db(monkeypatch):
-    """Crée une base SQLite temporaire isolée, schéma complet, nettoyée après le test."""
-    fd, path = tempfile.mkstemp(suffix=".db")
-    os.close(fd)
-    monkeypatch.setattr(connection, "DB_PATH", Path(path))
-    # Réinitialise le singleton get_db() pour que chaque test reparte propre
-    # (les repos lisent DB_PATH paresseusement, mais on évite toute fuite d'état).
-    monkeypatch.setattr(db_module, "_db", None)
-    await init_database()
-    yield path
-    try:
-        os.remove(path)
-    except OSError:
-        pass
+async def temp_db():
+    """Stub inerte — SQLite supprimé (Phase F). Réservé aux tests skippés."""
+    yield None

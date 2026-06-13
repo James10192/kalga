@@ -13,7 +13,6 @@ pytestmark = pytest.mark.skip(
 )
 
 from app.database.repositories.product_repo import ProductRepository
-from app.database.connection import get_connection
 
 
 async def _make_merchant_and_base(repo):

@@ -4,15 +4,13 @@ Repository pour la gestion des produits.
 Phase E2 : délègue à Convex (`internal/catalog:*` et `internal/inventory:*`).
 Signatures publiques inchangées.
 
-EXCEPTION (STOP, hors scope 004 — tied D8 ML offload) : les embeddings CLIP
-`get_all_with_embeddings` / `save_embedding` RESTENT sur SQLite. Le BLOB binaire
-numpy float32 n'a pas d'équivalent pratique en round-trip Convex (le schéma a
-`imageEmbedding: v.array(v.float64())`, conversion float32<->float64 + pas
-d'index vectoriel encore). Ces 2 méthodes gardent `get_connection`.
+Phase F : SQLite entièrement supprimé. Les embeddings CLIP
+(`get_all_with_embeddings` / `save_embedding`) sont des STUBS inertes en
+attendant un report sur l'index vectoriel Convex (`products.imageEmbedding`).
+Voir TODO(D8) sur ces méthodes (ML offload, hors plan 004).
 """
 from typing import Optional, List, Dict, Any
 
-from ..connection import get_connection
 from app.infrastructure.convex_client import get_convex
 from app.infrastructure.convex_repo_adapters import (
     adapt_product_full,
@@ -167,31 +165,28 @@ class ProductRepository:
         """Retourne le prochain code produit disponible."""
         return await get_convex().query("internal/catalog:getNextCode", {})
 
-    # === EMBEDDINGS CLIP (recherche visuelle) — RESTE SUR SQLITE (D8, hors 004) ===
+    # === EMBEDDINGS CLIP (recherche visuelle) — STUB (D8, hors 004) ===
+    # SQLite supprimé en Phase F : la recherche visuelle CLIP est inerte tant que
+    # les embeddings ne sont pas reportés sur Convex. Stubs sans crash : la table
+    # SQLite n'est plus alimentée (produits dans Convex), donc lire renverrait de
+    # toute façon vide. La recherche visuelle retombe gracieusement sur "aucun
+    # match" (find_similar_products([]) -> []).
 
     async def get_all_with_embeddings(self, merchant_id: int) -> list:
-        """Retourne (product_id, product_code, embedding_blob, name, price, description).
+        """Embeddings CLIP par marchand — désactivé (voir stub ci-dessus).
 
-        TODO Phase D8 : le BLOB embedding CLIP (numpy float32) reste sur SQLite —
-        round-trip Convex impraticable (cf. en-tête module).
+        # TODO(D8): re-implement on Convex products.imageEmbedding vector index
+        # (ML offload, out of plan 004).
         """
-        async with get_connection() as db:
-            cursor = await db.execute(
-                "SELECT id, code, embedding, name, price, description FROM products WHERE merchant_id=? AND is_available=1",
-                (merchant_id,)
-            )
-            rows = await cursor.fetchall()
-            return [(row[0], row[1], row[2], row[3], row[4], row[5]) for row in rows]
+        return []
 
     async def save_embedding(self, product_id: int, embedding_blob: bytes) -> bool:
-        """Sauvegarde l'embedding CLIP d'un produit (SQLite — voir TODO ci-dessus)."""
-        async with get_connection() as db:
-            cursor = await db.execute(
-                "UPDATE products SET embedding=? WHERE id=?",
-                (embedding_blob, product_id)
-            )
-            await db.commit()
-            return cursor.rowcount > 0
+        """Persistance embedding CLIP — no-op (voir stub ci-dessus).
+
+        # TODO(D8): re-implement on Convex products.imageEmbedding vector index
+        # (ML offload, out of plan 004).
+        """
+        return False
 
     # === GESTION DU STOCK ===
 

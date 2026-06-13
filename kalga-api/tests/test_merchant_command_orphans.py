@@ -20,7 +20,6 @@ pytestmark = pytest.mark.skip(
 from app.modules.merchant_commands.service import MerchantCommandService
 from app.modules.merchant_commands.schemas import MerchantMessage, CommandAction
 from app.modules.merchant_commands.session_manager import session_manager
-from app.database import connection as conn_module
 
 
 @pytest.fixture

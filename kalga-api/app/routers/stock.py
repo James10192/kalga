@@ -163,7 +163,8 @@ async def quick_restock(product_code: str, body: QuickRestock):
     waitlist_count = await waitlist_repo.get_waitlist_count(product['id'])
     notified = 0
     if body.notify_waitlist and waitlist_count > 0:
-        merchant = await db.get_merchant_by_id(product['merchant_id'])
+        from ..database.repositories.merchant_repo import MerchantRepository
+        merchant = await MerchantRepository().get_by_id(product['merchant_id'])
         if merchant:
             store_name = merchant.get('business_name') or merchant.get('name') or ''
             asyncio.create_task(
