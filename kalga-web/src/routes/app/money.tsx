@@ -18,16 +18,15 @@ import {
  * Portage du contrat visuel (design/flagship-home.html + DIRECTION.md) :
  * gros "Aujourd'hui" + "Cette semaine" en Bricolage, puis la liste des ventes
  * récentes (conversations statut `completed` avec montant), groupées par jour.
- * Câblé aux données Convex LIVE du marchand démo (slug `demo`).
+ * Câblé aux données Convex LIVE scopées au marchand courant via withOrg
+ * (api.dashboard.salesRegistry — aucun `merchantId` venant du client).
  *
- * Skeletons pendant le chargement, état vide soigné. Pas d'auth gating pour
- * l'instant (l'OTP live + withOrg viennent en 003/004).
+ * Responsive : mobile = totaux empilés puis registre ; >= lg = totaux en
+ * colonne collante à droite + registre à gauche. Skeletons + état vide soignés.
  */
 export const Route = createFileRoute("/app/money")({
   component: MoneyPage,
 })
-
-const DEMO_SLUG = "demo"
 
 type Sale = {
   conversationId: string
@@ -37,53 +36,78 @@ type Sale = {
   soldAt: number
 }
 
-function MoneyPage() {
-  const merchant = useQuery(api.merchants.getBySlug, { slug: DEMO_SLUG })
-
-  if (merchant === undefined) return <MoneyLoading />
-  if (merchant === null) return <MoneyMerchantMissing />
-
-  return <MoneyContent merchantId={merchant._id} />
+type Registry = {
+  todayTotal: number
+  weekTotal: number
+  todayCount: number
+  weekCount: number
+  sales: Sale[]
 }
 
-function MoneyContent({ merchantId }: { merchantId: string }) {
-  const registry = useQuery(api.dashboard.salesRegistryForMerchant, {
-    merchantId: merchantId as never,
-    limit: 40,
-  })
+function MoneyPage() {
+  const registry = useQuery(api.dashboard.salesRegistry, { limit: 60 })
 
   return (
-    <>
+    <div className="mx-auto w-full max-w-6xl">
       <Header />
 
-      {/* Totaux héros : Aujourd'hui + Cette semaine */}
-      <section className="px-5 pt-2">
-        {registry === undefined ? (
-          <TotalsSkeleton />
-        ) : (
-          <div className="grid grid-cols-2 gap-2.5">
-            <TotalCard
-              label="Aujourd'hui"
-              amount={registry.todayTotal}
-              count={registry.todayCount}
-              accent
-            />
-            <TotalCard
-              label="Cette semaine"
-              amount={registry.weekTotal}
-              count={registry.weekCount}
-            />
+      {/* Desktop : registre (gauche) + totaux collants (droite). Mobile : empilé. */}
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-6 lg:px-5">
+        <div className="lg:order-1 lg:min-w-0">
+          {/* Totaux : en flux mobile, masqués desktop (colonne dédiée). */}
+          <div className="lg:hidden">
+            <Totals registry={registry} />
           </div>
-        )}
-      </section>
 
-      {/* Liste des ventes récentes */}
-      <section className="px-5 pb-2 pt-5">
-        <h2 className="font-display text-[17px] font-bold">Ventes récentes</h2>
-      </section>
+          <section className="px-5 pb-2 pt-5 lg:px-0">
+            <h2 className="font-display text-[17px] font-bold">Ventes récentes</h2>
+          </section>
 
-      <SalesList sales={registry?.sales} />
-    </>
+          <SalesList sales={registry?.sales} />
+        </div>
+
+        <aside className="hidden lg:order-2 lg:block">
+          <div className="sticky top-4 pt-5">
+            <Totals registry={registry} stacked />
+          </div>
+        </aside>
+      </div>
+    </div>
+  )
+}
+
+/** Totaux héros (Aujourd'hui + Cette semaine), grille en ligne ou empilée. */
+function Totals({
+  registry,
+  stacked = false,
+}: {
+  registry: Registry | undefined
+  stacked?: boolean
+}) {
+  const layout = stacked ? "" : "px-5 pt-2"
+  if (registry === undefined) {
+    return (
+      <section className={layout}>
+        <TotalsSkeleton stacked={stacked} />
+      </section>
+    )
+  }
+  return (
+    <section className={layout}>
+      <div className={stacked ? "space-y-2.5" : "grid grid-cols-2 gap-2.5"}>
+        <TotalCard
+          label="Aujourd'hui"
+          amount={registry.todayTotal}
+          count={registry.todayCount}
+          accent
+        />
+        <TotalCard
+          label="Cette semaine"
+          amount={registry.weekTotal}
+          count={registry.weekCount}
+        />
+      </div>
+    </section>
   )
 }
 
@@ -121,9 +145,9 @@ function TotalCard({
   )
 }
 
-function TotalsSkeleton() {
+function TotalsSkeleton({ stacked = false }: { stacked?: boolean }) {
   return (
-    <div className="grid grid-cols-2 gap-2.5">
+    <div className={stacked ? "space-y-2.5" : "grid grid-cols-2 gap-2.5"}>
       {[0, 1].map((i) => (
         <div
           key={i}
@@ -142,7 +166,7 @@ function TotalsSkeleton() {
 function SalesList({ sales }: { sales: Sale[] | undefined }) {
   if (sales === undefined) {
     return (
-      <ul className="space-y-1 px-3 pb-4">
+      <ul className="space-y-1 px-3 pb-4 lg:px-0">
         {[0, 1, 2, 3, 4].map((i) => (
           <li key={i}>
             <SaleRowSkeleton />
@@ -164,7 +188,7 @@ function SalesList({ sales }: { sales: Sale[] | undefined }) {
   }
 
   return (
-    <div className="px-3 pb-6">
+    <div className="px-3 pb-6 lg:px-0">
       {groups.map((group) => (
         <div key={group.label} className="mb-2">
           <p className="px-2.5 pb-1 pt-3 text-[12px] font-medium text-ink-faint">
@@ -241,7 +265,7 @@ function Header() {
   return (
     <header className="px-5 pb-2 pt-4">
       <p className="text-[13px] text-ink-muted">Registre des ventes</p>
-      <h1 className="font-display text-[22px] font-bold leading-tight tracking-tight">
+      <h1 className="font-display text-[22px] font-bold leading-tight tracking-tight lg:text-[26px]">
         Argent
       </h1>
     </header>
@@ -251,8 +275,8 @@ function Header() {
 /** État vide soigné : aucune vente encore enregistrée. */
 function SalesEmpty() {
   return (
-    <div className="px-5 pb-8 pt-4">
-      <div className="rounded-2xl border border-line bg-surface p-8 text-center shadow-soft">
+    <div className="px-5 pb-8 pt-4 lg:px-0">
+      <div className="mx-auto max-w-md rounded-2xl border border-line bg-surface p-8 text-center shadow-soft">
         <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary-tint">
           <Wallet className="h-6 w-6 text-primary-deep" />
         </div>
@@ -263,43 +287,6 @@ function SalesEmpty() {
           Dès qu'une vente est finalisée, elle apparaît ici avec son montant.
         </p>
       </div>
-    </div>
-  )
-}
-
-/** Skeleton plein écran (marchand pas encore résolu). */
-function MoneyLoading() {
-  return (
-    <>
-      <header className="px-5 pb-2 pt-4">
-        <Skeleton className="h-3.5 w-32" />
-        <Skeleton className="mt-1.5 h-6 w-24" />
-      </header>
-      <section className="px-5 pt-2">
-        <TotalsSkeleton />
-      </section>
-      <ul className="space-y-1 px-3 pb-4 pt-6">
-        {[0, 1, 2, 3, 4].map((i) => (
-          <li key={i}>
-            <SaleRowSkeleton />
-          </li>
-        ))}
-      </ul>
-    </>
-  )
-}
-
-/** Le marchand démo est introuvable (seed pas lancé). */
-function MoneyMerchantMissing() {
-  return (
-    <div className="px-5 py-16 text-center">
-      <p className="font-display text-[18px] font-bold">Marchand introuvable</p>
-      <p className="mt-2 text-[14px] text-ink-muted">
-        Le marchand de démonstration n'existe pas encore. Lancez le seed Convex :
-      </p>
-      <code className="mt-3 inline-block rounded-md bg-line px-2 py-1 font-mono text-[13px] text-ink">
-        npx convex run seed:run
-      </code>
     </div>
   )
 }

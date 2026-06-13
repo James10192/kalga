@@ -15,12 +15,17 @@ import { api } from "../../../convex/_generated/api"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
+  ConversationRow,
+  ConversationRowSkeleton,
   StatusChip,
+  buildMoneyLine,
   formatAmount,
   initials,
   isPhoneIdentity,
+  prettyPhone,
   statusKind,
   timeAgo,
+  type ConversationRowData,
   type ConversationStatus,
   type StatusKind,
 } from "@/components/dashboard"
@@ -29,15 +34,17 @@ import {
  * Détail conversation (DIRECTION.md, plan 006).
  *
  * Fil de bulles façon WhatsApp (messages client/bot via
- * api.conversations.messagesByConversation) + panneau "affaire" slim (prix
+ * api.conversations.messagesForCurrentMerchant) + panneau "affaire" slim (prix
  * demandé, offre actuelle, marge, prix plancher) + actions négociation.
  *
- * Câblé aux données Convex LIVE du marchand démo. Réutilise AppShell +
- * BottomTabBar via le layout /app (onglet Conversations actif). Mêmes tokens
- * que l'écran phare. Skeletons au chargement, état vide soigné.
+ * Câblé aux données Convex LIVE scopées au marchand courant via withOrg
+ * (dealForCurrentMerchant + messagesForCurrentMerchant : vérifient que la
+ * conversation appartient bien au tenant = anti-fuite cross-tenant).
  *
- * Les actions sont présentes mais non fonctionnelles (les mutations négociation
- * arrivent en 004). Pas d'auth gating pour l'instant (withOrg en 003/004).
+ * Responsive : mobile = détail plein écran (bouton retour) ; >= lg = rail liste
+ * à gauche + détail à droite (master/detail), la rangée active surlignée.
+ *
+ * Les actions sont présentes mais non fonctionnelles (mutations négociation 004).
  */
 export const Route = createFileRoute("/app/conversations/$id")({
   component: ConversationDetailPage,
@@ -51,14 +58,111 @@ const AVATAR_STYLES: Record<StatusKind, string> = {
   nouveau: "bg-[#EFEDE6] text-ink-faint",
 }
 
+type FeedItem = {
+  conversationId: string
+  clientPhone: string
+  status: ConversationRowData["status"]
+  currentOffer: number | null
+  updatedAt: number
+  productName: string | null
+  productPrice: number | null
+  amount: number | null
+  lastMessage: { content: string; isFromClient: boolean } | null
+}
+
 function ConversationDetailPage() {
   const { id } = Route.useParams()
   const conversationId = id as Id<"conversations">
 
-  const deal = useQuery(api.conversations.dealForConversation, {
+  // Rail liste (desktop seulement) : même source que /app/conversations.
+  const feed = useQuery(api.dashboard.feed, { limit: 200 })
+
+  return (
+    <div className="mx-auto w-full max-w-6xl lg:grid lg:min-h-full lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:gap-0">
+      {/* Rail liste, visible en desktop. */}
+      <aside className="hidden lg:block lg:border-r lg:border-line">
+        <ConversationRail feed={feed} activeId={id} />
+      </aside>
+
+      {/* Panneau détail. */}
+      <div className="lg:min-w-0">
+        <ConversationDetail conversationId={conversationId} />
+      </div>
+    </div>
+  )
+}
+
+/** Rail liste (desktop) : conversations cliquables, l'active surlignée. */
+function ConversationRail({
+  feed,
+  activeId,
+}: {
+  feed: FeedItem[] | undefined
+  activeId: string
+}) {
+  return (
+    <div className="sticky top-0 max-h-dvh overflow-y-auto">
+      <header className="px-5 pb-2 pt-4">
+        <h2 className="font-display text-[20px] font-bold tracking-tight">
+          Conversations
+        </h2>
+      </header>
+      {feed === undefined ? (
+        <ul className="space-y-1 px-3 pb-4">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <li key={i}>
+              <ConversationRowSkeleton />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <ul className="space-y-1 px-3 pb-4">
+          {feed.map((c) => {
+            const data: ConversationRowData = {
+              conversationId: c.conversationId,
+              displayName: prettyPhone(c.clientPhone),
+              status: c.status,
+              updatedAt: c.updatedAt,
+              preview: c.lastMessage?.content ?? null,
+              fromBot: c.lastMessage ? !c.lastMessage.isFromClient : false,
+              unread: c.lastMessage ? c.lastMessage.isFromClient : false,
+              moneyLine: buildMoneyLine({
+                status: c.status,
+                currentOffer: c.currentOffer,
+                productName: c.productName,
+                productPrice: c.productPrice,
+                amount: c.amount,
+              }),
+            }
+            const active = c.conversationId === activeId
+            return (
+              <li key={c.conversationId}>
+                <Link
+                  to="/app/conversations/$id"
+                  params={{ id: c.conversationId }}
+                  className={`block rounded-2xl ${active ? "bg-primary-tint/60" : ""}`}
+                >
+                  <ConversationRow data={data} />
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+/** Le détail lui-même (en-tête + affaire + fil + actions). */
+function ConversationDetail({
+  conversationId,
+}: {
+  conversationId: Id<"conversations">
+}) {
+  const deal = useQuery(api.conversations.dealForCurrentMerchant, {
     conversationId,
   })
-  const messages = useQuery(api.conversations.messagesByConversation, {
+  const messages = useQuery(api.conversations.messagesForCurrentMerchant, {
     conversationId,
   })
 
@@ -110,9 +214,9 @@ function DetailHeader({
   return (
     <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-line bg-page/95 px-3 py-2.5 backdrop-blur">
       <Link
-        to="/app"
+        to="/app/conversations"
         aria-label="Retour"
-        className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-ink-muted transition active:bg-surface"
+        className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-ink-muted transition active:bg-surface lg:hidden"
       >
         <ArrowLeft className="h-5 w-5" />
       </Link>
@@ -396,7 +500,7 @@ function DetailSkeleton() {
   return (
     <div className="flex min-h-full flex-col">
       <header className="flex items-center gap-3 border-b border-line px-3 py-2.5">
-        <Skeleton className="h-10 w-10 rounded-full" />
+        <Skeleton className="h-10 w-10 rounded-full lg:hidden" />
         <Skeleton className="h-11 w-11 rounded-full" />
         <div className="flex-1 space-y-1.5">
           <Skeleton className="h-4 w-32" />
@@ -446,9 +550,9 @@ function DetailNotFound() {
     <div className="flex min-h-full flex-col">
       <header className="flex items-center gap-3 border-b border-line px-3 py-2.5">
         <Link
-          to="/app"
+          to="/app/conversations"
           aria-label="Retour"
-          className="grid h-10 w-10 place-items-center rounded-full text-ink-muted active:bg-surface"
+          className="grid h-10 w-10 place-items-center rounded-full text-ink-muted active:bg-surface lg:hidden"
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
@@ -467,7 +571,7 @@ function DetailNotFound() {
             Elle a peut-être été clôturée ou supprimée.
           </p>
           <Link
-            to="/app"
+            to="/app/conversations"
             className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full border border-line bg-surface px-5 text-[14px] font-semibold text-ink shadow-soft active:bg-page"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -477,15 +581,4 @@ function DetailNotFound() {
       </div>
     </div>
   )
-}
-
-/** Formate un numéro brut en identité lisible (+225 07 88 41 20). */
-function prettyPhone(phone: string): string {
-  const digits = phone.replace(/\D/g, "")
-  if (digits.startsWith("225") && digits.length >= 12) {
-    const local = digits.slice(3)
-    const groups = local.match(/.{1,2}/g) ?? [local]
-    return `+225 ${groups.join(" ")}`
-  }
-  return `+${digits}`
 }

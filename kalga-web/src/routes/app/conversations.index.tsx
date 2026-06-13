@@ -17,16 +17,17 @@ import {
  * cette page liste tout le fil, scrollable, chaque rangée câblée en Link vers
  * le détail /app/conversations/$id.
  *
- * Réutilise la query existante api.dashboard.feedForMerchant (grain grossier,
- * pas de N+1). Câblé au marchand démo (slug `demo`) — se branchera derrière
- * withOrg avec l'OTP live, sans casser ce contrat de lecture. Skeletons au
- * chargement, état vide soigné. Onglet Conversations actif (via le layout /app).
+ * Câblé aux données Convex LIVE scopées au marchand courant via withOrg
+ * (api.dashboard.feed — aucun `merchantId` venant du client = anti-fuite
+ * cross-tenant). Skeletons au chargement, état vide soigné.
+ *
+ * Responsive : mobile = liste plein écran ; >= lg = liste à gauche (rail) +
+ * panneau d'invite à droite (« sélectionnez une conversation »), le détail
+ * s'ouvrant sur /app/conversations/$id qui reprend le même rail.
  */
 export const Route = createFileRoute("/app/conversations/")({
   component: ConversationsListPage,
 })
-
-const DEMO_SLUG = "demo"
 
 type FeedItem = {
   conversationId: string
@@ -41,26 +42,32 @@ type FeedItem = {
 }
 
 function ConversationsListPage() {
-  const merchant = useQuery(api.merchants.getBySlug, { slug: DEMO_SLUG })
-
-  if (merchant === undefined) return <ListLoading />
-  if (merchant === null) return <ListMerchantMissing />
-
-  return <ListContent merchantId={merchant._id} />
-}
-
-function ListContent({ merchantId }: { merchantId: string }) {
   // Limite haute : on veut le fil complet (pas un aperçu comme l'accueil).
-  const feed = useQuery(api.dashboard.feedForMerchant, {
-    merchantId: merchantId as never,
-    limit: 200,
-  })
+  const feed = useQuery(api.dashboard.feed, { limit: 200 })
 
   return (
-    <>
-      <Header count={feed?.length} />
-      <ConversationList feed={feed} />
-    </>
+    <div className="mx-auto w-full max-w-6xl lg:grid lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:gap-0">
+      {/* Rail liste (gauche en desktop, plein écran en mobile). */}
+      <div className="lg:border-r lg:border-line">
+        <Header count={feed?.length} />
+        <ConversationList feed={feed} />
+      </div>
+
+      {/* Panneau d'invite (desktop seulement). */}
+      <aside className="hidden lg:flex lg:items-center lg:justify-center lg:px-8 lg:py-16">
+        <div className="text-center">
+          <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-primary-tint">
+            <MessagesSquare className="h-7 w-7 text-primary-deep" />
+          </div>
+          <p className="mt-4 font-display text-[17px] font-bold">
+            Sélectionnez une conversation
+          </p>
+          <p className="mt-1 text-[14px] text-ink-muted">
+            Choisissez un client à gauche pour voir le fil et négocier.
+          </p>
+        </div>
+      </aside>
+    </div>
   )
 }
 
@@ -127,7 +134,7 @@ function Header({ count }: { count: number | undefined }) {
               ? "1 conversation"
               : `${count} conversations`}
       </p>
-      <h1 className="font-display text-[22px] font-bold leading-tight tracking-tight">
+      <h1 className="font-display text-[22px] font-bold leading-tight tracking-tight lg:text-[26px]">
         Conversations
       </h1>
     </header>
@@ -149,40 +156,6 @@ function ConversationsEmpty() {
           Dès qu'un client écrit sur votre WhatsApp, la conversation apparaît ici.
         </p>
       </div>
-    </div>
-  )
-}
-
-/** Skeleton plein écran (marchand pas encore résolu). */
-function ListLoading() {
-  return (
-    <>
-      <header className="px-5 pb-2 pt-4">
-        <div className="h-3.5 w-32 animate-pulse rounded bg-line" />
-        <div className="mt-1.5 h-6 w-44 animate-pulse rounded bg-line" />
-      </header>
-      <ul className="space-y-1 px-3 pb-4 pt-2">
-        {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-          <li key={i}>
-            <ConversationRowSkeleton />
-          </li>
-        ))}
-      </ul>
-    </>
-  )
-}
-
-/** Le marchand démo est introuvable (seed pas lancé). */
-function ListMerchantMissing() {
-  return (
-    <div className="px-5 py-16 text-center">
-      <p className="font-display text-[18px] font-bold">Marchand introuvable</p>
-      <p className="mt-2 text-[14px] text-ink-muted">
-        Le marchand de démonstration n'existe pas encore. Lancez le seed Convex :
-      </p>
-      <code className="mt-3 inline-block rounded-md bg-line px-2 py-1 font-mono text-[13px] text-ink">
-        npx convex run seed:run
-      </code>
     </div>
   )
 }

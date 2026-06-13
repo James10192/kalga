@@ -38,20 +38,20 @@ import { formatAmount } from "@/components/dashboard"
  * code d'activation (champ + état abonnement actif/expiré via api), statut
  * WhatsApp (connecté / QR à scanner — placeholder).
  *
- * Câblé aux données Convex LIVE du marchand démo (slug `demo`). Lectures only :
- * persona/boutique lisent merchants.getBySlug ; abonnement/code lisent
- * settings.billingForMerchant. Les soumissions de formulaires sont des stubs
- * pour l'instant (les mutations scopées withOrg arrivent avec l'OTP live) :
+ * Câblé aux données Convex LIVE scopées au marchand courant via withOrg
+ * (merchants.currentMerchant + settings.billingForCurrentMerchant : aucun
+ * `merchantId` venant du client = anti-fuite cross-tenant). Les soumissions de
+ * formulaires sont des stubs pour l'instant (mutations withOrg à venir) :
  * la structure (react-hook-form + zod) se branchera dessus sans réécriture.
+ *
+ * Responsive : mobile = sections empilées ; >= lg = grille deux colonnes.
  */
 export const Route = createFileRoute("/app/settings")({
   component: SettingsPage,
 })
 
-const DEMO_SLUG = "demo"
-
 function SettingsPage() {
-  const merchant = useQuery(api.merchants.getBySlug, { slug: DEMO_SLUG })
+  const merchant = useQuery(api.merchants.currentMerchant, {})
 
   if (merchant === undefined) return <SettingsLoading />
   if (merchant === null) return <SettingsMerchantMissing />
@@ -60,21 +60,19 @@ function SettingsPage() {
 }
 
 function SettingsContent({ merchant }: { merchant: Doc<"merchants"> }) {
-  const billing = useQuery(api.settings.billingForMerchant, {
-    merchantId: merchant._id,
-  })
+  const billing = useQuery(api.settings.billingForCurrentMerchant, {})
 
   return (
-    <>
+    <div className="mx-auto w-full max-w-6xl">
       <Header />
-      <div className="space-y-5 px-5 pb-8 pt-1">
+      <div className="grid grid-cols-1 gap-5 px-5 pb-8 pt-1 lg:grid-cols-2 lg:items-start">
         <PersonaSection merchant={merchant} />
         <BoutiqueSection merchant={merchant} />
         <ConnexionSection />
         <ActivationSection billing={billing} />
         <WhatsappSection />
       </div>
-    </>
+    </div>
   )
 }
 
@@ -792,13 +790,11 @@ function SettingsLoading() {
 function SettingsMerchantMissing() {
   return (
     <div className="px-5 py-16 text-center">
-      <p className="font-display text-[18px] font-bold">Marchand introuvable</p>
+      <p className="font-display text-[18px] font-bold">Boutique introuvable</p>
       <p className="mt-2 text-[14px] text-ink-muted">
-        Le marchand de démonstration n'existe pas encore. Lancez le seed Convex :
+        Votre compte n'est pas encore relié à une boutique. Terminez la création
+        de votre compte pour accéder à vos réglages.
       </p>
-      <code className="mt-3 inline-block rounded-md bg-line px-2 py-1 font-mono text-[13px] text-ink">
-        npx convex run seed:run
-      </code>
     </div>
   )
 }

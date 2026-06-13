@@ -11,21 +11,17 @@ import type { Doc } from "../../../convex/_generated/dataModel"
 
 /**
  * Écran Produits du dashboard marchand (DIRECTION.md : les produits sont
- * visuels). Grille de ProductCard câblée aux données Convex LIVE du marchand
- * démo (slug `demo`) via api.products.listByMerchant. Pastille de stock dérivée
- * de stockQuantity / lowStockThreshold (illimité / bas / rupture). FAB
+ * visuels). Grille de ProductCard câblée aux données Convex LIVE scopées au
+ * marchand courant via withOrg (api.products.listForCurrentMerchant — aucun
+ * `merchantId` venant du client = anti-fuite cross-tenant). Pastille de stock
+ * dérivée de stockQuantity / lowStockThreshold (illimité / bas / rupture). FAB
  * « + Ajouter ». État vide soigné. Skeletons pendant le chargement.
  *
- * Pas d'auth gating pour l'instant (OTP live + withOrg en 003/004) : la
- * résolution passe par le slug démo, exactement comme l'accueil. Structuré pour
- * brancher withOrg plus tard (remplacer la résolution par slug par le scoping
- * organisation active).
+ * Responsive : 2 colonnes en mobile, 3 colonnes >= md, 4 colonnes >= lg.
  */
 export const Route = createFileRoute("/app/products")({
   component: ProductsPage,
 })
-
-const DEMO_SLUG = "demo"
 
 type Product = Doc<"products">
 
@@ -41,33 +37,13 @@ function resolveImageUrl(imagePath: string | undefined): string | null {
 }
 
 function ProductsPage() {
-  const merchant = useQuery(api.merchants.getBySlug, { slug: DEMO_SLUG })
-
-  if (merchant === undefined) {
-    return (
-      <>
-        <Header count={undefined} />
-        <ProductsGridSkeleton />
-        <AddFab />
-      </>
-    )
-  }
-  if (merchant === null) return <MerchantMissing />
-
-  return <ProductsContent merchantId={merchant._id} />
-}
-
-function ProductsContent({ merchantId }: { merchantId: string }) {
-  const products = useQuery(api.products.listByMerchant, {
-    merchantId: merchantId as never,
-  })
+  const products = useQuery(api.products.listForCurrentMerchant, {})
 
   // Catalogue actif uniquement (un produit désactivé n'apparaît pas en boutique).
-  const visible =
-    products?.filter((p) => p.isActive !== false) ?? products
+  const visible = products?.filter((p) => p.isActive !== false) ?? products
 
   return (
-    <>
+    <div className="mx-auto w-full max-w-6xl">
       <Header count={visible?.length} />
 
       {visible === undefined ? (
@@ -79,13 +55,13 @@ function ProductsContent({ merchantId }: { merchantId: string }) {
       )}
 
       <AddFab />
-    </>
+    </div>
   )
 }
 
 function ProductsGrid({ products }: { products: Product[] }) {
   return (
-    <div className="grid grid-cols-2 gap-3 px-5 pb-28 pt-1">
+    <div className="grid grid-cols-2 gap-3 px-5 pb-28 pt-1 md:grid-cols-3 lg:grid-cols-4 lg:pb-8">
       {products.map((p) => (
         <ProductCard
           key={p._id}
@@ -101,8 +77,8 @@ function ProductsGrid({ products }: { products: Product[] }) {
 
 function ProductsGridSkeleton() {
   return (
-    <div className="grid grid-cols-2 gap-3 px-5 pb-28 pt-1">
-      {[0, 1, 2, 3].map((i) => (
+    <div className="grid grid-cols-2 gap-3 px-5 pb-28 pt-1 md:grid-cols-3 lg:grid-cols-4 lg:pb-8">
+      {[0, 1, 2, 3, 4, 5].map((i) => (
         <ProductCardSkeleton key={i} />
       ))}
     </div>
@@ -113,7 +89,7 @@ function Header({ count }: { count: number | undefined }) {
   return (
     <header className="flex items-end justify-between px-5 pb-3 pt-5">
       <div>
-        <h1 className="font-display text-[24px] font-bold leading-tight tracking-tight">
+        <h1 className="font-display text-[24px] font-bold leading-tight tracking-tight lg:text-[28px]">
           Produits
         </h1>
         <p className="mt-0.5 text-[13px] text-ink-muted">
@@ -126,14 +102,22 @@ function Header({ count }: { count: number | undefined }) {
                 : `${count} articles en boutique`}
         </p>
       </div>
+      {/* Action desktop ancrée dans l'en-tête (le FAB reste pour le mobile). */}
+      <button
+        type="button"
+        className="hidden h-11 items-center gap-2 rounded-full bg-primary px-5 font-display text-[14px] font-bold text-primary-foreground shadow-soft transition active:scale-[0.98] lg:inline-flex"
+      >
+        <Plus className="h-4.5 w-4.5" strokeWidth={2.5} />
+        Ajouter
+      </button>
     </header>
   )
 }
 
-/** Bouton flottant « + Ajouter » (action primaire unique de l'écran). */
+/** Bouton flottant « + Ajouter » (action primaire, mobile uniquement). */
 function AddFab() {
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-10 flex justify-center">
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-10 flex justify-center lg:hidden">
       <div className="w-full max-w-[440px] px-5 pb-24">
         <div className="flex justify-end">
           <button
@@ -153,8 +137,8 @@ function AddFab() {
 /** État vide soigné : aucun produit dans le catalogue. */
 function ProductsEmpty() {
   return (
-    <div className="px-5 pb-28 pt-6">
-      <div className="rounded-2xl border border-line bg-surface p-8 text-center shadow-soft">
+    <div className="px-5 pb-28 pt-6 lg:pb-8">
+      <div className="mx-auto max-w-md rounded-2xl border border-line bg-surface p-8 text-center shadow-soft">
         <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary-tint">
           <PackageOpen className="h-6 w-6 text-primary-deep" />
         </div>
@@ -173,21 +157,6 @@ function ProductsEmpty() {
           Ajouter un produit
         </button>
       </div>
-    </div>
-  )
-}
-
-/** Le marchand démo est introuvable (seed pas lancé). */
-function MerchantMissing() {
-  return (
-    <div className="px-5 py-16 text-center">
-      <p className="font-display text-[18px] font-bold">Marchand introuvable</p>
-      <p className="mt-2 text-[14px] text-ink-muted">
-        Le marchand de démonstration n'existe pas encore. Lancez le seed Convex :
-      </p>
-      <code className="mt-3 inline-block rounded-md bg-line px-2 py-1 font-mono text-[13px] text-ink">
-        npx convex run seed:run
-      </code>
     </div>
   )
 }

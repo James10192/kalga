@@ -11,22 +11,24 @@ import {
   ConversationRowSkeleton,
   buildMoneyLine,
   initials,
+  prettyPhone,
   type ConversationRowData,
 } from "@/components/dashboard"
 
 /**
  * Accueil dashboard marchand — portage de design/flagship-home.html en React,
- * câblé aux données Convex LIVE du marchand démo (slug `demo`).
+ * câblé aux données Convex LIVE scopées au marchand courant via withOrg
+ * (aucun `merchantId` venant du client = anti-fuite cross-tenant).
  *
- * Résolution : merchants.getBySlug({ slug: "demo" }) -> id -> feed + résumé jour.
- * Skeletons pendant le chargement, états vides soignés. Pas d'auth gating
- * pour l'instant (OTP live + withOrg en 003/004).
+ * Résolution : merchants.currentMerchant (organisation active) -> feed + résumé
+ * jour. Skeletons pendant le chargement, états vides soignés.
+ *
+ * Responsive : mobile = colonne unique inchangée ; >= lg = deux colonnes (fil de
+ * conversations à gauche + panneau argent du jour à droite, collant).
  */
 export const Route = createFileRoute("/app/")({
   component: HomePage,
 })
-
-const DEMO_SLUG = "demo"
 
 type FeedItem = {
   conversationId: string
@@ -40,79 +42,109 @@ type FeedItem = {
   lastMessage: { content: string; isFromClient: boolean } | null
 }
 
-function HomePage() {
-  const merchant = useQuery(api.merchants.getBySlug, { slug: DEMO_SLUG })
+type Summary = {
+  todayRevenue: number
+  todaySales: number
+  deltaPct: number | null
+  pills: { negotiating: number; toDeliver: number; outOfStock: number }
+}
 
-  // Chargement initial : on n'a pas encore le merchant.
+function HomePage() {
+  const merchant = useQuery(api.merchants.currentMerchant, {})
+  const summary = useQuery(api.dashboard.todaySummary, {})
+  // Accueil = aperçu seulement. La liste complète est sur /app/conversations.
+  const feed = useQuery(api.dashboard.feed, { limit: 6 })
+
+  // Chargement initial : on n'a pas encore le marchand courant.
   if (merchant === undefined) return <HomeLoading />
   if (merchant === null) return <HomeMerchantMissing />
 
-  return <HomeContent merchantId={merchant._id} merchantName={merchant.name} />
-}
-
-function HomeContent({
-  merchantId,
-  merchantName,
-}: {
-  merchantId: string
-  merchantName: string
-}) {
-  const summary = useQuery(api.dashboard.todaySummaryForMerchant, {
-    merchantId: merchantId as never,
-  })
-  // Accueil = aperçu seulement. La liste complète est sur /app/conversations.
-  const feed = useQuery(api.dashboard.feedForMerchant, {
-    merchantId: merchantId as never,
-    limit: 4,
-  })
-
-  const monogram = initials(merchantName) || "BA"
+  const monogram = initials(merchant.name) || "BA"
 
   return (
-    <>
-      <Header merchantName={merchantName} monogram={monogram} />
+    <div className="mx-auto w-full max-w-6xl">
+      <Header merchantName={merchant.name} monogram={monogram} />
 
-      {/* Héros argent du jour */}
-      <section className="px-5 pt-2">
-        {summary === undefined ? (
-          <MoneyHeroSkeleton />
-        ) : (
-          <MoneyHero
-            amount={summary.todayRevenue}
-            sales={summary.todaySales}
-            deltaPct={summary.deltaPct}
-          />
-        )}
-      </section>
-
-      {/* Pills statistiques */}
-      <section className="px-5 pt-3">
-        {summary === undefined ? (
-          <StatPillsSkeleton />
-        ) : (
-          <div className="grid grid-cols-3 gap-2.5">
-            <StatPill count={summary.pills.negotiating} label="en négo" dot="nego" />
-            <StatPill count={summary.pills.toDeliver} label="à livrer" dot="livrer" />
-            <StatPill count={summary.pills.outOfStock} label="en rupture" dot="danger" />
+      {/* Desktop : deux colonnes (fil + argent). Mobile : empilé. */}
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6 lg:px-5">
+        {/* Colonne principale : conversations */}
+        <div className="lg:order-1 lg:min-w-0">
+          {/* Argent + pills : visibles en flux mobile, masqués desktop (colonne dédiée) */}
+          <div className="lg:hidden">
+            <MoneyBlock summary={summary} />
+            <PillsBlock summary={summary} />
           </div>
-        )}
-      </section>
 
-      {/* Conversations */}
-      <section className="px-5 pb-2 pt-5">
-        <div className="mb-1 flex items-center justify-between">
-          <h2 className="font-display text-[17px] font-bold">Conversations</h2>
-          <Link
-            to="/app/conversations"
-            className="inline-flex items-center gap-1 text-[13px] font-medium text-ink-muted"
-          >
-            Tout voir <ChevronRight className="h-4 w-4" />
-          </Link>
+          <section className="px-5 pb-2 pt-5 lg:px-0">
+            <div className="mb-1 flex items-center justify-between">
+              <h2 className="font-display text-[17px] font-bold">Conversations</h2>
+              <Link
+                to="/app/conversations"
+                className="inline-flex items-center gap-1 text-[13px] font-medium text-ink-muted"
+              >
+                Tout voir <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </section>
+
+          <ConversationList feed={feed} />
         </div>
-      </section>
 
-      <ConversationList feed={feed} />
-    </>
+        {/* Colonne argent (desktop seulement) */}
+        <aside className="hidden lg:order-2 lg:block">
+          <div className="sticky top-4 space-y-3 pt-5">
+            <MoneyBlock summary={summary} bare />
+            <PillsBlock summary={summary} bare />
+          </div>
+        </aside>
+      </div>
+    </div>
+  )
+}
+
+/** Bloc héros argent du jour (réutilisé mobile + colonne desktop). */
+function MoneyBlock({
+  summary,
+  bare = false,
+}: {
+  summary: Summary | undefined
+  bare?: boolean
+}) {
+  return (
+    <section className={bare ? "" : "px-5 pt-2"}>
+      {summary === undefined ? (
+        <MoneyHeroSkeleton />
+      ) : (
+        <MoneyHero
+          amount={summary.todayRevenue}
+          sales={summary.todaySales}
+          deltaPct={summary.deltaPct}
+        />
+      )}
+    </section>
+  )
+}
+
+/** Bloc des pills statistiques (réutilisé mobile + colonne desktop). */
+function PillsBlock({
+  summary,
+  bare = false,
+}: {
+  summary: Summary | undefined
+  bare?: boolean
+}) {
+  return (
+    <section className={bare ? "" : "px-5 pt-3"}>
+      {summary === undefined ? (
+        <StatPillsSkeleton />
+      ) : (
+        <div className="grid grid-cols-3 gap-2.5">
+          <StatPill count={summary.pills.negotiating} label="en négo" dot="nego" />
+          <StatPill count={summary.pills.toDeliver} label="à livrer" dot="livrer" />
+          <StatPill count={summary.pills.outOfStock} label="en rupture" dot="danger" />
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -123,7 +155,7 @@ function ConversationList({
 }) {
   if (feed === undefined) {
     return (
-      <ul className="space-y-1 px-3 pb-4">
+      <ul className="space-y-1 px-3 pb-4 lg:px-0">
         {[0, 1, 2, 3].map((i) => (
           <li key={i}>
             <ConversationRowSkeleton />
@@ -136,7 +168,7 @@ function ConversationList({
   if (feed.length === 0) return <ConversationsEmpty />
 
   return (
-    <ul className="space-y-1 px-3 pb-4">
+    <ul className="space-y-1 px-3 pb-4 lg:px-0">
       {feed.map((c) => {
         const data: ConversationRowData = {
           conversationId: c.conversationId,
@@ -182,7 +214,7 @@ function Header({
     <header className="flex items-center justify-between px-5 pb-2 pt-4">
       <div>
         <p className="text-[13px] text-ink-muted">Bonjour,</p>
-        <h1 className="font-display text-[22px] font-bold leading-tight tracking-tight">
+        <h1 className="font-display text-[22px] font-bold leading-tight tracking-tight lg:text-[26px]">
           {merchantName}
         </h1>
       </div>
@@ -211,7 +243,7 @@ function Header({
 /** État vide soigné pour la liste de conversations. */
 function ConversationsEmpty() {
   return (
-    <div className="px-5 pb-8 pt-4">
+    <div className="px-5 pb-8 pt-4 lg:px-0">
       <div className="rounded-2xl border border-line bg-surface p-8 text-center shadow-soft">
         <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary-tint">
           <MessagesSquare className="h-6 w-6 text-primary-deep" />
@@ -227,10 +259,10 @@ function ConversationsEmpty() {
   )
 }
 
-/** Skeleton plein écran (merchant pas encore résolu). */
+/** Skeleton plein écran (marchand pas encore résolu). */
 function HomeLoading() {
   return (
-    <>
+    <div className="mx-auto w-full max-w-6xl">
       <header className="flex items-center justify-between px-5 pb-2 pt-4">
         <div className="space-y-2">
           <div className="h-3 w-16 animate-pulse rounded bg-line" />
@@ -251,32 +283,19 @@ function HomeLoading() {
           </li>
         ))}
       </ul>
-    </>
-  )
-}
-
-/** Le marchand démo est introuvable (seed pas lancé). */
-function HomeMerchantMissing() {
-  return (
-    <div className="px-5 py-16 text-center">
-      <p className="font-display text-[18px] font-bold">Marchand introuvable</p>
-      <p className="mt-2 text-[14px] text-ink-muted">
-        Le marchand de démonstration n'existe pas encore. Lancez le seed Convex :
-      </p>
-      <code className="mt-3 inline-block rounded-md bg-line px-2 py-1 font-mono text-[13px] text-ink">
-        npx convex run seed:run
-      </code>
     </div>
   )
 }
 
-/** Formate un numéro brut en identité lisible (+225 07 88 41 20). */
-function prettyPhone(phone: string): string {
-  const digits = phone.replace(/\D/g, "")
-  if (digits.startsWith("225") && digits.length >= 12) {
-    const local = digits.slice(3)
-    const groups = local.match(/.{1,2}/g) ?? [local]
-    return `+225 ${groups.join(" ")}`
-  }
-  return `+${digits}`
+/** Le marchand courant est introuvable (pas encore d'organisation liée). */
+function HomeMerchantMissing() {
+  return (
+    <div className="px-5 py-16 text-center">
+      <p className="font-display text-[18px] font-bold">Boutique introuvable</p>
+      <p className="mt-2 text-[14px] text-ink-muted">
+        Votre compte n'est pas encore relié à une boutique. Terminez la création
+        de votre compte pour accéder au tableau de bord.
+      </p>
+    </div>
+  )
 }
