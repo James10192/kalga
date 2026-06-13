@@ -12,7 +12,7 @@ la cible. Exécuter dans l'ordre ci-dessous sauf indication des dépendances.
 | 001 | Scaffold `kalga-web` (TanStack Start) + init Convex + Vercel-ready | P1 | M | — | DONE |
 | 002 | Schéma Convex (tables métier) + seed démo + queries de base | P1 | L | 001 | DONE (17 tables + 38 index + seed idempotent + queries lecture ; dev `rugged-albatross-514`) |
 | 003 | Better Auth Local Install (OTP WhatsApp, org+admin, email/pwd opt-in) | P1 | L | 001, 002 | PARTIAL (GATE-2 : code complet, test OTP live bloqué par session émettrice + `KALGA_OTP_SENDER_PHONE`) |
-| 004 | Réécriture Python → Convex (client, fonctions grossières, v2 only, audit) | P1 | L | 002 | PARTIAL (fonctions Convex + client Python + verrou /incoming + quick wins + 7 tests OK ; reste : bascule hot-path writes, suppression v1, retrait SQLite — gate humain) |
+| 004 | Réécriture Python → Convex (client, fonctions grossières, v2 only, audit) | P1 | L | 002 | DONE (hot path + followups + couche data offline + merchant_commands tous Convex ; v1 supprimé ; auth Python retirée ; SQLite retiré du source ; LTM write-back restauré. Modulo : embedding CLIP stubé = D8 hors scope ; 4 tests SQLite-seedés à réécrire Convex. Commits B0..F : 5439875,7d8a78b,ec65bc1,6f359c3,65eb120,20d690c,65b1037,d17891f,10b6f55,bde7ccb) |
 | 005 | Références design IA par écran (gate UI) | P2 | M | — (parallèle) | REJECTED (design non validé, à refaire via /ultrathink) |
 | 006 | Dashboard marchand (produits, conversations live, stock, settings, activation) | P1 | L | 003, 004, 005 | TODO |
 | 007 | Storefront public `{slug}.kalga.app` (SSR, résolution tenant par hostname) | P2 | M | 002, 005 | TODO |
