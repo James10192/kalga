@@ -18,13 +18,10 @@ from .routers.stats import router as stats_router
 from .routers.categories import router as categories_router
 from .routers.import_export import router as import_export_router
 from .routers.away_mode import router as away_mode_router
-from .routers.auth import router as auth_router
-from .routers.admin import router as admin_router
 from .routers.activation import router as activation_router
 from .routers.storefront import router as storefront_router
 from .routers.wa_bridge import router as wa_bridge_router
 from .services.stock_alert_service import get_stock_alert_service
-from .database.repositories.user_repo import get_user_repository
 from .routers.stock import router as stock_router
 
 # ========== SYSTÈME DE LOGS AMÉLIORÉ ==========
@@ -106,16 +103,8 @@ async def lifespan(app: FastAPI):
 
     db = await get_db()
 
-    # Créer l'admin par défaut si nécessaire
-    try:
-        user_repo = get_user_repository()
-        await user_repo.ensure_admin_exists(
-            settings.admin_email,
-            settings.admin_password
-        )
-        logger.info(f"Admin par défaut vérifié: {settings.admin_email}")
-    except Exception as e:
-        logger.error(f"Erreur création admin: {e}")
+    # Auth utilisateur : déléguée à Better Auth (Convex, servi par kalga-web).
+    # Plus de compte admin Python ni de bootstrap ici (plan 004 E1).
 
     # Nettoyer les conversations expirées au démarrage
     try:
@@ -176,8 +165,6 @@ app.include_router(stats_router)
 app.include_router(categories_router)
 app.include_router(import_export_router)
 app.include_router(away_mode_router)
-app.include_router(auth_router)
-app.include_router(admin_router)
 app.include_router(activation_router)
 app.include_router(storefront_router)
 app.include_router(stock_router)

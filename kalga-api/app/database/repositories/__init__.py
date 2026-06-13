@@ -6,7 +6,6 @@ from .merchant_repo import MerchantRepository, get_merchant_repository
 from .product_repo import ProductRepository
 from .conversation_repo import ConversationRepository, get_conversation_repository
 from .stats_repo import StatsRepository, get_stats_repository
-from .user_repo import UserRepository, get_user_repository
 from .subscription_repo import SubscriptionRepository, get_subscription_repository
 from .client_history_repo import ClientHistoryRepository, get_client_history_repository
 from .activation_repo import ActivationRepository, get_activation_repository
@@ -21,8 +20,6 @@ __all__ = [
     "get_conversation_repository",
     "StatsRepository",
     "get_stats_repository",
-    "UserRepository",
-    "get_user_repository",
     "SubscriptionRepository",
     "get_subscription_repository",
     "ClientHistoryRepository",

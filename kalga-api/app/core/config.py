@@ -5,7 +5,6 @@ Toutes les settings sont ici — aucun autre fichier config.
 import sys
 
 from pydantic_settings import BaseSettings
-from pydantic import field_validator
 from typing import Optional, List
 
 
@@ -71,37 +70,24 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
-    # === JWT Authentication ===
-    jwt_secret_key: str  # OBLIGATOIRE
+    # === JWT Authentication (DEPRECATED) ===
+    # L'auth utilisateur est désormais gérée par Better Auth (Convex, kalga-web).
+    # Ces variables ne sont plus utilisées côté Python (plan 004 E1) ; conservées
+    # ici sans validation pour ne pas casser les .env existants.
+    jwt_secret_key: Optional[str] = None
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 60 * 24
     jwt_refresh_token_expire_days: int = 30
 
-    # === Admin ===
-    admin_email: str = "admin@kalga.com"
-    admin_password: str  # OBLIGATOIRE
+    # === Admin (DEPRECATED) ===
+    # Plus de compte admin Python : back-office servi par kalga-web (Better Auth).
+    admin_email: Optional[str] = "admin@kalga.com"
+    admin_password: Optional[str] = None
 
     # === Trial ===
     trial_duration_days: int = 14
     trial_messages_limit: int = 500
     trial_products_limit: int = 10
-
-    @field_validator("jwt_secret_key")
-    @classmethod
-    def jwt_secret_must_be_strong(cls, v: str) -> str:
-        if len(v) < 32:
-            raise ValueError(
-                "JWT_SECRET_KEY doit faire au moins 32 caractères. "
-                'Générez-en un avec: python -c "import secrets; print(secrets.token_hex(32))"'
-            )
-        return v
-
-    @field_validator("admin_password")
-    @classmethod
-    def admin_password_must_be_strong(cls, v: str) -> str:
-        if len(v) < 8:
-            raise ValueError("ADMIN_PASSWORD doit faire au moins 8 caractères.")
-        return v
 
     class Config:
         env_file = ".env"
@@ -117,9 +103,7 @@ except Exception as e:
     print("ERREUR DE CONFIGURATION KALGA")
     print("=" * 60)
     print(f"  {e}")
-    print("\nVérifiez votre fichier .env. Variables requises:")
-    print("  JWT_SECRET_KEY=<au moins 32 caractères>")
-    print("  ADMIN_PASSWORD=<au moins 8 caractères>")
+    print("\nVérifiez votre fichier .env.")
     print("=" * 60 + "\n")
     sys.exit(1)
 
