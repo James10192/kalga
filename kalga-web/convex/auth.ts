@@ -14,16 +14,18 @@ const siteUrl = process.env.SITE_URL ?? "http://localhost:3000";
 const whatsappUrl = process.env.KALGA_WHATSAPP_URL ?? "http://localhost:3001";
 // Secret partage entre Convex et le bridge (header X-Internal-Key).
 const internalApiKey = process.env.INTERNAL_API_KEY ?? "";
-// Session WhatsApp centrale KALGA qui EMET les OTP (numero systeme).
-// Au signup, le marchand n'a pas encore connecte sa propre session => on emet
-// depuis cette session centrale. Voir GATE-2 (doit etre `ready` cote bridge).
+// Session WhatsApp EMETTRICE des OTP, OPTIONNELLE. Il n'existe PAS de numero
+// KALGA central : par defaut le sender = le destinataire lui-meme (la propre
+// session du marchand, deja `ready`). Cette var permet juste, si on le souhaite,
+// de router l'envoi via une session dediee ; vide => fallback sur `to`.
 const otpSenderPhone = process.env.KALGA_OTP_SENDER_PHONE ?? "";
 
 /**
  * Envoie l'OTP au marchand via le bridge WhatsApp.
  * Endpoint REEL : POST {KALGA_WHATSAPP_URL}/send (racine, pas /api/send).
  * Payload : { merchant_phone, to, message }, header X-Internal-Key.
- * - merchant_phone = session EMETTRICE (session centrale KALGA, doit etre `ready`)
+ * - merchant_phone = session EMETTRICE = `otpSenderPhone || to` (par defaut la
+ *   propre session du marchand ; pas de numero KALGA central), doit etre `ready`
  * - to = destinataire (le marchand qui s'authentifie)
  * Numeros = chiffres uniquement, format international sans `+`.
  *

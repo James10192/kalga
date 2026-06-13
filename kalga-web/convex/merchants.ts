@@ -151,3 +151,45 @@ export const current = query({
     }
   },
 });
+
+/**
+ * Doc marchand courant, scopé par l'organisation active via withOrg.
+ * Renvoie le doc complet (ou `null` proprement si l'utilisateur n'est pas
+ * encore lié à une organisation/marchand), sans jeter, pour que le shell
+ * `/app` et la gate d'onboarding lisent `whatsappLinkedAt` sans crash.
+ */
+export const currentMerchant = query({
+  args: {},
+  handler: async (ctx) => {
+    try {
+      return await withOrg(ctx, async (octx) => octx.db.get(octx.merchantId));
+    } catch {
+      return null;
+    }
+  },
+});
+
+/**
+ * Marque la session WhatsApp du marchand courant comme liée.
+ * Appelée par le proxy serveur quand le bridge passe `ready` (realPhone capturé).
+ *
+ * - `whatsappLinkedAt = Date.now()` (autorisé dans une mutation Convex).
+ * - `whatsappRealPhone = realPhone` : numéro réel remonté par le bridge.
+ * - On NE touche PAS `phone` (clé de session Baileys / identité bridge), même si
+ *   `realPhone` diffère : la réconciliation se fait via `whatsappRealPhone`.
+ *
+ * Scopé via withOrg (anti-fuite cross-tenant) ; idempotent (re-pose les champs).
+ */
+export const linkWhatsapp = mutation({
+  args: { realPhone: v.string() },
+  handler: async (ctx, args) => {
+    const realPhone = args.realPhone.replace(/[^\d]/g, "");
+    return await withOrg(ctx, async (octx) => {
+      await octx.db.patch(octx.merchantId, {
+        whatsappLinkedAt: Date.now(),
+        whatsappRealPhone: realPhone || undefined,
+      });
+      return { merchantId: octx.merchantId, linked: true as const };
+    });
+  },
+});

@@ -27,6 +27,11 @@ export default defineSchema({
     // Pont multi-tenant Better Auth (peuplé en 003) + sous-domaine {slug}.kalga.app (D2)
     slug: v.string(), // UNIQUE (index by_slug)
     organizationId: v.optional(v.string()), // peuplé en 003
+    // Lien WhatsApp (onboarding 010) : pose au moment ou la session Baileys passe
+    // `ready`. `whatsappLinkedAt` = epoch ms ; `whatsappRealPhone` = numero reel
+    // remonte par le bridge (peut differer de `phone`, la cle de session, qu'on garde).
+    whatsappLinkedAt: v.optional(v.number()),
+    whatsappRealPhone: v.optional(v.string()),
     businessName: v.optional(v.string()),
     address: v.optional(v.string()),
     latitude: v.optional(v.number()),
