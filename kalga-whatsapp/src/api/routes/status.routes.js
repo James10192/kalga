@@ -83,8 +83,20 @@ router.get('/status/:merchant_phone', (req, res) => {
     const { merchant_phone } = req.params;
     const status = whatsappService.getClientStatus(merchant_phone);
 
+    // Pas encore de socket pour ce marchand = etat transitoire NORMAL pendant
+    // l'onboarding : POST /connect cree la socket de facon asynchrone, donc le
+    // poll frontend peut interroger /status avant qu'elle existe. On renvoie 200
+    // avec un statut "non connecte" (et non un 404) pour que le polling continue
+    // proprement, sans spammer la console d'erreurs.
     if (!status) {
-        return res.status(404).json({ error: 'Marchand non connecté' });
+        return res.json({
+            merchant_phone,
+            connected: false,
+            ready: false,
+            qrCode: null,
+            pairingCode: null,
+            realPhone: null,
+        });
     }
 
     res.json({
