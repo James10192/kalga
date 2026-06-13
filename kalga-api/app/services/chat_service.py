@@ -373,6 +373,33 @@ class ChatService:
                 bot_response=bot_response,
             )
 
+        # === 11.5 Memoire long-terme (LTM) — extraction des faits durables ===
+        # Persistance des faits memoire du client a la cloture de session (deal
+        # conclu OU conversation terminee). Non bloquant : la reponse est deja
+        # prete, on derive les faits via DeepSeek + on ecrit dans Convex en tache
+        # de fond (internal/memory:upsertMemory via ClientHistoryRepository).
+        ltm_outcomes = {
+            "pending_delivery": "sale", "pending_pickup": "sale",
+            "agreed": "sale", "ended": "ended", "completed": "sale",
+        }
+        ltm_is_new_close = (
+            new_status in ltm_outcomes
+            and current_status not in ("pending_delivery", "pending_pickup")
+        )
+        if ltm_is_new_close and product:
+            full_history = list(history) + [
+                {"content": message.message, "is_from_client": True},
+                {"content": bot_response, "is_from_client": False},
+            ]
+            import asyncio
+            asyncio.create_task(self._persist_ltm(
+                merchant_id=merchant_id,
+                client_phone=message.client_phone,
+                history=full_history,
+                product=product,
+                outcome=ltm_outcomes[new_status],
+            ))
+
         # === 12. Relances automatiques ===
         await self._handle_follow_ups(
             conversation_id=conversation_id, merchant=merchant,
@@ -709,6 +736,45 @@ class ChatService:
             logger.info(f"Auto-apprentissage: deal close -> KB enrichie (merchant {merchant_id})")
         except Exception as e:
             logger.debug(f"Auto-learn deal (non bloquant): {e}")
+
+    async def _persist_ltm(
+        self,
+        merchant_id: str,
+        client_phone: str,
+        history: List[Dict],
+        product: Dict,
+        outcome: str,
+    ) -> None:
+        """
+        Memoire long-terme — extrait les faits durables du client et les persiste
+        dans Convex (internal/memory:upsertMemory via ClientHistoryRepository).
+
+        Conçu pour `asyncio.create_task()` (non bloquant, post-reponse). Reutilise
+        la chaine d'extraction pure `app/services/ai/memory/ltm.extract_and_save`
+        (-> ClientHistoryRepository.save_memory_facts / save_session_summary /
+        save_preferences, toutes back-Convex, zero SQLite). Best-effort : toute
+        erreur (LLM indispo, reseau) est avalee — la memoire reste optionnelle.
+        """
+        try:
+            from .ai.memory import ltm
+            from .ai.deepseek_client import get_deepseek_client
+            from ..database.repositories.client_history_repo import (
+                get_client_history_repository,
+            )
+            deepseek = get_deepseek_client()
+            if not getattr(deepseek, "api_key", None):
+                return  # Pas de LLM configure -> pas d'extraction (cf. fallback)
+            await ltm.extract_and_save(
+                repo=get_client_history_repository(),
+                merchant_id=merchant_id,
+                client_phone=client_phone,
+                history=history,
+                product=product,
+                outcome=outcome,
+                deepseek_client=deepseek,
+            )
+        except Exception as e:
+            logger.debug(f"LTM persist (non bloquant): {e}")
 
     async def _check_waitlist_reply(
         self,
