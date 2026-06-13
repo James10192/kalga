@@ -224,6 +224,13 @@ class WhatsAppService {
             return null;
         }
 
+        // IDEMPOTENT : Baileys n'autorise `requestPairingCode` qu'UNE fois par
+        // socket (un 2e appel jette -> 500 en boucle). Si un code est deja en
+        // cache, on le renvoie sans rappeler Baileys.
+        if (existingStatus && existingStatus.pairingCode) {
+            return existingStatus.pairingCode;
+        }
+
         const sock = await this.getOrCreateClient(merchantPhone);
 
         // Deja enregistre cote creds: pas besoin de code
@@ -255,7 +262,12 @@ class WhatsAppService {
                         merchantPhone,
                         error: error.message,
                     });
-                    throw error;
+                    // NON fatal : si un code a deja ete mis en cache (appel
+                    // precedent), on le renvoie ; sinon 'pending' (le client
+                    // retentera). On ne jette JAMAIS un 500 qui casse l'ecran.
+                    const cached = this.clientStatus.get(merchantPhone);
+                    if (cached && cached.pairingCode) return cached.pairingCode;
+                    return 'pending';
                 }
             }
             await new Promise((resolve) => setTimeout(resolve, 600));

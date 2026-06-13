@@ -15,14 +15,15 @@ import {
   type TabKey,
 } from "./ConnectPanels"
 
-/** Detecte un grand ecran (>= lg) cote client : QR par defaut sur desktop. */
+/**
+ * Onglet par defaut = CODE partout. Contrainte Baileys (confirmee doc) : un code
+ * d'appairage et un QR sont MUTUELLEMENT EXCLUSIFs sur une meme socket (demander
+ * le code supprime l'emission du QR). Le code est universel (meme telephone, ou
+ * lu sur desktop puis saisi dans WhatsApp) -> on le met en avant ; le QR reste un
+ * repli secondaire.
+ */
 function useDefaultTab(): TabKey {
-  const [tab, setTab] = useState<TabKey>("code")
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return
-    if (window.matchMedia("(min-width: 1024px)").matches) setTab("qr")
-  }, [])
-  return tab
+  return "code"
 }
 
 export function WhatsAppConnect() {
