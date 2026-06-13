@@ -199,6 +199,9 @@ export const commitTurn = mutation({
     botMessage: v.optional(v.string()),
     newStatus: v.optional(v.string()),
     currentOffer: v.optional(v.number()),
+    // Variante sélectionnée (reply photo) — parité
+    // `_find_and_save_selected_variant`. `null` autorisé pour effacer.
+    selectedVariantId: v.optional(v.union(v.id("products"), v.null())),
     // Fermer une ancienne conversation pending et en recréer une (re-mention #code).
     closeConversationId: v.optional(v.id("conversations")),
   },
@@ -265,6 +268,11 @@ export const commitTurn = mutation({
     const patch: Partial<Doc<"conversations">> = { updatedAt: now };
     if (args.newStatus) patch.status = args.newStatus as Doc<"conversations">["status"];
     if (args.currentOffer !== undefined) patch.currentOffer = args.currentOffer;
+    // Variante sélectionnée : `undefined` -> on ne touche pas ; `null` -> efface ;
+    // un id -> on mémorise. (parité du dict local Python qui pose/efface le champ.)
+    if (args.selectedVariantId !== undefined) {
+      patch.selectedVariantId = args.selectedVariantId ?? undefined;
+    }
     await ctx.db.patch(conversationId, patch);
 
     return { conversationId, created, messagesPersisted: persisted };
@@ -272,14 +280,204 @@ export const commitTurn = mutation({
 });
 
 /**
+ * Comptabilisation ATOMIQUE d'une vente (parité du write-path de vente dans
+ * `chat_service` : `stats.record_sale` + `stats.log_event('sale')` +
+ * `client_history.record_purchase`). En une seule transaction :
+ *   - bumpDailyStat salesCount +1 ET revenue + amount ;
+ *   - upsert clientHistory (totalPurchases, totalSpent, moyenne mobile du
+ *     discount, lastPurchaseDate / lastInteractionDate, catégories préférées) ;
+ *   - insert analyticsEvents eventType "sale".
+ */
+export const recordSale = mutation({
+  args: {
+    internalKey: v.string(),
+    merchantId: v.id("merchants"),
+    conversationId: v.id("conversations"),
+    productId: v.id("products"),
+    clientPhone: v.string(),
+    amount: v.number(), // montant payé (= finalPrice en pratique)
+    originalPrice: v.number(),
+    finalPrice: v.number(),
+    category: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    assertInternalKey(args.internalKey);
+    const now = Date.now();
+
+    // 1. Stats du jour : salesCount + revenue (parité `stats.record_sale`).
+    await bumpDailyStat(ctx, args.merchantId, "salesCount", 1);
+    await bumpDailyStat(ctx, args.merchantId, "revenue", args.amount);
+
+    // 2. Historique client (parité `client_history.record_purchase`).
+    // Discount % de cette vente (moyenne mobile côté historique).
+    let discountPercent = 0;
+    if (args.originalPrice > 0 && args.finalPrice < args.originalPrice) {
+      discountPercent =
+        ((args.originalPrice - args.finalPrice) / args.originalPrice) * 100;
+    }
+
+    const history = await ctx.db
+      .query("clientHistory")
+      .withIndex("by_merchant_client", (q) =>
+        q.eq("merchantId", args.merchantId).eq("clientPhone", args.clientPhone),
+      )
+      .unique();
+
+    if (history) {
+      const prevPurchases = history.totalPurchases ?? 0;
+      const newPurchases = prevPurchases + 1;
+      const newSpent = (history.totalSpent ?? 0) + args.amount;
+      // Moyenne mobile du discount (parité Python : (old*count + new)/newCount).
+      const oldAvg = history.avgNegotiationDiscount ?? 0;
+      const newAvg = (oldAvg * prevPurchases + discountPercent) / newPurchases;
+
+      // Catégories préférées (JSON array de strings).
+      let preferred: string[] = [];
+      if (history.preferredCategories) {
+        try {
+          preferred = JSON.parse(history.preferredCategories) as string[];
+        } catch {
+          preferred = [];
+        }
+      }
+      if (args.category && !preferred.includes(args.category)) {
+        preferred.push(args.category);
+      }
+
+      await ctx.db.patch(history._id, {
+        totalPurchases: newPurchases,
+        totalSpent: newSpent,
+        avgNegotiationDiscount: newAvg,
+        lastPurchaseDate: now,
+        lastInteractionDate: now,
+        preferredCategories: preferred.length
+          ? JSON.stringify(preferred)
+          : history.preferredCategories,
+        updatedAt: now,
+      });
+    } else {
+      // Nouveau client (parité branche else `record_purchase`).
+      const preferred = args.category ? [args.category] : [];
+      await ctx.db.insert("clientHistory", {
+        merchantId: args.merchantId,
+        clientPhone: args.clientPhone,
+        totalConversations: 1,
+        totalPurchases: 1,
+        totalSpent: args.amount,
+        avgNegotiationDiscount: discountPercent,
+        lastPurchaseDate: now,
+        lastInteractionDate: now,
+        preferredCategories: preferred.length
+          ? JSON.stringify(preferred)
+          : undefined,
+        updatedAt: now,
+      });
+    }
+
+    // 3. Event analytics (parité `stats.log_event('sale')`).
+    await ctx.db.insert("analyticsEvents", {
+      merchantId: args.merchantId,
+      eventType: "sale",
+      productId: args.productId,
+      conversationId: args.conversationId,
+      clientPhone: args.clientPhone,
+      data: JSON.stringify({ price: args.finalPrice }),
+    });
+
+    return { recorded: true };
+  },
+});
+
+/**
+ * Flag automatique d'une question restée sans réponse adéquate
+ * (parité `chat_service._auto_flag_unanswered`). Insère une ligne
+ * conversationFeedback `auto_flagged`. Anti-spam : une seule entrée
+ * `auto_flagged` par conversation.
+ */
+export const flagUnanswered = mutation({
+  args: {
+    internalKey: v.string(),
+    merchantId: v.id("merchants"),
+    conversationId: v.id("conversations"),
+    clientPhone: v.string(),
+    question: v.string(), // message client non traité
+    botResponse: v.optional(v.string()),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    assertInternalKey(args.internalKey);
+
+    // Anti-spam : une seule entrée auto_flagged par conversation.
+    const existing = await ctx.db
+      .query("conversationFeedback")
+      .withIndex("by_conversation", (q) =>
+        q.eq("conversationId", args.conversationId),
+      )
+      .filter((q) => q.eq(q.field("feedbackType"), "auto_flagged"))
+      .first();
+    if (existing) return { flaggedId: null };
+
+    const flaggedId = await ctx.db.insert("conversationFeedback", {
+      conversationId: args.conversationId,
+      merchantId: args.merchantId,
+      clientPhone: args.clientPhone,
+      clientMessage: args.question,
+      botResponse: args.botResponse ?? "",
+      feedbackType: "auto_flagged",
+      notes: args.notes ?? "Auto-détecté: question sans réponse adéquate",
+    });
+    return { flaggedId };
+  },
+});
+
+/**
+ * Conversation récemment clôturée d'un client (parité
+ * `conversation_repo.get_recent_closed`). Renvoie la conversation la plus
+ * récente avec statut completed/ended dont `updatedAt` est dans la fenêtre
+ * `withinHours` (défaut 48), sinon null. Permet au bot de rouvrir au lieu de
+ * toujours recréer (le client qui revient retrouve son contexte).
+ */
+export const getRecentClosed = query({
+  args: {
+    internalKey: v.string(),
+    merchantId: v.id("merchants"),
+    clientPhone: v.string(),
+    withinHours: v.optional(v.number()), // DEFAULT 48
+  },
+  handler: async (ctx, args) => {
+    assertInternalKey(args.internalKey);
+    const withinHours = args.withinHours ?? 48;
+    const cutoff = Date.now() - withinHours * 60 * 60 * 1000;
+
+    const recent = await ctx.db
+      .query("conversations")
+      .withIndex("by_merchant", (q) => q.eq("merchantId", args.merchantId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("clientPhone"), args.clientPhone),
+          q.or(
+            q.eq(q.field("status"), "completed"),
+            q.eq(q.field("status"), "ended"),
+          ),
+          q.gte(q.field("updatedAt"), cutoff),
+        ),
+      )
+      .order("desc")
+      .first();
+
+    return recent ?? null;
+  },
+});
+
+/**
  * Incrémente (ou crée) une stat quotidienne du marchand pour le jour courant.
- * Parité `stats.increment_messages` / `increment_conversations` mais sans race :
- * un seul upsert dans la transaction.
+ * Parité `stats.increment_messages` / `increment_conversations` / `record_sale`
+ * mais sans race : un seul upsert dans la transaction.
  */
 async function bumpDailyStat(
   ctx: { db: any },
   merchantId: Id<"merchants">,
-  field: "messagesCount" | "conversationsCount" | "salesCount",
+  field: "messagesCount" | "conversationsCount" | "salesCount" | "revenue",
   delta: number,
 ): Promise<void> {
   const date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD

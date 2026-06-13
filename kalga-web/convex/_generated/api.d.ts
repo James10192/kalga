@@ -18,6 +18,7 @@ import type * as internal_followups from "../internal/followups.js";
 import type * as internal_guard from "../internal/guard.js";
 import type * as internal_inventory from "../internal/inventory.js";
 import type * as internal_memory from "../internal/memory.js";
+import type * as internal_waitlist from "../internal/waitlist.js";
 import type * as lib_withOrg from "../lib/withOrg.js";
 import type * as merchants from "../merchants.js";
 import type * as products from "../products.js";
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   "internal/guard": typeof internal_guard;
   "internal/inventory": typeof internal_inventory;
   "internal/memory": typeof internal_memory;
+  "internal/waitlist": typeof internal_waitlist;
   "lib/withOrg": typeof lib_withOrg;
   merchants: typeof merchants;
   products: typeof products;

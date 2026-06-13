@@ -142,6 +142,10 @@ export default defineSchema({
     ),
     currentOffer: v.optional(v.number()), // dernière offre prix en cours
     updatedAt: v.optional(v.number()), // epoch ms
+    // Variante sélectionnée par le client (reply photo) — parité
+    // `chat_service._find_and_save_selected_variant`. Pointe vers un produit
+    // du même groupe ; utilisée par le tool send_photo pour cibler la bonne photo.
+    selectedVariantId: v.optional(v.id("products")),
   })
     .index("by_merchant", ["merchantId"])
     .index("by_client", ["clientPhone"])
