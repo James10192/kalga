@@ -23,7 +23,6 @@ from .routers.admin import router as admin_router
 from .routers.activation import router as activation_router
 from .routers.storefront import router as storefront_router
 from .routers.wa_bridge import router as wa_bridge_router
-from .services.followup_service import get_followup_service
 from .services.stock_alert_service import get_stock_alert_service
 from .database.repositories.user_repo import get_user_repository
 from .routers.stock import router as stock_router
@@ -125,10 +124,9 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Erreur nettoyage conversations: {e}")
 
-    # Démarrer le scheduler de relances automatiques
-    followup_service = get_followup_service()
-    await followup_service.start_scheduler(interval_seconds=60)
-    logger.info("Scheduler de relances démarré")
+    # Les relances de suivi sont planifiees par Convex (internal/followups:
+    # scheduleFollowup + ctx.scheduler.runAfter) depuis le hot path du chat :
+    # plus de boucle 60s ni de race SELECT-puis-INSERT cote Python (plan 004 D).
 
     # Démarrer le scheduler d'alertes stock
     stock_alert = get_stock_alert_service()
@@ -143,7 +141,6 @@ async def lifespan(app: FastAPI):
     logger.info("KALGA API prête!")
     yield
     # Shutdown
-    followup_service.stop_scheduler()
     stock_alert.stop_scheduler()
     logger.info("Arrêt KALGA API...")
 
