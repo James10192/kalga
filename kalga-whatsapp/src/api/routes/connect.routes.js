@@ -49,6 +49,39 @@ router.post('/connect', async (req, res) => {
 });
 
 /**
+ * GET /pairing-code/:merchant_phone - Code d'appairage WhatsApp (lien par numero)
+ */
+router.get('/pairing-code/:merchant_phone', async (req, res) => {
+    const { merchant_phone } = req.params;
+
+    if (!isValidPhone(merchant_phone)) {
+        return res.status(400).json({ error: 'merchant_phone invalide (8-15 chiffres)' });
+    }
+
+    try {
+        const pairingCode = await whatsappService.requestPairingCode(merchant_phone);
+
+        if (pairingCode === null) {
+            return res.status(409).json({ error: 'Deja connecte', linked: true });
+        }
+
+        if (pairingCode === 'pending') {
+            return res.status(202).json({ pairingCode: null, pending: true });
+        }
+
+        res.json({ pairingCode });
+    } catch (error) {
+        if (error.message === 'rate_limited') {
+            return res.status(429).json({
+                error: 'Trop de tentatives, patientez quelques minutes avant de reessayer',
+            });
+        }
+        logger.error('Erreur code appairage', { error: error.message });
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
  * GET /qr/:merchant_phone - Page QR Code
  */
 router.get('/qr/:merchant_phone', (req, res) => {

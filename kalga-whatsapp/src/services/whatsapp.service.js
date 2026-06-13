@@ -127,6 +127,8 @@ class WhatsAppService {
             connected: false,
             ready: false,
             qrCode: null,
+            realPhone: null,
+            pairingCode: null,
         });
 
         const authPath = path.join(config.sessionsDir, `baileys-${merchantPhone}`);
@@ -204,6 +206,66 @@ class WhatsAppService {
     }
 
     /**
+     * Demande un code d'appairage WhatsApp (lien par numéro, sans QR).
+     * Confirme via Baileys: appeler seulement si !sock.authState.creds.registered.
+     * Le numéro doit etre en chiffres uniquement, sans le prefixe '+'.
+     * @param {string} merchantPhone
+     * @returns {Promise<string|null>} le code d'appairage, null si deja lie,
+     *   ou la chaine 'pending' si la socket n'est pas encore prete.
+     * @throws {Error} 'rate_limited' si Baileys renvoie un 429.
+     */
+    async requestPairingCode(merchantPhone) {
+        const digits = String(merchantPhone).replace(/\D/g, '');
+
+        // Deja connecte / lie: rien a faire
+        const existingStatus = this.clientStatus.get(merchantPhone);
+        if (existingStatus && (existingStatus.ready || existingStatus.realPhone)) {
+            logger.info('Code appairage ignore (deja lie)', { merchantPhone });
+            return null;
+        }
+
+        const sock = await this.getOrCreateClient(merchantPhone);
+
+        // Deja enregistre cote creds: pas besoin de code
+        if (sock?.authState?.creds?.registered) {
+            logger.info('Code appairage ignore (creds registered)', { merchantPhone });
+            return null;
+        }
+
+        // La socket peut ne pas etre prete immediatement apres creation.
+        // Petite attente/retry avant de renvoyer un marqueur pending.
+        for (let attempt = 1; attempt <= 5; attempt++) {
+            if (typeof sock.requestPairingCode === 'function' && sock.ws) {
+                try {
+                    const code = await sock.requestPairingCode(digits);
+                    const status = this.clientStatus.get(merchantPhone);
+                    if (status) {
+                        status.pairingCode = code;
+                    }
+                    logger.info('Code appairage genere', { merchantPhone });
+                    return code;
+                } catch (error) {
+                    const statusCode =
+                        error?.output?.statusCode || error?.data?.statusCode;
+                    if (statusCode === 429 || /rate/i.test(error?.message || '')) {
+                        logger.warn('Code appairage rate-limited (429)', { merchantPhone });
+                        throw new Error('rate_limited');
+                    }
+                    logger.error('Erreur code appairage', {
+                        merchantPhone,
+                        error: error.message,
+                    });
+                    throw error;
+                }
+            }
+            await new Promise((resolve) => setTimeout(resolve, 600));
+        }
+
+        logger.warn('Socket non prete pour code appairage', { merchantPhone });
+        return 'pending';
+    }
+
+    /**
      * Gère les mises à jour de connexion
      */
     _handleConnectionUpdate(merchantPhone, sock, update) {
@@ -229,6 +291,7 @@ class WhatsAppService {
             status.ready = true;
             status.connected = true;
             status.qrCode = null;
+            status.pairingCode = null;
             status.realPhone = realPhone;
             this.reconnectAttempts.delete(merchantPhone);
         }
